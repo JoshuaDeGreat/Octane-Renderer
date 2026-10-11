@@ -39,7 +39,7 @@ import { ChestDataEvent, ChestDepositComposer, ChestDepositFurniComposer, ChestD
 import { SoundboardCatalogEvent, SoundboardCatalogReorderComposer, SoundboardCatalogRequestComposer, SoundboardCatalogResultEvent, SoundboardCatalogUpsertComposer, SoundboardPlayComposer, SoundboardPlayDeniedEvent, SoundboardPlayEvent, SoundboardRequestSettingsComposer, SoundboardSaveVolumeComposer, SoundboardSetEnabledComposer, SoundboardSettingsEvent } from './messages';
 import { PressKeybindComposer } from './messages';
 import { EarningsCenterEvent, EarningsClaimResultEvent, IncomeRewardNotificationEvent, RequestEarningsCenterComposer, ClaimEarningsRewardComposer, ClaimAllEarningsRewardsComposer } from './messages';
-import { DeleteMentionComposer, MarkMentionsReadComposer, MentionReceivedEvent, MentionsListEvent, RequestMentionsComposer } from './messages';
+import { DeleteMentionComposer, MarkMentionsReadComposer, MentionReceivedEvent, MentionsListEvent, MentionsPageEvent, RequestMentionsComposer, RequestMentionsPageComposer } from './messages';
 import { ActiveDailyTasksMessageEvent, ClaimDailyTaskMessageComposer, ClaimRewardTrackPrizeMessageComposer, DailyTaskUpdatedMessageEvent, DailyTasksAddedMessageEvent, DeleteRewardTrackEntityMessageComposer, GetDailyTasksMessageComposer, GetRewardTrackAdminDataMessageComposer, GetRewardTracksMessageComposer, PurchaseRewardTrackPremiumMessageComposer, RewardTrackAdminDataMessageEvent, RewardTrackAdminResultMessageEvent, RewardTrackClaimResultMessageEvent, RewardTrackFurniSearchResultMessageEvent, RewardTrackTextsMessageEvent, RewardTrackPremiumPurchaseResultMessageEvent, RewardTrackProgressMessageEvent, RewardTracksMessageEvent, SaveRewardTrackMessageComposer, SaveRewardTrackPrizeMessageComposer, SaveRewardTrackTaskMessageComposer, SaveRewardTrackTextsMessageComposer, SearchRewardTrackFurniMessageComposer } from './messages';
 import { TreasureHuntFirstWinnerMessageEvent, TreasureHuntFailMessageEvent, TreasureHuntUpdateMessageEvent } from './messages';
 import { SelfDonationResultMessageEvent, SelfDonationMessageComposer } from './messages';
@@ -388,6 +388,7 @@ export class OctaneMessages implements IMessageConfiguration
         // MENTIONS
         this._events.set(IncomingHeader.MENTION_RECEIVED, MentionReceivedEvent);
         this._events.set(IncomingHeader.MENTIONS_LIST, MentionsListEvent);
+        this._events.set(IncomingHeader.MENTIONS_PAGE, MentionsPageEvent);
 
         // MODERATION
         this._events.set(IncomingHeader.USER_BANNED, UserBannedMessageEvent);
@@ -1471,6 +1472,7 @@ export class OctaneMessages implements IMessageConfiguration
         this._composers.set(OutgoingHeader.REQUEST_MENTIONS, RequestMentionsComposer);
         this._composers.set(OutgoingHeader.MARK_MENTIONS_READ, MarkMentionsReadComposer);
         this._composers.set(OutgoingHeader.DELETE_MENTION, DeleteMentionComposer);
+        this._composers.set(OutgoingHeader.REQUEST_MENTIONS_PAGE, RequestMentionsPageComposer);
 
         // CURRENCY
         this._composers.set(OutgoingHeader.USER_CURRENCY, UserCurrencyComposer);

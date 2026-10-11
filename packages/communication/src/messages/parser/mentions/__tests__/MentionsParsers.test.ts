@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BinaryReader, BinaryWriter } from '@octane/utils';
 import { MentionReceivedParser } from '../MentionReceivedParser';
 import { MentionsListParser } from '../MentionsListParser';
+import { MentionsPageParser } from '../MentionsPageParser';
 
 class TestWrapper
 {
@@ -98,5 +99,55 @@ describe('MentionsListParser', () =>
         parser.flush();
         parser.parse(new TestWrapper(new BinaryReader(w.getBuffer())));
         expect(parser.mentions).toHaveLength(0);
+    });
+});
+
+const writeMention = (w: BinaryWriter, id: number): void =>
+{
+    w.writeInt(id); w.writeInt(42); w.writeString('Bob'); w.writeString('hd-180-2'); w.writeInt(99);
+    w.writeString('My Room'); w.writeString('hi @me'); w.writeInt(0); w.writeInt(1717000000); w.writeByte(0);
+};
+
+describe('MentionsListParser paging flag', () =>
+{
+    it('reads whether older mentions remain', () =>
+    {
+        const w = new BinaryWriter();
+        w.writeInt(1);
+        writeMention(w, 5);
+        w.writeByte(1);
+        const parser = new MentionsListParser();
+        parser.flush();
+        parser.parse(new TestWrapper(new BinaryReader(w.getBuffer())));
+        expect(parser.mentions).toHaveLength(1);
+        expect(parser.hasMore).toBe(true);
+    });
+
+    it('treats a list from a server that does not page as complete', () =>
+    {
+        const w = new BinaryWriter();
+        w.writeInt(1);
+        writeMention(w, 5);
+        const parser = new MentionsListParser();
+        parser.flush();
+        parser.parse(new TestWrapper(new BinaryReader(w.getBuffer())));
+        expect(parser.hasMore).toBe(false);
+    });
+});
+
+describe('MentionsPageParser', () =>
+{
+    it('parses the mentions of a page and the flag after them', () =>
+    {
+        const w = new BinaryWriter();
+        w.writeInt(2);
+        writeMention(w, 4);
+        writeMention(w, 3);
+        w.writeByte(0);
+        const parser = new MentionsPageParser();
+        parser.flush();
+        parser.parse(new TestWrapper(new BinaryReader(w.getBuffer())));
+        expect(parser.mentions.map((mention) => mention.mentionId)).toEqual([4, 3]);
+        expect(parser.hasMore).toBe(false);
     });
 });
