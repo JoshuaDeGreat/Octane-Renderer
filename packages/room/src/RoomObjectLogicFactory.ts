@@ -113,6 +113,8 @@ export class RoomObjectLogicFactory implements IRoomObjectLogicFactory
             case RoomObjectLogicType.PET:
                 logic = PetLogic;
                 break;
+            // The official furniture label (wf_label): a plain furni; its bubble is drawn by the client UI.
+            case 'furniture_label':
             case RoomObjectLogicType.FURNITURE_BASIC:
                 logic = FurnitureLogic;
                 break;

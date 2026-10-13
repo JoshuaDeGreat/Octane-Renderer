@@ -315,7 +315,8 @@ export class OutgoingHeader
     public static USER_TAGS = 17;
     public static PEER_USERS_CLASSIFICATION = 1160;
     public static USER_CLASSIFICATION = 2285;
-    public static VISIT_USER = 2970;
+    // Official 2970 is now the furniture label settings save, so the ambassador visit moved to 9400.
+    public static VISIT_USER = 9400;
     public static WIRED_ACTION_SAVE = 2281;
     public static WIRED_APPLY_SNAPSHOT = 3373;
     public static WIRED_CONDITION_SAVE = 3203;
@@ -336,6 +337,11 @@ export class OutgoingHeader
     public static WIRED_ROOM_STATE_ACTION = 3761;
     public static WIRED_ROOM_LOGS_PAGE = 3882;
     public static WIRED_VARIABLE_HOLDERS_PAGE = 975;
+    // Official AIR variable leaderboard subscription; also the hello on entering a room.
+    public static WIRED_LEADERBOARD_SUBSCRIBE = 2833;
+    // Official AIR furniture label (wf_label) text and settings saves.
+    public static WIRED_LABEL_SAVE_TEXT = 2638;
+    public static WIRED_LABEL_SAVE_SETTINGS = 2970;
     public static WIRED_VARIABLE_HOLDERS_REQUEST = 2973;
     public static WIRED_VARIABLE_HASHES = 1497;
     public static WIRED_ALL_VARIABLES_REQUEST = 1735;
@@ -556,7 +562,8 @@ export class OutgoingHeader
     public static NEW_USER_EXPERIENCE_SCRIPT_PROCEED = 1299;
     public static HANDSHAKE_INIT_DIFFIE = 3110;
     public static HANDSHAKE_COMPLETE_DIFFIE = 773;
-    public static WELCOME_OPEN_GIFT = 2638;
+    // Official 2638 is now the furniture label text save, so the welcome gift moved to 9401.
+    public static WELCOME_OPEN_GIFT = 9401;
     public static WELCOME_GIFT_CHANGE_EMAIL = 66;
     public static EMAIL_GET_STATUS = 2557;
     public static EMAIL_CHANGE = 3965;
