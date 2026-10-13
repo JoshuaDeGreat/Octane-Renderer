@@ -35,3 +35,6 @@ export * from './WiredWebApiKeyResultParser';
 export * from './WiredLeaderboardChunkParser';
 export * from './WiredLeaderboardData';
 export * from './WiredLeaderboardSnapshotParser';
+export * from './WiredLabelData';
+export * from './WiredLabelsParser';
+export * from './WiredLabelsUpdateParser';

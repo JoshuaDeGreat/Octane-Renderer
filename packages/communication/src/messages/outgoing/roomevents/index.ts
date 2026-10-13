@@ -27,3 +27,5 @@ export * from './WiredVariableHashesComposer';
 export * from './WiredAllVariablesRequestComposer';
 export * from './WiredGenerateWebApiKeyComposer';
 export * from './WiredLeaderboardSubscribeComposer';
+export * from './WiredLabelSaveSettingsComposer';
+export * from './WiredLabelSaveTextComposer';

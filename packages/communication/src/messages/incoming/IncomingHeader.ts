@@ -691,6 +691,9 @@ export class IncomingHeader
     // Official AIR variable leaderboard (server -> client): the room's panels and a chunk of rows.
     public static WIRED_LEADERBOARD_SNAPSHOT = 1494;
     public static WIRED_LEADERBOARD_CHUNK = 3979;
+    // Official AIR furniture labels (wf_label): every label the player may see, and changes.
+    public static WIRED_LABELS = 2237;
+    public static WIRED_LABELS_UPDATE = 796;
     public static WIRED_WEB_API_KEY_RESULT = 59;
     // AIR 13 treasure hunt (server -> client). Official 1631 is taken by UNIT_EXPRESSION,
     // so the first-winner packet uses the reserved custom id 9485; the other two are official.
