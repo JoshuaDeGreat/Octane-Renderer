@@ -1,5 +1,5 @@
 import { AlphaTolerance, AvatarAction, AvatarGuideStatus, AvatarSetType, IAdvancedMap, IAvatarEffectListener, IAvatarImage, IAvatarImageListener, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObject, IRoomObjectModel, RoomObjectSpriteType, RoomObjectVariable } from '@octane/api';
-import { GetAssetManager } from '@octane/assets';
+import { GetAssetManager, getHalfSizeTexture, halfSizeOffset, halfSizePadding, isPixelArtTexture } from '@octane/assets';
 import { AdvancedMap, GetRenderer, Vector3d } from '@octane/utils';
 import { Container, RenderTexture, Sprite, Texture } from 'pixi.js';
 import { RoomObjectSpriteVisualization } from '../RoomObjectSpriteVisualization';
@@ -20,6 +20,8 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
     private static HABBICON_BUBBLE_ID: number = 8;
     private static OWN_USER_ID: number = 4;
     private static UPDATE_TIME_INCREASER: number = 41;
+    // Like Habbo: purge cached actions unused for 60 s every 500 updates; the first purge is staggered.
+    private static INACTIVE_PURGE_INTERVAL: number = 500;
     private static AVATAR_LAYER_ID: number = 0;
     private static SHADOW_LAYER_ID: number = 1;
     private static SNOWBOARDING_EFFECT: number = 97;
@@ -36,6 +38,7 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
     protected _data: AvatarVisualizationData;
 
     private _avatarImage: IAvatarImage;
+    private _updatesUntilPurge: number = 200 + Math.floor(Math.random() * 200);
     private _cachedAvatars: IAdvancedMap<string, IAvatarImage>;
     private _cachedAvatarEffects: IAdvancedMap<string, IAvatarImage>;
     private _shadow: IGraphicAsset;
@@ -43,6 +46,7 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
     private _disposed: boolean;
 
     private _figure: string;
+    private _isBlocked: boolean = false;
     private _gender: string;
     private _direction: number;
     private _headDirection: number;
@@ -216,6 +220,12 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
         this._lastUpdate += AvatarVisualization.UPDATE_TIME_INCREASER;
 
         if((this._lastUpdate + AvatarVisualization.UPDATE_TIME_INCREASER) < time) this._lastUpdate = (time - AvatarVisualization.UPDATE_TIME_INCREASER);
+
+        if(--this._updatesUntilPurge <= 0)
+        {
+            this._updatesUntilPurge = AvatarVisualization.INACTIVE_PURGE_INTERVAL;
+            this._avatarImage?.disposeInactiveActions();
+        }
 
         const model = this.object.model;
         const scale = geometry.scale;
@@ -480,13 +490,26 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
                         const assetName = ((((((this._avatarImage.getScale() + '_') + spriteData.member) + '_') + dd) + '_') + frameNumber);
 
                         const asset = GetAssetManager().getAsset(assetName);
+                        // .hab effects ship only large art: draw it as a real half-size sprite when zoomed out.
+                        const largeAsset = ((!asset && (scale < 48)) ? GetAssetManager().getAsset(('h_' + spriteData.member + '_' + dd + '_' + frameNumber)) : null);
+                        const halfTexture = (isPixelArtTexture(largeAsset?.texture) ? getHalfSizeTexture(largeAsset.texture, halfSizePadding(largeAsset.offsetX), halfSizePadding(largeAsset.offsetY)) : null);
 
-                        if(!asset) continue;
+                        if(!asset && !halfTexture) continue;
 
-                        sprite.texture = asset.texture;
-                        sprite.offsetX = ((asset.offsetX - (scale / 2)) + offsetX);
-                        sprite.offsetY = (asset.offsetY + offsetY);
-                        sprite.flipH = asset.flipH;
+                        if(asset)
+                        {
+                            sprite.texture = asset.texture;
+                            sprite.offsetX = ((asset.offsetX - (scale / 2)) + offsetX);
+                            sprite.offsetY = (asset.offsetY + offsetY);
+                            sprite.flipH = asset.flipH;
+                        }
+                        else
+                        {
+                            sprite.texture = halfTexture;
+                            sprite.offsetX = ((halfSizeOffset(largeAsset.offsetX, largeAsset.flipH) - (scale / 2)) + offsetX);
+                            sprite.offsetY = (halfSizeOffset(largeAsset.offsetY, false) + offsetY);
+                            sprite.flipH = largeAsset.flipH;
+                        }
 
                         if(spriteData.hasStaticY)
                         {
@@ -530,6 +553,22 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
 
     private createAvatarImage(scale: number, effectId: number): IAvatarImage
     {
+        // Like Habbo, a blocked user is an anonymous ghost: the placeholder silhouette, no effects.
+        if(this._isBlocked)
+        {
+            const blockedName = 'blockedAvatarImage' + scale.toString();
+            let blockedImage = this._cachedAvatars.getValue(blockedName);
+
+            if(!blockedImage)
+            {
+                blockedImage = this._data.createBlockedAvatarImage(scale);
+
+                if(blockedImage) this._cachedAvatars.add(blockedName, blockedImage);
+            }
+
+            return blockedImage;
+        }
+
         let cachedImage: IAvatarImage = null;
         let imageName = 'avatarImage' + scale.toString();
 
@@ -957,6 +996,16 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
 
         if(this.updateFigure(model.getValue<string>(RoomObjectVariable.FIGURE))) needsUpdate = true;
 
+        const isBlocked = (model.getValue<number>(RoomObjectVariable.FIGURE_IS_BLOCKED) > 0);
+
+        if(isBlocked !== this._isBlocked)
+        {
+            this._isBlocked = isBlocked;
+            this.clearAvatar();
+
+            needsUpdate = true;
+        }
+
         let sign = model.getValue<number>(RoomObjectVariable.FIGURE_SIGN);
 
         if(sign === null) sign = -1;
@@ -1077,12 +1126,12 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
         {
             const expression = AvatarAction.getExpression(this._expression);
 
-            if(expression !== '')
+            if(expression)
             {
                 switch(expression)
                 {
                     case AvatarAction.DANCE:
-                        this._avatarImage.appendAction(AvatarAction.DANCE, 2);
+                        this._avatarImage.appendAction(AvatarAction.DANCE, (this._expression === AvatarAction.EXPRESSION_SIX_SEVEN_ID) ? AvatarAction.DANCE_SIX_SEVEN : 2);
                         break;
                     default:
                         this._avatarImage.appendAction(expression);

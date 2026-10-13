@@ -16,6 +16,7 @@ export * from './alias';
 export * from './animation';
 export * from './cache';
 export * from './data/HabboAvatarAnimations';
+export * from './data/HabboAvatarDanceSixSeven';
 export * from './data/HabboAvatarGeometry';
 export * from './data/HabboAvatarPartSets';
 export * from './geometry';

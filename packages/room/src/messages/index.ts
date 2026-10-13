@@ -10,6 +10,7 @@ export * from './ObjectAvatarFlatControlUpdateMessage';
 export * from './ObjectAvatarGestureUpdateMessage';
 export * from './ObjectAvatarGuideStatusUpdateMessage';
 export * from './ObjectAvatarHabbiconUpdateMessage';
+export * from './ObjectAvatarBlockedUpdateMessage';
 export * from './ObjectAvatarMutedUpdateMessage';
 export * from './ObjectAvatarOwnMessage';
 export * from './ObjectAvatarPetGestureUpdateMessage';

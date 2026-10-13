@@ -4,8 +4,26 @@ import { Byte } from '../Byte';
 import { Short } from '../Short';
 import { EvaWireDataWrapper } from './EvaWireDataWrapper';
 
+/** A message length the protocol cannot have; the stream can't be read past it. */
+export class InvalidMessageLengthError extends Error
+{
+    constructor(public readonly length: number)
+    {
+        super(`Invalid message length ${ length }`);
+    }
+}
+
 export class EvaWireFormat implements ICodec
 {
+    /** Every message carries at least its 2-byte header; the upper bound stops a bad length from growing the buffer forever. */
+    public static MIN_MESSAGE_LENGTH: number = 2;
+    public static MAX_MESSAGE_LENGTH: number = (8 * 1024 * 1024);
+
+    public static isValidMessageLength(length: number): boolean
+    {
+        return (length >= EvaWireFormat.MIN_MESSAGE_LENGTH) && (length <= EvaWireFormat.MAX_MESSAGE_LENGTH);
+    }
+
     public encode(header: number, messages: any[]): IBinaryWriter
     {
         const writer = new BinaryWriter();
@@ -76,7 +94,9 @@ export class EvaWireFormat implements ICodec
         {
             const length = dataView.getInt32(offset);
 
-            if(length < 0 || (offset + 4 + length) > totalLength) break;
+            if(!EvaWireFormat.isValidMessageLength(length)) throw new InvalidMessageLengthError(length);
+
+            if((offset + 4 + length) > totalLength) break;
 
             const bodyStart = offset + 4;
             const body = new BinaryReader(buffer.slice(bodyStart, bodyStart + length));

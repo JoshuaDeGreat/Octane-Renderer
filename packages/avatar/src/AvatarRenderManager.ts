@@ -12,6 +12,7 @@ import { FigureDataContainer } from './FigureDataContainer';
 import { PlaceHolderAvatarImage } from './PlaceHolderAvatarImage';
 import { AssetAliasCollection } from './alias';
 import { HabboAvatarAnimations } from './data/HabboAvatarAnimations';
+import { HabboAvatarDanceSixSeven } from './data/HabboAvatarDanceSixSeven';
 import { HabboAvatarGeometry } from './data/HabboAvatarGeometry';
 import { HabboAvatarPartSets } from './data/HabboAvatarPartSets';
 
@@ -35,6 +36,7 @@ export class AvatarRenderManager implements IAvatarRenderManager
         await this.loadActions();
 
         this._structure?.initAnimation(HabboAvatarAnimations.animations);
+        this._structure?.registerAnimation({ [HabboAvatarDanceSixSeven.name]: HabboAvatarDanceSixSeven });
         await this.loadFigureData();
 
         this._aliasCollection.init();
@@ -131,6 +133,13 @@ export class AvatarRenderManager implements IAvatarRenderManager
         }
 
         this._avatarAssetDownloadManager.downloadAvatarFigure(figureContainer, listener);
+
+        return new PlaceHolderAvatarImage(this._structure, this._aliasCollection, this._placeHolderFigure, size, this._effectAssetDownloadManager);
+    }
+
+    public createPlaceholderAvatarImage(size: string): IAvatarImage
+    {
+        if(!this._structure) return null;
 
         return new PlaceHolderAvatarImage(this._structure, this._aliasCollection, this._placeHolderFigure, size, this._effectAssetDownloadManager);
     }

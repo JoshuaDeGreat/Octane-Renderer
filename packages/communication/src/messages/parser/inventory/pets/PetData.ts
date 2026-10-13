@@ -7,6 +7,7 @@ export class PetData
     private _name: string;
     private _figureData: PetFigureDataParser;
     private _level: number;
+    private _rarityLevel: number;
 
     constructor(wrapper: IMessageDataWrapper)
     {
@@ -16,6 +17,7 @@ export class PetData
         this._name = wrapper.readString();
         this._figureData = new PetFigureDataParser(wrapper);
         this._level = wrapper.readInt();
+        this._rarityLevel = wrapper.readInt();
     }
 
     public get id(): number
@@ -66,5 +68,11 @@ export class PetData
     public get level(): number
     {
         return this._level;
+    }
+
+    /** -1 when the pet has no rarity (everything but monster plants). */
+    public get rarityLevel(): number
+    {
+        return this._rarityLevel;
     }
 }

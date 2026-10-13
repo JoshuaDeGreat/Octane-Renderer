@@ -1,5 +1,5 @@
 import { AvatarDirectionAngle, AvatarFigurePartType, AvatarScaleType, GeometryType, IActiveActionData, IAvatarImage, IGraphicAsset } from '@octane/api';
-import { GraphicAsset } from '@octane/assets';
+import { getHalfSizeTexture, GraphicAsset, halfSizePadding } from '@octane/assets';
 import { GetRenderer, GetTexturePool, GetTickerTime } from '@octane/utils';
 import { Container, Matrix, Point, Rectangle, RenderTexture, Sprite, Texture } from 'pixi.js';
 import { AvatarImageBodyPartContainer } from '../AvatarImageBodyPartContainer';
@@ -477,6 +477,19 @@ export class AvatarImageCache
         const source = largeAsset.texture;
 
         if(!source || !source.source) return null;
+
+        // A real half-size sprite (2x2 blocks, outlines kept) on the same 2px grid for every part, so a
+        // figure without "sh" assets (Habbo's .hab clothes) stays sharp and holds together when zoomed out.
+        const halfTexture = getHalfSizeTexture(source, halfSizePadding(largeAsset.x), halfSizePadding(largeAsset.y));
+
+        if(halfTexture)
+        {
+            const halfAsset = GraphicAsset.createAsset((largeName + '_shfallback'), null, halfTexture, Math.floor(largeAsset.x / 2), Math.floor(largeAsset.y / 2), largeAsset.flipH, largeAsset.flipV, largeAsset.usesPalette);
+
+            this._fallbackAssets.set(largeName, halfAsset);
+
+            return halfAsset;
+        }
 
         const renderer = GetRenderer();
 

@@ -6,6 +6,7 @@ export class IncomingHeader
     // MENTIONS
     public static MENTION_RECEIVED = 4801;
     public static MENTIONS_LIST = 4802;
+    public static MENTIONS_PAGE = 4803;
 
     // Original packets
     public static ACHIEVEMENT_LIST = 305;

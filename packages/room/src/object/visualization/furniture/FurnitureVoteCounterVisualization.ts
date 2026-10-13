@@ -22,9 +22,10 @@ export class FurnitureVoteCounterVisualization extends FurnitureAnimatedVisualiz
 
         switch(tag)
         {
-            case FurnitureVoteCounterVisualization.ONES_SPRITE: return (result % 10);
-            case FurnitureVoteCounterVisualization.TENS_SPRITE: return ((result / 10) % 10);
-            case FurnitureVoteCounterVisualization.HUNDREDS_SPRITE: return ((result / 100) % 10);
+            // Whole digits only: the frame number becomes part of the asset name.
+            case FurnitureVoteCounterVisualization.ONES_SPRITE: return Math.floor(result % 10);
+            case FurnitureVoteCounterVisualization.TENS_SPRITE: return Math.floor((result / 10) % 10);
+            case FurnitureVoteCounterVisualization.HUNDREDS_SPRITE: return Math.floor((result / 100) % 10);
             default: return super.getFrameNumber(scale, layerId);
         }
     }

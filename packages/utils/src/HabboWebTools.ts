@@ -1,4 +1,5 @@
-﻿import { LegacyExternalInterface } from './LegacyExternalInterface';
+﻿import { isWebUrl } from './ExternalUrls';
+import { LegacyExternalInterface } from './LegacyExternalInterface';
 import { OctaneLogger } from './OctaneLogger';
 
 export class HabboWebTools
@@ -43,9 +44,31 @@ export class HabboWebTools
         }
     }
 
+    private static _confirmExternalUrl: (url: string, open: () => void) => void = null;
+
+    /** Set by the client: asks the user before a link someone else chose is opened. */
+    public static setExternalUrlConfirm(handler: (url: string, open: () => void) => void): void
+    {
+        HabboWebTools._confirmExternalUrl = handler;
+    }
+
     public static openWebPage(pageUrl: string): void
     {
-        window.open(pageUrl);
+        if(!isWebUrl(pageUrl)) return;
+
+        // No opener: the page can't navigate or script the client's tab.
+        window.open(pageUrl, '_blank', 'noopener,noreferrer');
+    }
+
+    /** A link another user chose (billboards): opened only after the user confirms it. */
+    public static openUntrustedWebPage(pageUrl: string): void
+    {
+        if(!isWebUrl(pageUrl)) return;
+
+        const open = () => HabboWebTools.openWebPage(pageUrl);
+
+        if(HabboWebTools._confirmExternalUrl) HabboWebTools._confirmExternalUrl(pageUrl, open);
+        else open();
     }
 
     public static sendHeartBeat(): void

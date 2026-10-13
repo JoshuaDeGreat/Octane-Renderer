@@ -18,6 +18,7 @@ export class PollContentsParser implements IMessageParser
         this._endMessage = '';
         this._numQuestions = 0;
         this._questionArray = [];
+        this._npsPoll = false;
         return true;
     }
 

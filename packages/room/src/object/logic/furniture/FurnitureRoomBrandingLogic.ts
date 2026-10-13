@@ -1,6 +1,8 @@
 import { IAssetData, IRoomGeometry, MapDataType, MouseEventType, RoomObjectVariable, RoomWidgetEnumItemExtradataParameter } from '@octane/api';
 import { GetAssetManager } from '@octane/assets';
+import { GetConfiguration } from '@octane/configuration';
 import { RoomObjectRoomAdEvent, RoomSpriteMouseEvent } from '@octane/events';
+import { isAllowedUserImageUrl, parseHostList } from '@octane/utils';
 import { ObjectAdUpdateMessage, ObjectDataUpdateMessage, RoomObjectUpdateMessage } from '../../../messages';
 import { FurnitureLogic } from './FurnitureLogic';
 
@@ -150,6 +152,14 @@ export class FurnitureRoomBrandingLogic extends FurnitureLogic
         const imageStatus = model.getValue<number>(RoomObjectVariable.FURNITURE_BRANDING_IMAGE_STATUS);
 
         if(!imageUrl || (imageUrl === '') || (imageStatus === 1)) return;
+
+        // The image is chosen by the room owner: only web images, and only from the configured hosts if any.
+        if(!isAllowedUserImageUrl(imageUrl, parseHostList(GetConfiguration().getValue<unknown>('room.branding.image.hosts', []))))
+        {
+            this.processUpdateMessage(new ObjectAdUpdateMessage(ObjectAdUpdateMessage.IMAGE_LOADING_FAILED));
+
+            return;
+        }
 
         const asset = GetAssetManager();
 

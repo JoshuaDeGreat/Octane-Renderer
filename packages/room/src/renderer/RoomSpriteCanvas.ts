@@ -10,6 +10,12 @@ import { ExtendedSprite, ObjectMouseData, SortableSprite } from './utils';
 
 export class RoomSpriteCanvas implements IRoomRenderingCanvas
 {
+    // Slow mode: when rendering a frame costs too much, furni animate on every other frame.
+    private static SLOW_WARMUP_FRAMES: number = 50;
+    private static SLOW_SAMPLE_FRAMES: number = 10;
+    private static SLOW_ENTER_MS: number = 10;
+    private static SLOW_LEAVE_MS: number = 6;
+
     private _geometry: RoomGeometry;
     private _animationFPS: number;
     private _renderTimestamp: number = 0;
@@ -32,6 +38,9 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
     private _spritePool: ExtendedSprite[] = [];
     private _skipObjectUpdate: boolean = false;
     private _runningSlow: boolean = false;
+    private _slowWarmupFrames: number = 0;
+    private _slowSampleFrames: number = 0;
+    private _slowSampleTime: number = 0;
 
     private _width: number = 0;
     private _height: number = 0;
@@ -439,6 +448,8 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
 
         if(!this._container || !this._geometry) return;
 
+        const startedAt = performance.now();
+
         if((this._width !== this._renderedWidth) || (this._height !== this._renderedHeight)) update = true;
 
         if((this._display.x !== this._screenOffsetX) || (this._display.y !== this._screenOffsetY))
@@ -467,6 +478,8 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
             this._lastFrame = frame;
 
             updateVisuals = true;
+
+            this._skipObjectUpdate = !this._skipObjectUpdate;
         }
 
         let spriteCount = 0;
@@ -507,6 +520,31 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
         this._renderTimestamp = this._totalTimeRunning;
         this._renderedWidth = this._width;
         this._renderedHeight = this._height;
+
+        this.measureRenderTime(performance.now() - startedAt);
+    }
+
+    private measureRenderTime(time: number): void
+    {
+        if(this._slowWarmupFrames < RoomSpriteCanvas.SLOW_WARMUP_FRAMES)
+        {
+            this._slowWarmupFrames++;
+
+            return;
+        }
+
+        this._slowSampleFrames++;
+        this._slowSampleTime += time;
+
+        if(this._slowSampleFrames < RoomSpriteCanvas.SLOW_SAMPLE_FRAMES) return;
+
+        const average = (this._slowSampleTime / this._slowSampleFrames);
+
+        this._slowSampleFrames = 0;
+        this._slowSampleTime = 0;
+
+        if(!this._runningSlow && (average > RoomSpriteCanvas.SLOW_ENTER_MS)) this._runningSlow = true;
+        else if(this._runningSlow && (average < RoomSpriteCanvas.SLOW_LEAVE_MS)) this._runningSlow = false;
     }
 
     public skipSpriteVisibilityChecking(): void

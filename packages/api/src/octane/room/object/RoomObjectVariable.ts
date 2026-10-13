@@ -28,6 +28,8 @@ export class RoomObjectVariable
     public static FIGURE_FLAT_CONTROL: string = 'figure_flat_control';
     public static FIGURE_IS_TYPING: string = 'figure_is_typing';
     public static FIGURE_IS_MUTED: string = 'figure_is_muted';
+    /** A user on the own block list, drawn as an anonymous ghost. */
+    public static FIGURE_IS_BLOCKED: string = 'figure_is_blocked';
     public static FIGURE_GAINED_EXPERIENCE: string = 'figure_gained_experience';
     public static FIGURE_EXPERIENCE_TIMESTAMP: string = 'figure_experience_timestamp';
     public static FIGURE_NUMBER_VALUE: string = 'figure_number_value';

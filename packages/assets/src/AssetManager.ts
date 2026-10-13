@@ -5,11 +5,18 @@ import { assetImageFallbackUrl, isAssetJsonUrl } from './AssetJsonUrl';
 import { GraphicAssetCollection } from './GraphicAssetCollection';
 import { detectImageFormat, ImageLoadRequest, LoadedImageResource, loadImageResource, normalizedSourceExtension } from './image';
 
+/** Bundles of an asset json and its sheet: Octane's .nitro and Habbo's .hab. */
 const isBundleExtension = (extension: string): boolean => extension === 'nitro' || extension === 'hab';
+
+/** Waits before each retry of a failed download; a 4xx other than 408/429 is not retried. */
+const FETCH_RETRY_DELAYS_MS = [ 500, 1500 ];
+
+const isRetryableStatus = (status: number): boolean => (status === 408) || (status === 429) || (status >= 500);
 
 export interface AssetManagerDependencies
 {
     fetch(url: string): Promise<Response>;
+    wait?(ms: number): Promise<void>;
     parseAssetData(response: Response, source: string): Promise<IAssetData>;
     loadImageResource(request: ImageLoadRequest): Promise<LoadedImageResource>;
     loadOctaneBundle(buffer: ArrayBuffer, textureDecoder: OctaneBundleTextureDecoder): Promise<OctaneBundle>;
@@ -28,6 +35,7 @@ export class AssetManager implements IAssetManager
     private _collections: Map<string, IGraphicAssetCollection> = new Map();
     private _missingAssetNames: Set<string> = new Set();
     private _imageResources: Map<string, LoadedImageResource> = new Map();
+    private _downloads: Map<string, Promise<boolean>> = new Map();
 
     constructor(private readonly _dependencies: AssetManagerDependencies = DEFAULT_DEPENDENCIES)
     {
@@ -111,7 +119,21 @@ export class AssetManager implements IAssetManager
         return true;
     }
 
-    public async downloadAsset(url: string): Promise<boolean>
+    public downloadAsset(url: string): Promise<boolean>
+    {
+        // Callers asking for the same url share one download, so a texture in use is never replaced by a copy.
+        const existing = this._downloads.get(url);
+
+        if(existing !== undefined) return existing;
+
+        const download = this.loadAsset(url).finally(() => this._downloads.delete(url));
+
+        this._downloads.set(url, download);
+
+        return download;
+    }
+
+    private async loadAsset(url: string): Promise<boolean>
     {
         try
         {
@@ -119,6 +141,7 @@ export class AssetManager implements IAssetManager
 
             if(url.startsWith('local://')) return this.downloadLocalAsset(url);
 
+            // A .hab with the same json and sheet as a .nitro is read by the same bundle reader.
             if(isBundleExtension(normalizedSourceExtension(url)))
             {
                 const response = await this.fetchAsset(url);
@@ -234,20 +257,33 @@ export class AssetManager implements IAssetManager
 
     private async fetchAsset(url: string): Promise<Response>
     {
-        let response: Response;
-
-        try
+        for(let attempt = 0; ; attempt++)
         {
-            response = await this._dependencies.fetch(url);
-        }
-        catch (error)
-        {
-            throw new Error(`Could not fetch "${ url }" - is the URL correct and the server reachable? (${ errorMessage(error) })`);
-        }
+            const canRetry = (attempt < FETCH_RETRY_DELAYS_MS.length);
+            let response: Response;
 
-        if(!response?.ok) throw new Error(`Failed to load "${ url }" - server returned HTTP ${ response?.status ?? 'no response' }`);
+            try
+            {
+                response = await this._dependencies.fetch(url);
+            }
+            catch (error)
+            {
+                if(!canRetry) throw new Error(`Could not fetch "${ url }" - is the URL correct and the server reachable? (${ errorMessage(error) })`);
+            }
 
-        return response;
+            if(response?.ok) return response;
+
+            if(!canRetry || (response && !isRetryableStatus(response.status))) throw new Error(`Failed to load "${ url }" - server returned HTTP ${ response?.status ?? 'no response' }`);
+
+            await this.wait(FETCH_RETRY_DELAYS_MS[attempt]);
+        }
+    }
+
+    private wait(ms: number): Promise<void>
+    {
+        if(this._dependencies.wait) return this._dependencies.wait(ms);
+
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     private setImageResource(key: string, resource: LoadedImageResource): void

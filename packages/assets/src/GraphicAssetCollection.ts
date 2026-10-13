@@ -100,11 +100,12 @@ export class GraphicAssetCollection implements IGraphicAssetCollection
             const x = (-(asset.x) || 0);
             const y = (-(asset.y) || 0);
             let flipH = false;
-            const flipV = false;
+            let flipV = false;
             const usesPalette = (asset.usesPalette || false);
             let source = (asset.source || '');
 
             if(asset.flipH && source.length) flipH = true;
+            if(asset.flipV && source.length) flipV = true;
 
             if(!source.length) source = name;
 

@@ -68,6 +68,7 @@ export class RoomUsersHandler extends BaseHandler
                 userData.cardBackground = user.cardBackground;
                 userData.borderId = user.borderId;
                 userData.activityPoints = user.activityPoints;
+                userData.badgesRank = user.badgesRank;
                 userData.figure = user.figure;
                 userData.type = user.userType;
                 userData.webID = user.webID;

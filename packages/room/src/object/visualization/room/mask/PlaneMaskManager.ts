@@ -1,4 +1,5 @@
-﻿import { IAssetPlaneMaskData, IAssetPlaneTextureBitmap, IGraphicAssetCollection, IVector3D } from '@octane/api';
+﻿import { IAssetPlaneMaskData, IAssetPlaneTextureBitmap, IGraphicAsset, IGraphicAssetCollection, IVector3D } from '@octane/api';
+import { getHalfSizeTexture, halfSizeOffset, halfSizePadding } from '@octane/assets';
 import { GetRenderer } from '@octane/utils';
 import { Container, Matrix, Point, Sprite, Texture } from 'pixi.js';
 import { PlaneMask } from './PlaneMask';
@@ -155,40 +156,9 @@ export class PlaneMaskManager
 
         if(!texture) return true;
 
-        const maskSize = mask.getVisualizationSize(scale);
-        const ratio = ((maskSize > 0) ? (scale / maskSize) : 1);
+        const { texture: maskTexture, matrix } = this.getMaskPlacement(asset, scale, mask.getVisualizationSize(scale), posX, posY);
 
-        const point = new Point((posX + (asset.offsetX * ratio)), (posY + (asset.offsetY * ratio)));
-
-        const matrix = new Matrix();
-
-        let xScale = ratio;
-        let ySkew = ratio;
-        let xSkew = 0;
-        let yScale = 0;
-        let tx = (point.x + xSkew);
-        let ty = (point.y + yScale);
-
-        if(asset.flipH)
-        {
-            xScale = -ratio;
-            xSkew = (texture.width * ratio);
-
-            tx = ((point.x + xSkew) - (texture.width * ratio));
-        }
-
-        if(asset.flipV)
-        {
-            ySkew = -ratio;
-            yScale = (texture.height * ratio);
-
-            ty = ((point.y + yScale) - (texture.height * ratio));
-        }
-
-        matrix.scale(xScale, ySkew);
-        matrix.translate(tx, ty);
-
-        const sprite = new Sprite(texture);
+        const sprite = new Sprite(maskTexture);
 
         sprite.setFromMatrix(matrix);
 
@@ -211,10 +181,44 @@ export class PlaneMaskManager
 
         if(!texture) return true;
 
-        const maskSize = mask.getVisualizationSize(scale);
-        const ratio = ((maskSize > 0) ? (scale / maskSize) : 1);
+        const { texture: maskTexture, matrix } = this.getMaskPlacement(asset, scale, mask.getVisualizationSize(scale), posX, posY);
 
-        const point = new Point((posX + (asset.offsetX * ratio)), (posY + (asset.offsetY * ratio)));
+        const sprite = new Sprite(maskTexture);
+
+        GetRenderer().render({
+            target: targetTexture,
+            container: sprite,
+            clear: false,
+            transform: matrix
+        });
+
+        sprite.destroy();
+
+        return true;
+    }
+
+    /** Where a mask is drawn; zoomed out it uses a real half-size mask on whole pixels, cut like the window furni. */
+    private getMaskPlacement(asset: IGraphicAsset, scale: number, maskSize: number, posX: number, posY: number): { texture: Texture; matrix: Matrix }
+    {
+        let texture = asset.texture;
+        let ratio = ((maskSize > 0) ? (scale / maskSize) : 1);
+        let offsetX = (asset.offsetX * ratio);
+        let offsetY = (asset.offsetY * ratio);
+
+        if(ratio === 0.5)
+        {
+            const half = getHalfSizeTexture(texture, halfSizePadding(asset.offsetX), halfSizePadding(asset.offsetY));
+
+            if(half)
+            {
+                texture = half;
+                ratio = 1;
+                offsetX = halfSizeOffset(asset.offsetX, asset.flipH);
+                offsetY = halfSizeOffset(asset.offsetY, asset.flipV);
+            }
+        }
+
+        const point = new Point((posX + offsetX), (posY + offsetY));
 
         const matrix = new Matrix();
 
@@ -244,18 +248,7 @@ export class PlaneMaskManager
         matrix.scale(xScale, ySkew);
         matrix.translate(tx, ty);
 
-        const sprite = new Sprite(texture);
-
-        GetRenderer().render({
-            target: targetTexture,
-            container: sprite,
-            clear: false,
-            transform: matrix
-        });
-
-        sprite.destroy();
-
-        return true;
+        return { texture, matrix };
     }
 
     public getMask(type: string): PlaneMask

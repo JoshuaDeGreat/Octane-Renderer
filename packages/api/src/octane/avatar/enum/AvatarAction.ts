@@ -51,6 +51,10 @@ export class AvatarAction
 
     public static EXPRESSION_MAP = [ '', AvatarAction.EXPRESSION_WAVE, AvatarAction.EXPRESSION_BLOW_A_KISS, AvatarAction.EXPRESSION_LAUGH, AvatarAction.EXPRESSION_CRY, AvatarAction.EXPRESSION_IDLE, AvatarAction.DANCE, AvatarAction.EXPRESSION_RESPECT, AvatarAction.EXPRESSION_SNOWBOARD_OLLIE, AvatarAction.EXPRESSION_SNOWBORD_360, AvatarAction.EXPRESSION_RIDE_JUMP ];
 
+    /** Expression 67 plays the "six-seven" dance (dance.sixseven) instead of an EXPRESSION_MAP entry. */
+    public static EXPRESSION_SIX_SEVEN_ID: number = 67;
+    public static DANCE_SIX_SEVEN: string = 'sixseven';
+
     public static getExpressionTimeout(expressionId: number): number
     {
         expressionId = parseInt(expressionId as any);
@@ -77,6 +81,8 @@ export class AvatarAction
                 return 1500;
             case 10:
                 return 1500;
+            case AvatarAction.EXPRESSION_SIX_SEVEN_ID:
+                return 990;
             default:
                 return 0;
         }
@@ -89,7 +95,9 @@ export class AvatarAction
 
     public static getExpression(expressionId: number): string
     {
-        if(expressionId > AvatarAction.EXPRESSION_MAP.length) return null;
+        if(expressionId === AvatarAction.EXPRESSION_SIX_SEVEN_ID) return AvatarAction.DANCE;
+
+        if(expressionId >= AvatarAction.EXPRESSION_MAP.length) return null;
 
         return AvatarAction.EXPRESSION_MAP[expressionId];
     }

@@ -24,7 +24,7 @@ export class FurnitureRentableSpaceLogic extends FurnitureLogic
                 this.eventDispatcher.dispatchEvent(new RoomObjectDataRequestEvent(RoomObjectDataRequestEvent.RODRE_CURRENT_USER_ID, this.object));
             }
 
-            const renterId = this.object.model.getValue<string>(RoomObjectVariable.FURNITURE_DATA)['renterId'];
+            const renterId = this.object.model.getValue<{ [key: string]: string }>(RoomObjectVariable.FURNITURE_DATA)?.['renterId'];
             const userId = this.object.model.getValue<number>(RoomObjectVariable.SESSION_CURRENT_USER_ID);
 
             if(renterId)

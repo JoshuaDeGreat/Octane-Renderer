@@ -34,7 +34,17 @@ export class AvatarAssetDownloadLibrary implements IAvatarAssetDownloadLibrary
         {
             this._state = AvatarAssetDownloadLibrary.LOADING;
 
-            const status = await this._assetManager.downloadAsset(this._downloadUrl);
+            let status = false;
+
+            try
+            {
+                status = await this._assetManager.downloadAsset(this._downloadUrl);
+            }
+            finally
+            {
+                // A failed library may be requested again later.
+                if(!status) this._state = AvatarAssetDownloadLibrary.NOT_LOADED;
+            }
 
             if(!status) throw new Error('Could not download asset');
         }

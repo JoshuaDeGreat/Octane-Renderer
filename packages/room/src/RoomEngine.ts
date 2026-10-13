@@ -15,7 +15,7 @@ import { RoomInstance } from './RoomInstance';
 import { RoomObjectEventHandler } from './RoomObjectEventHandler';
 import { buildRoomObjectImageKey, DisposableTexture, RoomObjectImageCache, SharedImageResult } from './RoomObjectImageCache';
 import { RoomVariableEnum } from './RoomVariableEnum';
-import { ObjectAvatarCarryObjectUpdateMessage, ObjectAvatarChatUpdateMessage, ObjectAvatarDanceUpdateMessage, ObjectAvatarEffectUpdateMessage, ObjectAvatarExperienceUpdateMessage, ObjectAvatarExpressionUpdateMessage, ObjectAvatarFigureUpdateMessage, ObjectAvatarFlatControlUpdateMessage, ObjectAvatarGestureUpdateMessage, ObjectAvatarGuideStatusUpdateMessage, ObjectAvatarHabbiconUpdateMessage, ObjectAvatarMutedUpdateMessage, ObjectAvatarOwnMessage, ObjectAvatarPetGestureUpdateMessage, ObjectAvatarPlayerValueUpdateMessage, ObjectAvatarPlayingGameUpdateMessage, ObjectAvatarPostureUpdateMessage, ObjectAvatarSignUpdateMessage, ObjectAvatarSleepUpdateMessage, ObjectAvatarTypingUpdateMessage, ObjectAvatarUpdateMessage, ObjectAvatarUseObjectUpdateMessage, ObjectDataUpdateMessage, ObjectGroupBadgeUpdateMessage, ObjectHeightUpdateMessage, ObjectItemDataUpdateMessage, ObjectModelDataUpdateMessage, ObjectMoveUpdateMessage, ObjectRoomColorUpdateMessage, ObjectRoomFloorHoleUpdateMessage, ObjectRoomMaskUpdateMessage, ObjectRoomPlanePropertyUpdateMessage, ObjectRoomPlaneVisibilityUpdateMessage, ObjectRoomUpdateMessage, ObjectStateUpdateMessage, RoomObjectUpdateMessage } from './messages';
+import { ObjectAvatarBlockedUpdateMessage, ObjectAvatarCarryObjectUpdateMessage, ObjectAvatarChatUpdateMessage, ObjectAvatarDanceUpdateMessage, ObjectAvatarEffectUpdateMessage, ObjectAvatarExperienceUpdateMessage, ObjectAvatarExpressionUpdateMessage, ObjectAvatarFigureUpdateMessage, ObjectAvatarFlatControlUpdateMessage, ObjectAvatarGestureUpdateMessage, ObjectAvatarGuideStatusUpdateMessage, ObjectAvatarHabbiconUpdateMessage, ObjectAvatarMutedUpdateMessage, ObjectAvatarOwnMessage, ObjectAvatarPetGestureUpdateMessage, ObjectAvatarPlayerValueUpdateMessage, ObjectAvatarPlayingGameUpdateMessage, ObjectAvatarPostureUpdateMessage, ObjectAvatarSignUpdateMessage, ObjectAvatarSleepUpdateMessage, ObjectAvatarTypingUpdateMessage, ObjectAvatarUpdateMessage, ObjectAvatarUseObjectUpdateMessage, ObjectDataUpdateMessage, ObjectGroupBadgeUpdateMessage, ObjectHeightUpdateMessage, ObjectItemDataUpdateMessage, ObjectModelDataUpdateMessage, ObjectMoveUpdateMessage, ObjectRoomColorUpdateMessage, ObjectRoomFloorHoleUpdateMessage, ObjectRoomMaskUpdateMessage, ObjectRoomPlanePropertyUpdateMessage, ObjectRoomPlaneVisibilityUpdateMessage, ObjectRoomUpdateMessage, ObjectStateUpdateMessage, RoomObjectUpdateMessage } from './messages';
 import { RoomLogic, RoomMapData } from './object';
 import { RoomWindowReflectionState } from './object/visualization/RoomWindowReflectionState';
 import { RoomRenderer } from './renderer';
@@ -2160,6 +2160,9 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
                 break;
             case RoomObjectVariable.FIGURE_IS_MUTED:
                 message = new ObjectAvatarMutedUpdateMessage(value === 1);
+                break;
+            case RoomObjectVariable.FIGURE_IS_BLOCKED:
+                message = new ObjectAvatarBlockedUpdateMessage(value === 1);
                 break;
             case RoomObjectVariable.FIGURE_CARRY_OBJECT:
                 message = new ObjectAvatarCarryObjectUpdateMessage(value, parameter);

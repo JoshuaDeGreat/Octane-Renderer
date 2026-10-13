@@ -2,6 +2,8 @@ export interface IRoomUserData
 {
     readonly roomIndex: number;
     activityPoints: number;
+    /** Place on the total-badges leaderboard, -1 when unknown. */
+    badgesRank: number;
     background: number;
     stand: number;
     overlay: number;

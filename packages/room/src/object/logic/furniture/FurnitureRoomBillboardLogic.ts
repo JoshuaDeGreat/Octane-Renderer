@@ -21,7 +21,7 @@ export class FurnitureRoomBillboardLogic extends FurnitureRoomBrandingLogic
     {
         if(clickUrl.indexOf('http') === 0)
         {
-            HabboWebTools.openWebPage(clickUrl);
+            HabboWebTools.openUntrustedWebPage(clickUrl);
 
             return;
         }

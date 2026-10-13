@@ -16,9 +16,10 @@ export class FurnitureVoteMajorityVisualization extends FurnitureAnimatedVisuali
 
         switch(tag)
         {
-            case FurnitureVoteMajorityVisualization.ONES_SPRITE: return (result % 10);
-            case FurnitureVoteMajorityVisualization.TENS_SPRITE: return ((result / 10) % 10);
-            case FurnitureVoteMajorityVisualization.HUNDREDS_SPRITE: return ((result / 100) % 10);
+            // Whole digits only: the frame number becomes part of the asset name.
+            case FurnitureVoteMajorityVisualization.ONES_SPRITE: return Math.floor(result % 10);
+            case FurnitureVoteMajorityVisualization.TENS_SPRITE: return Math.floor((result / 10) % 10);
+            case FurnitureVoteMajorityVisualization.HUNDREDS_SPRITE: return Math.floor((result / 100) % 10);
             default: return super.getFrameNumber(scale, layerId);
         }
     }

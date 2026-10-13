@@ -4,7 +4,7 @@ import { GetEventDispatcher, OctaneEvent, OctaneEventType, RoomSessionEvent, Soc
 import { OctaneLogger } from '@octane/utils';
 import { RoomSession } from './RoomSession';
 import { BaseHandler, GenericErrorHandler, PetPackageHandler, PollHandler, RoomChatHandler, RoomDataHandler, RoomDimmerPresetsHandler, RoomPermissionsHandler, RoomPresentHandler, RoomSessionHandler, RoomUsersHandler, WordQuizHandler } from './handler';
-import { shouldAttemptRoomReEntry } from './reconnectRoomPolicy';
+import { shouldAttemptRoomReEntry, shouldRestoreStoredRoom } from './reconnectRoomPolicy';
 
 const STORAGE_KEY_ROOM_ID = 'nitro.session.lastRoomId';
 const STORAGE_KEY_ROOM_PASSWORD = 'nitro.session.lastRoomPassword';
@@ -287,6 +287,8 @@ export class RoomSessionManager implements IRoomSessionManager, IRoomHandlerList
             }
             catch (e)
             {}
+
+            if(!shouldRestoreStoredRoom(roomId, this.getSession(roomId)?.roomId ?? null)) return true;
 
             this._isReconnecting = true;
             this.createSession(roomId, password, spawnX, spawnY);

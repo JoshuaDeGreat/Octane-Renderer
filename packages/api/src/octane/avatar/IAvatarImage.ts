@@ -7,6 +7,8 @@ import { IPartColor } from './structure';
 export interface IAvatarImage
 {
     dispose(): void;
+    /** Frees cached actions the avatar hasn't used for a while; they are rebuilt when needed. */
+    disposeInactiveActions(): void;
     setDirection(setType: string, direction: number): void;
     setDirectionAngle(setType: string, angle: number): void;
     updateAnimationByFrames(frameCount?: number): void;

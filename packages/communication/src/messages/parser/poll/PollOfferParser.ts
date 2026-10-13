@@ -11,6 +11,7 @@ export class PollOfferParser implements IMessageParser
     {
         this._id = -1;
         this._type = '';
+        this._headline = '';
         this._summary = '';
         return true;
     }

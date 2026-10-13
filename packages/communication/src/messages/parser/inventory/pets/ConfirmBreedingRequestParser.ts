@@ -5,7 +5,7 @@ export class ConfirmBreedingRequestParser implements IMessageParser
     private _nestId: number;
     private _pet1: BreedingPetInfo;
     private _pet2: BreedingPetInfo;
-    private _rarityCategories: RarityCategoryData[];
+    private _rarityCategories: RarityCategoryData[] = [];
     private _resultPetType: number;
 
     public flush(): boolean
@@ -24,7 +24,8 @@ export class ConfirmBreedingRequestParser implements IMessageParser
             this._pet2 = null;
         }
 
-        for(const k of this._rarityCategories) k && k.dispose();
+        // flush() also runs on a brand-new parser, before the list exists.
+        for(const k of this._rarityCategories ?? []) k && k.dispose();
 
         this._rarityCategories = [];
 

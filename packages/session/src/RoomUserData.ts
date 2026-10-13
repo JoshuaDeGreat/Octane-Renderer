@@ -16,6 +16,7 @@ export class RoomUserData implements IRoomUserData
     private _prefixFont: string = '';
     private _displayOrder: string = 'icon-prefix-name';
     private _activityPoints: number;
+    private _badgesRank: number = -1;
     private _background: number;
     private _stand: number;
     private _overlay: number;
@@ -58,6 +59,16 @@ export class RoomUserData implements IRoomUserData
     public set activityPoints(value: number)
     {
         this._activityPoints = value;
+    }
+
+    public get badgesRank(): number
+    {
+        return this._badgesRank;
+    }
+
+    public set badgesRank(value: number)
+    {
+        this._badgesRank = value;
     }
 
     public get background(): number

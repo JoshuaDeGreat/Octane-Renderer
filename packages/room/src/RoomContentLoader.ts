@@ -388,8 +388,18 @@ export class RoomContentLoader implements IRoomContentLoader
             })
             .catch((err) =>
             {
+                this.clearPendingType(type);
+
                 GetEventDispatcher().dispatchEvent(new RoomContentLoadedEvent(RoomContentLoadedEvent.RCLE_FAILURE, type));
             });
+    }
+
+    /** A failed type may be requested again later, instead of staying a placeholder until reload. */
+    private clearPendingType(type: string): void
+    {
+        const index = this._pendingContentTypes.indexOf(type);
+
+        if(index >= 0) this._pendingContentTypes.splice(index, 1);
     }
 
     public async downloadAsset(type: string): Promise<void>
@@ -410,6 +420,8 @@ export class RoomContentLoader implements IRoomContentLoader
         }
         catch (error)
         {
+            this.clearPendingType(type);
+
             GetEventDispatcher().dispatchEvent(new RoomContentLoadedEvent(RoomContentLoadedEvent.RCLE_FAILURE, type));
 
             throw error;
@@ -417,6 +429,8 @@ export class RoomContentLoader implements IRoomContentLoader
 
         if(!downloaded)
         {
+            this.clearPendingType(type);
+
             GetEventDispatcher().dispatchEvent(new RoomContentLoadedEvent(RoomContentLoadedEvent.RCLE_FAILURE, type));
 
             return;

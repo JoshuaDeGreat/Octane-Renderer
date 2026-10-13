@@ -40,6 +40,9 @@ interface HabIndexEntry
 }
 
 const HEADER_LENGTH = 20;
+const HAB_VERSION = 1;
+const MAX_INDEX_LENGTH = (64 * 1024 * 1024);
+const MAX_ENTRIES = 100000;
 const TEXT_DECODER = new TextDecoder('utf-8');
 
 /** True when the bytes start with the "HAB\0" magic. */
@@ -58,10 +61,15 @@ export const readHabBundle = (buffer: ArrayBuffer): HabBundleContents =>
     if(!isHabBundle(buffer)) throw new Error('Not a HAB bundle (missing "HAB\\0" magic)');
 
     const view = new DataView(buffer);
+    const version = view.getUint16(4, true);
     const indexLength = view.getUint32(8, true);
     const indexRawLength = view.getUint32(12, true);
     const dataLength = view.getUint32(16, true);
     const dataStart = HEADER_LENGTH + indexLength;
+
+    if(version !== HAB_VERSION) throw new Error(`HAB bundle version ${ version } is not supported`);
+
+    if((indexLength > MAX_INDEX_LENGTH) || (indexRawLength > MAX_INDEX_LENGTH)) throw new Error('HAB index is too large');
 
     if(dataStart + dataLength > buffer.byteLength) throw new Error('HAB bundle is shorter than its header says');
 
@@ -73,10 +81,21 @@ export const readHabBundle = (buffer: ArrayBuffer): HabBundleContents =>
 
     if(index?.format !== 'hab' || !Array.isArray(index.entries)) throw new Error('HAB index is not a "hab" index');
 
+    if(index.entries.length > MAX_ENTRIES) throw new Error('HAB index has too many entries');
+
+    const names = new Set<string>();
+
     const entries: HabBundleEntry[] = index.entries.map(entry =>
     {
-        if(entry.offset < 0 || entry.storedLength < 0 || entry.offset + entry.storedLength > dataLength)
+        if(typeof entry?.name !== 'string' || names.has(entry.name)) throw new Error(`HAB entry "${ entry?.name }" is missing or listed twice`);
+
+        names.add(entry.name);
+
+        if(!Number.isSafeInteger(entry.offset) || !Number.isSafeInteger(entry.storedLength) || entry.offset < 0 || entry.storedLength < 0 || entry.offset + entry.storedLength > dataLength)
             throw new Error(`HAB entry "${ entry.name }" lies outside the data section`);
+
+        if(entry.compression !== undefined && entry.compression !== 'deflate' && entry.compression !== 'none')
+            throw new Error(`HAB entry "${ entry.name }" uses unknown compression "${ entry.compression }"`);
 
         const stored = new Uint8Array(buffer, dataStart + entry.offset, entry.storedLength);
         const bytes = entry.compression === 'deflate' ? inflateEntry(stored) : stored.slice();

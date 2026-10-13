@@ -1,5 +1,6 @@
 import { AvatarGuideStatus, IConnection, IMessageEvent, IRoomCreator, IRoomObjectController, IRoomObject, IVector3D, LegacyDataType, ObjectRolling, PetType, RoomObjectCategory, RoomObjectType, RoomObjectUserType, RoomObjectVariable } from '@octane/api';
 import { AreaHideMessageEvent, ConfInvisStateMessageEvent, DiceValueMessageEvent, FloorHeightMapEvent, FurnitureAliasesComposer, FurnitureAliasesEvent, FurnitureDataEvent, FurnitureFloorAddEvent, FurnitureFloorDataParser, FurnitureFloorEvent, FurnitureFloorRemoveEvent, FurnitureFloorUpdateEvent, FurnitureWallAddEvent, FurnitureWallDataParser, FurnitureWallEvent, FurnitureWallRemoveEvent, FurnitureWallUpdateEvent, GetCommunication, GetRoomEntryDataMessageComposer, GuideSessionEndedMessageEvent, GuideSessionErrorMessageEvent, GuideSessionStartedMessageEvent, IgnoreResultEvent, ItemDataUpdateMessageEvent, ObjectsDataUpdateEvent, ObjectsRollingEvent, OneWayDoorStatusMessageEvent, PetExperienceEvent, PetFigureUpdateEvent, RoomEntryTileMessageEvent, RoomEntryTileMessageParser, RoomHeightMapEvent, RoomHeightMapUpdateEvent, RoomPaintEvent, RoomReadyMessageEvent, RoomUnitChatEvent, RoomUnitChatShoutEvent, RoomUnitChatWhisperEvent, RoomUnitDanceEvent, RoomUnitEffectEvent, RoomUnitEvent, RoomUnitExpressionEvent, RoomUseHabbiconEvent, RoomUnitHandItemEvent, RoomUnitIdleEvent, RoomUnitInfoEvent, RoomUnitNumberEvent, RoomUnitRemoveEvent, RoomUnitStatusEvent, RoomUnitStatusMessage, RoomUnitTypingEvent, RoomVisualizationSettingsEvent, UserInfoEvent, WiredFurniMoveStyleEvent, WiredFurniMoveStyleParser, WiredFurniMovementData, WiredMovementsEvent, WiredUserDirectionUpdateData, WiredUserMovementData, YouArePlayingGameEvent } from '@octane/communication';
+import { GetEventDispatcher, OctaneEventType } from '@octane/events';
 import { GetRoomSessionManager, GetSessionDataManager } from '@octane/session';
 import { Vector3d } from '@octane/utils';
 import { FloorHeightMapMessageParser } from '@octane/communication';
@@ -118,10 +119,14 @@ export class RoomMessageHandler
         {
             this._connection.addMessageEvent(event);
         }
+
+        GetEventDispatcher().addEventListener(OctaneEventType.BLOCKED_USERS_UPDATED, this.onBlockedUsersUpdated);
     }
 
     public dispose(): void
     {
+        GetEventDispatcher().removeEventListener(OctaneEventType.BLOCKED_USERS_UPDATED, this.onBlockedUsersUpdated);
+
         if(this._connection)
         {
             for(const event of this._messageEvents)
@@ -1498,6 +1503,12 @@ export class RoomMessageHandler
             }
 
             this._roomEngine.updateRoomObjectUserAction(this._currentRoomId, user.roomIndex, RoomObjectVariable.FIGURE_IS_MUTED, (GetSessionDataManager().isUserIgnored(user.name) ? 1 : 0));
+
+            // Pets and bots have ids too; only users can be on the block list.
+            if((RoomObjectUserType.getTypeString(user.userType) === RoomObjectUserType.USER) && (user.webID > 0))
+            {
+                this._roomEngine.updateRoomObjectUserAction(this._currentRoomId, user.roomIndex, RoomObjectVariable.FIGURE_IS_BLOCKED, (GetSessionDataManager().isBlocked(user.webID) ? 1 : 0));
+            }
         }
 
         this.updateGuideMarker();
@@ -1888,6 +1899,23 @@ export class RoomMessageHandler
                 return;
         }
     }
+
+    // Blocking or unblocking someone updates the users already in the room.
+    private onBlockedUsersUpdated = (): void =>
+    {
+        if(!this._roomEngine || !this._currentRoomId) return;
+
+        const roomSession = GetRoomSessionManager().getSession(this._currentRoomId);
+
+        if(!roomSession) return;
+
+        for(const userData of roomSession.userDataManager.getRoomUserListSnapshot())
+        {
+            if(!userData || userData.webID <= 0 || userData.type !== RoomObjectType.USER) continue;
+
+            this._roomEngine.updateRoomObjectUserAction(this._currentRoomId, userData.roomIndex, RoomObjectVariable.FIGURE_IS_BLOCKED, (GetSessionDataManager().isBlocked(userData.webID) ? 1 : 0));
+        }
+    };
 
     private onGuideSessionStartedMessageEvent(event: GuideSessionStartedMessageEvent): void
     {

@@ -21,6 +21,7 @@ export class UserMessageData
     private _prefixFont: string = '';
     private _displayOrder: string = 'icon-prefix-name';
     private _activityPoints: number = 0;
+    private _badgesRank: number = -1;
     private _background: number = 0;
     private _stand: number = 0;
     private _overlay: number = 0;
@@ -183,6 +184,19 @@ export class UserMessageData
     public get activityPoints(): number
     {
         return this._activityPoints;
+    }
+
+    public get badgesRank(): number
+    {
+        return this._badgesRank;
+    }
+
+    public set badgesRank(value: number)
+    {
+        if(!this._isReadOnly)
+        {
+            this._badgesRank = value;
+        }
     }
 
     public set activityPoints(value: number)

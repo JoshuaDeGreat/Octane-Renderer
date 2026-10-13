@@ -2,7 +2,7 @@
 import { AvatarAction, IRoomGeometry, IRoomObjectModel, IVector3D, MouseEventType, RoomObjectVariable } from '@octane/api';
 import { RoomObjectFurnitureActionEvent, RoomObjectMouseEvent, RoomObjectMoveEvent, RoomSpriteMouseEvent } from '@octane/events';
 import { GetTickerTime, Vector3d } from '@octane/utils';
-import { ObjectAvatarCarryObjectUpdateMessage, ObjectAvatarChatUpdateMessage, ObjectAvatarDanceUpdateMessage, ObjectAvatarEffectUpdateMessage, ObjectAvatarExpressionUpdateMessage, ObjectAvatarFigureUpdateMessage, ObjectAvatarFlatControlUpdateMessage, ObjectAvatarGestureUpdateMessage, ObjectAvatarHabbiconUpdateMessage, ObjectAvatarMutedUpdateMessage, ObjectAvatarOwnMessage, ObjectAvatarPlayerValueUpdateMessage, ObjectAvatarPlayingGameUpdateMessage, ObjectAvatarPostureUpdateMessage, ObjectAvatarSelectedMessage, ObjectAvatarSignUpdateMessage, ObjectAvatarSleepUpdateMessage, ObjectAvatarTypingUpdateMessage, ObjectAvatarUpdateMessage, ObjectAvatarUseObjectUpdateMessage, RoomObjectUpdateMessage } from '../../messages';
+import { ObjectAvatarBlockedUpdateMessage, ObjectAvatarCarryObjectUpdateMessage, ObjectAvatarChatUpdateMessage, ObjectAvatarDanceUpdateMessage, ObjectAvatarEffectUpdateMessage, ObjectAvatarExpressionUpdateMessage, ObjectAvatarFigureUpdateMessage, ObjectAvatarFlatControlUpdateMessage, ObjectAvatarGestureUpdateMessage, ObjectAvatarHabbiconUpdateMessage, ObjectAvatarMutedUpdateMessage, ObjectAvatarOwnMessage, ObjectAvatarPlayerValueUpdateMessage, ObjectAvatarPlayingGameUpdateMessage, ObjectAvatarPostureUpdateMessage, ObjectAvatarSelectedMessage, ObjectAvatarSignUpdateMessage, ObjectAvatarSleepUpdateMessage, ObjectAvatarTypingUpdateMessage, ObjectAvatarUpdateMessage, ObjectAvatarUseObjectUpdateMessage, RoomObjectUpdateMessage } from '../../messages';
 import { HabbiconAssetManager } from '../visualization/avatar/additions/HabbiconAssetManager';
 import { MovingObjectLogic } from './MovingObjectLogic';
 
@@ -285,6 +285,13 @@ export class AvatarLogic extends MovingObjectLogic
         if(message instanceof ObjectAvatarMutedUpdateMessage)
         {
             model.setValue(RoomObjectVariable.FIGURE_IS_MUTED, (message.isMuted ? 1 : 0));
+
+            return;
+        }
+
+        if(message instanceof ObjectAvatarBlockedUpdateMessage)
+        {
+            model.setValue(RoomObjectVariable.FIGURE_IS_BLOCKED, (message.isBlocked ? 1 : 0));
 
             return;
         }

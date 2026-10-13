@@ -1,6 +1,30 @@
 import { OctaneEventType } from '@octane/events';
 import { describe, expect, it } from 'vitest';
-import { shouldAttemptRoomReEntry } from './reconnectRoomPolicy';
+import { shouldAttemptRoomReEntry, shouldRestoreStoredRoom } from './reconnectRoomPolicy';
+
+describe('shouldRestoreStoredRoom', () =>
+{
+    it('enters the stored room when no session exists yet', () =>
+    {
+        expect(shouldRestoreStoredRoom(405, null)).toBe(true);
+    });
+
+    it('does not replace the session a first restore already started for that room', () =>
+    {
+        expect(shouldRestoreStoredRoom(405, 405)).toBe(false);
+    });
+
+    it('enters the stored room when the current session is another room', () =>
+    {
+        expect(shouldRestoreStoredRoom(405, 7)).toBe(true);
+    });
+
+    it('ignores a stored id that is not a room', () =>
+    {
+        expect(shouldRestoreStoredRoom(0, null)).toBe(false);
+        expect(shouldRestoreStoredRoom(-3, null)).toBe(false);
+    });
+});
 
 describe('shouldAttemptRoomReEntry', () =>
 {

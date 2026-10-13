@@ -2,7 +2,7 @@ import { ICodec, IConnection, IConnectionStateSnapshot, IMessageComposer, IMessa
 import { GetConfiguration } from '@octane/configuration';
 import { GetEventDispatcher, OctaneEvent, OctaneEventType, ReconnectEvent } from '@octane/events';
 import { OctaneLogger } from '@octane/utils';
-import { EvaWireFormat } from './codec';
+import { EvaWireFormat, InvalidMessageLengthError } from './codec';
 import { aesGcmDecrypt, aesGcmEncrypt, buildClientHello, deriveAesKey, deriveSharedSecret, exportPublicKeySpki, generateEphemeralKeyPair, importPublicKeySpki, importSigningPublicKeyFromBase64, NONCE_LEN, parseServerHello, randomNonce, verifyEphemeralSignature } from './crypto';
 import { ConnectionStateStore } from './ConnectionStateStore';
 import { MessageClassManager } from './messages';
@@ -29,11 +29,14 @@ export class SocketConnection implements IConnection
     private _socketUrl: string = null;
     private _reconnectAttempt: number = 0;
     private _reconnectTimer: ReturnType<typeof setTimeout> = null;
+    private _connectTimer: ReturnType<typeof setTimeout> = null;
     private _isReconnecting: boolean = false;
     private _intentionalClose: boolean = false;
     private _wasAuthenticated: boolean = false;
 
     public static readonly MAX_RECONNECT_ATTEMPTS: number = 7;
+    /** A socket still connecting after this long is given up on (firewall, dead proxy). */
+    public static readonly CONNECT_TIMEOUT_MS: number = 10000;
     public static readonly BASE_RECONNECT_DELAY_MS: number = 1000;
     public static readonly MAX_RECONNECT_DELAY_MS: number = 30000;
 
@@ -94,6 +97,33 @@ export class SocketConnection implements IConnection
         this._socket.addEventListener(WebSocketEventEnum.CONNECTION_CLOSED, this._onCloseCallback);
         this._socket.addEventListener(WebSocketEventEnum.CONNECTION_ERROR, this._onErrorCallback);
         this._socket.addEventListener(WebSocketEventEnum.CONNECTION_MESSAGE, this._onMessageCallback);
+
+        this.startConnectTimeout(this._socket);
+    }
+
+    private startConnectTimeout(socket: WebSocket): void
+    {
+        this.clearConnectTimeout();
+
+        this._connectTimer = setTimeout(() =>
+        {
+            this._connectTimer = null;
+
+            if((this._socket !== socket) || (socket.readyState !== WebSocket.CONNECTING)) return;
+
+            OctaneLogger.warn('[SocketConnection] Connection timed out after ' + SocketConnection.CONNECT_TIMEOUT_MS + ' ms');
+
+            // Closing a connecting socket fails it: the close event then counts as a failed attempt.
+            socket.close();
+        }, SocketConnection.CONNECT_TIMEOUT_MS);
+    }
+
+    private clearConnectTimeout(): void
+    {
+        if(!this._connectTimer) return;
+
+        clearTimeout(this._connectTimer);
+        this._connectTimer = null;
     }
 
     private subtleCryptoAvailable(): boolean
@@ -165,7 +195,14 @@ export class SocketConnection implements IConnection
 
         const messageLength = this.peekFirstMessageLength();
 
-        if(messageLength < 0 || (this._pendingBytes < (messageLength + 4))) return;
+        if(!EvaWireFormat.isValidMessageLength(messageLength))
+        {
+            this.abortOnMalformedData(messageLength);
+
+            return;
+        }
+
+        if(this._pendingBytes < (messageLength + 4)) return;
 
         this._dataBuffer = this.mergePendingChunks();
         this._pendingChunks = [];
@@ -302,9 +339,12 @@ export class SocketConnection implements IConnection
 
     private onSocketOpened(): void
     {
+        this.clearConnectTimeout();
+
         if(this._isReconnecting)
         {
-            this._reconnectAttempt = 0;
+            // The attempt counter resets on login, not here: a server that accepts the socket and
+            // then drops it would otherwise be retried forever.
             this._isReconnecting = false;
 
             this.setConnectionState({ phase: 'reauthenticating', reconnectAttempt: 0, authenticated: false });
@@ -428,6 +468,8 @@ export class SocketConnection implements IConnection
 
     private cleanupSocket(): void
     {
+        this.clearConnectTimeout();
+
         if(!this._socket) return;
 
         if(this._onOpenCallback) this._socket.removeEventListener(WebSocketEventEnum.CONNECTION_OPENED, this._onOpenCallback);
@@ -455,6 +497,8 @@ export class SocketConnection implements IConnection
     public dispose(): void
     {
         this._intentionalClose = true;
+
+        this.clearConnectTimeout();
 
         if(this._reconnectTimer)
         {
@@ -539,6 +583,7 @@ export class SocketConnection implements IConnection
     public authenticated(): void
     {
         this._isAuthenticated = true;
+        this._reconnectAttempt = 0;
         this.setConnectionState({
             phase: 'connected',
             reconnectAttempt: 0,
@@ -631,8 +676,27 @@ export class SocketConnection implements IConnection
 
         catch (err)
         {
+            if(err instanceof InvalidMessageLengthError)
+            {
+                this.abortOnMalformedData(err.length);
+
+                return;
+            }
+
             OctaneLogger.error(err);
         }
+    }
+
+    /** The stream can't be read past a bad length: drop it and close, so the reconnect path takes over. */
+    private abortOnMalformedData(length: number): void
+    {
+        OctaneLogger.error('[SocketConnection] Malformed message length ' + length + ', closing the connection');
+
+        this._dataBuffer = new ArrayBuffer(0);
+        this._pendingChunks = [];
+        this._pendingBytes = 0;
+
+        if(this._socket && (this._socket.readyState === WebSocket.OPEN)) this._socket.close(4000, 'Malformed message');
     }
 
     private processData(): void
@@ -720,7 +784,16 @@ export class SocketConnection implements IConnection
 
             message.connection = this;
 
-            if(message.callBack) message.callBack(message);
+            // One failing handler must not drop the rest of the batch.
+            try
+            {
+                if(message.callBack) message.callBack(message);
+            }
+
+            catch (err)
+            {
+                OctaneLogger.error('Error handling message', err, message.constructor.name);
+            }
         }
     }
 

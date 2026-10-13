@@ -2,6 +2,7 @@ export * from './ApngImageDecoder';
 export * from './CanvasAnimatedTexture';
 export * from './DecodedAnimation';
 export * from './GifImageDecoder';
+export * from './HalfSizeTexture';
 export * from './ImageFormat';
 export * from './ImageFormatDetector';
 export * from './ImageLimits';

@@ -74,7 +74,7 @@ export class FurnitureVoteCounterLogic extends FurnitureMultiStateLogic
             if((this.currentTotal !== this._total) && (time >= (this._lastUpdate + this._interval)))
             {
                 const elapsed = (time - this._lastUpdate);
-                let steps = (elapsed / this._interval);
+                let steps = Math.floor(elapsed / this._interval);
                 let direction = 1;
 
                 if(this._total < this.currentTotal) direction = -1;

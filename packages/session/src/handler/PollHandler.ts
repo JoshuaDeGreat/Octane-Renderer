@@ -53,7 +53,7 @@ export class PollHandler extends BaseHandler
 
         const pollEvent = new RoomSessionPollEvent(RoomSessionPollEvent.OFFER, session, parser.id);
 
-        pollEvent.summary = parser.headline;
+        pollEvent.headline = parser.headline;
         pollEvent.summary = parser.summary;
 
         GetEventDispatcher().dispatchEvent(pollEvent);

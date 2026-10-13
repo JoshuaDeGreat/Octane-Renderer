@@ -84,6 +84,8 @@ export class RoomUnitParser implements IMessageParser
                 user.prefixEffect = wrapper.readString();
                 user.prefixFont = wrapper.readString();
                 user.displayOrder = wrapper.readString();
+                // Always sent per user; a bytesAvailable guard would misread the next record.
+                user.badgesRank = wrapper.readInt();
             }
 
             else if(type === 2)

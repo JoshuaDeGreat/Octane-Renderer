@@ -22,6 +22,11 @@ export class AvatarVisualizationData implements IObjectVisualizationData
         return avatarImage;
     }
 
+    public createBlockedAvatarImage(size: number): IAvatarImage
+    {
+        return GetAvatarRenderManager().createPlaceholderAvatarImage((size > 48) ? AvatarScaleType.LARGE : AvatarScaleType.SMALL);
+    }
+
     public get layerCount(): number
     {
         return 0;
