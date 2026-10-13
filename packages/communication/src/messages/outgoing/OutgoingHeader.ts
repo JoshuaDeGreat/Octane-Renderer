@@ -336,6 +336,8 @@ export class OutgoingHeader
     public static WIRED_ROOM_STATE_ACTION = 3761;
     public static WIRED_ROOM_LOGS_PAGE = 3882;
     public static WIRED_VARIABLE_HOLDERS_PAGE = 975;
+    // Official AIR variable leaderboard subscription; also the hello on entering a room.
+    public static WIRED_LEADERBOARD_SUBSCRIBE = 2833;
     public static WIRED_VARIABLE_HOLDERS_REQUEST = 2973;
     public static WIRED_VARIABLE_HASHES = 1497;
     public static WIRED_ALL_VARIABLES_REQUEST = 1735;
