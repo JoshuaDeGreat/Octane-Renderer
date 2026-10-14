@@ -1,5 +1,6 @@
 export * from './ConditionDefinition';
 export * from './Triggerable';
+export * from './WiredDefinitionContext';
 export * from './TriggerDefinition';
 export * from './WiredActionDefinition';
 export * from './WiredEnvironmentParser';

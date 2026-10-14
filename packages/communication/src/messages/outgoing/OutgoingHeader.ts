@@ -479,7 +479,7 @@ export class OutgoingHeader
     public static BUILDERS_CLUB_PLACE_ROOM_ITEM = 1051;
     public static BUILDERS_CLUB_PLACE_WALL_ITEM = 462;
     public static BUILDERS_CLUB_QUERY_FURNI_COUNT = 2529;
-    public static BUILDERS_CLUB_RECOLOR_FURNI = 9480;
+    public static RECOLOR_FURNI = 2852;
     public static GET_CATALOG_PAGE_EXPIRATION = 742;
     public static GET_CATALOG_PAGE_WITH_EARLIEST_EXP = 3135;
     public static GET_DIRECT_CLUB_BUY_AVAILABLE = 801;

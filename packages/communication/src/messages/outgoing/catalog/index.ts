@@ -17,7 +17,6 @@ export * from './CatalogAdminSetPageEnabledComposer';
 export * from './CatalogAdminSetPageVisibleComposer';
 export * from './BuildersClubPlaceWallItemMessageComposer';
 export * from './BuildersClubQueryFurniCountMessageComposer';
-export * from './BuildersClubRecolorFurniMessageComposer';
 export * from './GetBonusRareInfoMessageComposer';
 export * from './GetBundleDiscountRulesetComposer';
 export * from './GetCatalogIndexComposer';

@@ -702,4 +702,6 @@ export class IncomingHeader
     public static TREASURE_HUNT_UPDATE = 3368;
     // AIR 13 self donation tool result (server -> client), official id.
     public static SELF_DONATION_RESULT = 2920;
+    // Official recolour update of recolourable furni (server -> client).
+    public static RECOLOR_FURNI_UPDATE = 181;
 }

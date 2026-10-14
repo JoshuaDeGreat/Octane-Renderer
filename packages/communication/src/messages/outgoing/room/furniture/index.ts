@@ -27,3 +27,4 @@ export * from './RentableSpaceStatusMessageComposer';
 export * from './toner';
 export * from './wall';
 export * from './youtube';
+export * from './RecolorFurniComposer';

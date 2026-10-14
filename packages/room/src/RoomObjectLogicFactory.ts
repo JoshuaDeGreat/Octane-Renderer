@@ -175,6 +175,8 @@ export class RoomObjectLogicFactory implements IRoomObjectLogicFactory
             // Gen-3 "Origins" chest furni: route their custom logic to the standard multi-state logic.
             case 'furniture_coinschest':
             case 'furniture_furnichest':
+            // Recolourable Builders Club furni: multi-state; the visualization reads the colour from the data map.
+            case 'furniture_recolorable':
             case RoomObjectLogicType.FURNITURE_MULTISTATE:
                 logic = FurnitureMultiStateLogic;
                 break;

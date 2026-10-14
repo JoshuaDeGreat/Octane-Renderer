@@ -138,19 +138,27 @@ describe('WiredLeaderboardChunkParser', () =>
 
 describe('WiredActionDefinition leaderboard context', () =>
 {
+    // The official definition layout up to the editor contexts.
     const writeAddon = (writer: BinaryWriter) =>
     {
-        writer.writeByte(0);
-        writer.writeInt(0);
-        writer.writeInt(0);
+        writer.writeInt(0); // furni limit
+        writer.writeInt(0); // furni picks
+        writer.writeInt(0); // second furni picks
         writer.writeInt(4321); // spriteId
         writer.writeInt(99); // id
         writer.writeString('');
-        writer.writeInt(0);
-        writer.writeInt(0);
-        writer.writeInt(1005);
-        writer.writeInt(0);
-        writer.writeInt(0);
+        writer.writeInt(0); // int params
+        writer.writeInt(0); // variable ids
+        writer.writeInt(0); // furni sources
+        writer.writeInt(0); // user sources
+        writer.writeInt(1005); // code
+        writer.writeInt(0); // delay
+        writer.writeByte(0); // advanced mode
+        writer.writeInt(0); // allowed furni sources
+        writer.writeInt(0); // allowed user sources
+        writer.writeInt(0); // default furni sources
+        writer.writeInt(0); // default user sources
+        writer.writeByte(0); // allow wall furni
     };
 
     it('reads context type 8 after the addon fields', () =>
@@ -170,6 +178,7 @@ describe('WiredActionDefinition leaderboard context', () =>
         writer.writeByte(1);
         writer.writeByte(1);
         writer.writeInt(0);
+        writer.writeInt(0); // default int params
 
         const definition = new WiredActionDefinition(wrapper(writer));
 
@@ -185,6 +194,8 @@ describe('WiredActionDefinition leaderboard context', () =>
         const writer = new BinaryWriter();
 
         writeAddon(writer);
+        writer.writeInt(0); // no contexts
+        writer.writeInt(0); // default int params
 
         expect(new WiredActionDefinition(wrapper(writer)).leaderboardContext).toBeNull();
     });
