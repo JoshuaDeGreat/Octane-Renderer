@@ -1,6 +1,6 @@
 import { getHalfSizeTexture, halfSizeOffset, halfSizePadding, isPixelArtTexture } from '@octane/assets';
 import { AlphaTolerance, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObjectSprite, IVector3D, RoomObjectVariable, RoomObjectVisualizationType } from '@octane/api';
-import { ChooserSelectionFilter, OctaneLogger, Vector3d } from '@octane/utils';
+import { ChooserSelectionFilter, OctaneLogger, Vector3d, WiredFilter } from '@octane/utils';
 import { BLEND_MODES, Filter, Texture } from 'pixi.js';
 import { RoomObjectSpriteVisualization } from '../RoomObjectSpriteVisualization';
 import { IWindowReflectionUnitLayer, RoomWindowReflectionState } from '../RoomWindowReflectionState';
@@ -607,9 +607,10 @@ export class FurnitureVisualization extends RoomObjectSpriteVisualization
                 }
                 else if((currentFilters && currentFilters.length) || this._filters.length)
                 {
-                    const chooserFilters = (currentFilters || []).filter(f => f instanceof ChooserSelectionFilter);
+                    // Highlights put on from outside (the furni chooser, the wired editor's picks) survive a redraw.
+                    const overlayFilters = (currentFilters || []).filter(f => (f instanceof ChooserSelectionFilter) || (f instanceof WiredFilter));
 
-                    sprite.filters = chooserFilters.length > 0 ? [...this._filters, ...chooserFilters] : this._filters;
+                    sprite.filters = overlayFilters.length > 0 ? [...this._filters, ...overlayFilters] : this._filters;
                 }
             }
             else

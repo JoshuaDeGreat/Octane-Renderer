@@ -72,6 +72,12 @@ export class MapDataType extends ObjectDataBase
         return this._data[key];
     }
 
+    /** Sets one key on a copy of the map, so a map a room object already holds is left as it was. */
+    public setValue(key: string, value: string): void
+    {
+        this._data = { ...this._data, [key]: value };
+    }
+
     public get rarityLevel(): number
     {
         if(!this._data) return -1;

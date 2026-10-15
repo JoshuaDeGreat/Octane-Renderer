@@ -1,24 +1,15 @@
-﻿import { IMessageDataWrapper } from '@octane/api';
+import { IMessageDataWrapper } from '@octane/api';
 import { Triggerable } from './Triggerable';
 
 export class ConditionDefinition extends Triggerable
 {
-    private _type: number;
-
     constructor(wrapper: IMessageDataWrapper)
     {
-        super(wrapper);
-
-        this._type = wrapper.readInt();
+        super(wrapper, 'condition');
     }
 
     public get type(): number
     {
-        return this._type;
-    }
-
-    public get code(): number
-    {
-        return this._type;
+        return this.code;
     }
 }
