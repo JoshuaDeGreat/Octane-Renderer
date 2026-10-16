@@ -17,5 +17,6 @@ export interface IConnection
     removeMessageEvent(event: IMessageEvent): void;
     readonly connectionState: Readonly<IConnectionStateSnapshot>;
     isAuthenticated: boolean;
+    readonly hasBeenReady: boolean;
     dataBuffer: ArrayBuffer;
 }
