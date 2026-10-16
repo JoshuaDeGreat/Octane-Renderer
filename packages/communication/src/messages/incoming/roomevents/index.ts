@@ -30,3 +30,6 @@ export * from './WiredLeaderboardChunkEvent';
 export * from './WiredLeaderboardSnapshotEvent';
 export * from './WiredLabelsEvent';
 export * from './WiredLabelsUpdateEvent';
+export * from './WiredFurniAddonEvent';
+export * from './WiredFurniSelectorEvent';
+export * from './WiredFurniVariableEvent';

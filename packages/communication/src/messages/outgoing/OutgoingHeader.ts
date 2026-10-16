@@ -318,6 +318,10 @@ export class OutgoingHeader
     // Official 2970 is now the furniture label settings save, so the ambassador visit moved to 9400.
     public static VISIT_USER = 9400;
     public static WIRED_ACTION_SAVE = 2281;
+    // Official AIR wired addon, selector and variable saves.
+    public static WIRED_ADDON_SAVE = 1883;
+    public static WIRED_SELECTOR_SAVE = 3883;
+    public static WIRED_VARIABLE_SAVE = 2310;
     public static WIRED_APPLY_SNAPSHOT = 3373;
     public static WIRED_CONDITION_SAVE = 3203;
     public static WIRED_MONITOR_REQUEST = 10021;
