@@ -93,6 +93,10 @@ export class RoomObjectVariable
     public static FURNITURE_MOVE_OVERSHOOT: string = 'furniture_move_overshoot';
     public static FURNITURE_WIRED_OPACITY: string = 'furniture_wired_opacity';
     public static FURNITURE_WIRED_CLICK_THROUGH: string = 'furniture_wired_click_through';
+    public static FURNITURE_WIRED_TRANSPARENCY: string = 'furniture_wired_transparency';
+    public static FURNITURE_WIRED_HIGHLIGHT_TYPE: string = 'furniture_wired_highlight_type';
+    public static FURNITURE_WIRED_HIGHLIGHT_STRENGTH: string = 'furniture_wired_highlight_strength';
+    public static FURNITURE_WIRED_HIGHLIGHT_COLOR: string = 'furniture_wired_highlight_color';
     public static FURNITURE_CONF_INVIS_HIDDEN: string = 'furniture_conf_invis_hidden';
     public static FURNITURE_AREA_HIDE_HIDDEN: string = 'furniture_area_hide_hidden';
     public static FURNITURE_USAGE_POLICY: string = 'furniture_usage_policy';

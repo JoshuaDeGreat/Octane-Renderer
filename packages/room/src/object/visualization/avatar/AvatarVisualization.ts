@@ -1,9 +1,10 @@
-import { AlphaTolerance, AvatarAction, AvatarGuideStatus, AvatarSetType, IAdvancedMap, IAvatarEffectListener, IAvatarImage, IAvatarImageListener, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObject, IRoomObjectModel, RoomObjectSpriteType, RoomObjectVariable } from '@octane/api';
+import { AlphaTolerance, AvatarAction, AvatarGuideStatus, AvatarSetType, IAdvancedMap, IAvatarEffectListener, IAvatarImage, IAvatarImageListener, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObject, IRoomObjectModel, IRoomObjectSprite, RoomObjectSpriteType, RoomObjectVariable } from '@octane/api';
 import { GetAssetManager, getHalfSizeTexture, halfSizeOffset, halfSizePadding, isPixelArtTexture } from '@octane/assets';
 import { AdvancedMap, GetRenderer, Vector3d } from '@octane/utils';
 import { Container, RenderTexture, Sprite, Texture } from 'pixi.js';
 import { RoomObjectSpriteVisualization } from '../RoomObjectSpriteVisualization';
 import { RoomWindowReflectionState } from '../RoomWindowReflectionState';
+import { WiredHighlightFilterCache } from '../WiredHighlightFilters';
 import { AvatarVisualizationData } from './AvatarVisualizationData';
 import { ExpressionAdditionFactory, FloatingIdleZAddition, GameClickTargetAddition, GuideStatusBubbleAddition, HabbiconBubbleAddition, IAvatarAddition, MutedBubbleAddition, NumberBubbleAddition, TypingBubbleAddition } from './additions';
 
@@ -66,6 +67,9 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
     private _sign: number;
     private _highlightEnabled: boolean;
     private _highlight: boolean;
+    private _wiredVisibility: number;
+    private _wiredClickThrough: boolean;
+    private _wiredHighlight: WiredHighlightFilterCache;
     private _dance: number;
     private _effect: number;
     private _carryObject: number;
@@ -132,6 +136,9 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
         this._sign = -1;
         this._highlightEnabled = false;
         this._highlight = false;
+        this._wiredVisibility = 1;
+        this._wiredClickThrough = false;
+        this._wiredHighlight = new WiredHighlightFilterCache();
         this._dance = 0;
         this._effect = 0;
         this._carryObject = 0;
@@ -365,6 +372,8 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
 
                 if(sprite.texture)
                 {
+                    this.applyWiredEffects(sprite, this._avatarImage.isPlaceholder());
+
                     sprite.offsetX = ((((-1 * scale) / 2) + canvasOffsets[0]) - ((sprite.texture.width - scale) / 2));
                     sprite.offsetY = (((-(sprite.texture.height) + (scale / 4)) + canvasOffsets[1]) + this._postureOffset);
 
@@ -1038,6 +1047,24 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
             }
         }
 
+        const wiredTransparency = model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_TRANSPARENCY);
+        const wiredVisibility = isNaN(wiredTransparency) ? 1 : (1 - (Math.max(0, Math.min(100, wiredTransparency)) / 100));
+        const wiredClickThrough = (model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_CLICK_THROUGH) > 0);
+
+        if((wiredVisibility !== this._wiredVisibility) || (wiredClickThrough !== this._wiredClickThrough))
+        {
+            this._wiredVisibility = wiredVisibility;
+            this._wiredClickThrough = wiredClickThrough;
+
+            needsUpdate = true;
+        }
+
+        const highlightType = model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_HIGHLIGHT_TYPE);
+        const highlightStrength = model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_HIGHLIGHT_STRENGTH);
+        const highlightColor = model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_HIGHLIGHT_COLOR);
+
+        if(this._wiredHighlight.update(isNaN(highlightType) ? 0 : highlightType, highlightStrength, isNaN(highlightColor) ? 0xFFFFFF : highlightColor)) needsUpdate = true;
+
         const ownUser = (model.getValue<number>(RoomObjectVariable.OWN_USER) > 0);
 
         if(ownUser !== this._ownUser)
@@ -1050,6 +1077,17 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
         this.updateModelCounter = model.updateCounter;
 
         return needsUpdate;
+    }
+
+    // Wired transparency, click-through and highlight apply to the avatar body sprite (AIR AvatarVisualization L530-545, L1546-1600).
+    private applyWiredEffects(sprite: IRoomObjectSprite, placeholder: boolean): void
+    {
+        sprite.alpha = (placeholder ? 150 : 255) * this._wiredVisibility;
+        sprite.alphaTolerance = this._wiredClickThrough ? AlphaTolerance.MATCH_NOTHING : AlphaTolerance.MATCH_OPAQUE_PIXELS;
+
+        const highlightFilters = this._wiredHighlight.filters;
+
+        if((sprite.filters || null) !== highlightFilters) sprite.filters = highlightFilters;
     }
 
     protected setDirection(direction: number): void

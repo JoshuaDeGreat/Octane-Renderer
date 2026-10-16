@@ -309,6 +309,14 @@ export class IncomingHeader
     public static TRANSLATION_RESULT = 5107;
     public static WIRED_FURNI_RUNTIME_STATE = 5108;
     public static WIRED_FURNI_OPACITY = 5109;
+    // Wired transparency and highlight (official ids, build WIN63-202610131318). The furni highlight's
+    // official id (2380) is PET_OPEN_PACKAGE_REQUESTED here, so it takes a custom id.
+    public static WIRED_FURNI_TRANSPARENCY = 2321;
+    public static WIRED_USER_TRANSPARENCY = 3664;
+    public static WIRED_FURNI_HIGHLIGHT = 9468;
+    public static WIRED_USER_HIGHLIGHT = 1684;
+    public static WIRED_FURNI_VISUALIZATION_STATE = 1826;
+    public static WIRED_USER_VISUALIZATION_STATE = 1454;
     public static WIRED_FURNI_MOVE_STYLE = 5110;
     public static WIRED_ARRAY_INSPECTION_DATA = 5111;
     // AIR 13 wired leftovers. 420 (WiredClickUserResponse) and 2901 (WiredUserVariablesPage)

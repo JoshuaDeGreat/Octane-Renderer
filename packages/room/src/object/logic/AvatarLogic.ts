@@ -2,9 +2,10 @@
 import { AvatarAction, IRoomGeometry, IRoomObjectModel, IVector3D, MouseEventType, RoomObjectVariable } from '@octane/api';
 import { RoomObjectFurnitureActionEvent, RoomObjectMouseEvent, RoomObjectMoveEvent, RoomSpriteMouseEvent } from '@octane/events';
 import { GetTickerTime, Vector3d } from '@octane/utils';
-import { ObjectAvatarBlockedUpdateMessage, ObjectAvatarCarryObjectUpdateMessage, ObjectAvatarChatUpdateMessage, ObjectAvatarDanceUpdateMessage, ObjectAvatarEffectUpdateMessage, ObjectAvatarExpressionUpdateMessage, ObjectAvatarFigureUpdateMessage, ObjectAvatarFlatControlUpdateMessage, ObjectAvatarGestureUpdateMessage, ObjectAvatarHabbiconUpdateMessage, ObjectAvatarMutedUpdateMessage, ObjectAvatarOwnMessage, ObjectAvatarPlayerValueUpdateMessage, ObjectAvatarPlayingGameUpdateMessage, ObjectAvatarPostureUpdateMessage, ObjectAvatarSelectedMessage, ObjectAvatarSignUpdateMessage, ObjectAvatarSleepUpdateMessage, ObjectAvatarTypingUpdateMessage, ObjectAvatarUpdateMessage, ObjectAvatarUseObjectUpdateMessage, RoomObjectUpdateMessage } from '../../messages';
+import { ObjectAvatarBlockedUpdateMessage, ObjectAvatarCarryObjectUpdateMessage, ObjectAvatarChatUpdateMessage, ObjectAvatarDanceUpdateMessage, ObjectAvatarEffectUpdateMessage, ObjectAvatarExpressionUpdateMessage, ObjectAvatarFigureUpdateMessage, ObjectAvatarFlatControlUpdateMessage, ObjectAvatarGestureUpdateMessage, ObjectAvatarHabbiconUpdateMessage, ObjectAvatarMutedUpdateMessage, ObjectAvatarOwnMessage, ObjectAvatarPlayerValueUpdateMessage, ObjectAvatarPlayingGameUpdateMessage, ObjectAvatarPostureUpdateMessage, ObjectAvatarSelectedMessage, ObjectAvatarSignUpdateMessage, ObjectAvatarSleepUpdateMessage, ObjectAvatarTypingUpdateMessage, ObjectAvatarUpdateMessage, ObjectAvatarUseObjectUpdateMessage, ObjectFurnitureHighlightUpdateMessage, ObjectFurnitureTransparencyUpdateMessage, RoomObjectUpdateMessage } from '../../messages';
 import { HabbiconAssetManager } from '../visualization/avatar/additions/HabbiconAssetManager';
 import { MovingObjectLogic } from './MovingObjectLogic';
+import { WiredFurnitureEffectState } from './furniture/WiredFurnitureEffectState';
 
 export class AvatarLogic extends MovingObjectLogic
 {
@@ -91,6 +92,10 @@ export class AvatarLogic extends MovingObjectLogic
     public update(time: number): void
     {
         super.update(time);
+
+        this._wiredEffectTime = time;
+
+        if(this._wiredEffectState && this.object && this.object.model) this._wiredEffectState.update(time, this.object.model);
 
         if(this._selected && this.object)
         {
@@ -248,9 +253,45 @@ export class AvatarLogic extends MovingObjectLogic
         this.updateHabbiconSpin(time, model);
     }
 
+    private _wiredEffectState: WiredFurnitureEffectState = null;
+    private _wiredEffectTime: number = 0;
+
+    private getWiredEffectState(): WiredFurnitureEffectState
+    {
+        if(!this._wiredEffectState) this._wiredEffectState = new WiredFurnitureEffectState();
+
+        return this._wiredEffectState;
+    }
+
+    private getWiredEffectTime(): number
+    {
+        return (this._wiredEffectTime > 0) ? this._wiredEffectTime : GetTickerTime();
+    }
+
+    private processWiredEffectMessage(message: RoomObjectUpdateMessage): boolean
+    {
+        if(message instanceof ObjectFurnitureTransparencyUpdateMessage)
+        {
+            this.getWiredEffectState().setTransparency(message.transparency, message.allowClickThrough, message.easingMode, message.initialize, this.getWiredEffectTime(), this.object.model);
+
+            return true;
+        }
+
+        if(message instanceof ObjectFurnitureHighlightUpdateMessage)
+        {
+            this.getWiredEffectState().setHighlight(message.highlightType, message.strength, message.color, message.animationMode, message.easingMode, message.initialize, this.getWiredEffectTime(), this.object.model);
+
+            return true;
+        }
+
+        return false;
+    }
+
     public processUpdateMessage(message: RoomObjectUpdateMessage): void
     {
         if(!message || !this.object) return;
+
+        if(this.processWiredEffectMessage(message)) return;
 
         super.processUpdateMessage(message);
 

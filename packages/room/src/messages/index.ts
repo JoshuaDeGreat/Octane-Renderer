@@ -24,6 +24,8 @@ export * from './ObjectAvatarTypingUpdateMessage';
 export * from './ObjectAvatarUpdateMessage';
 export * from './ObjectAvatarUseObjectUpdateMessage';
 export * from './ObjectDataUpdateMessage';
+export * from './ObjectFurnitureHighlightUpdateMessage';
+export * from './ObjectFurnitureTransparencyUpdateMessage';
 export * from './ObjectGroupBadgeUpdateMessage';
 export * from './ObjectHeightUpdateMessage';
 export * from './ObjectItemDataUpdateMessage';

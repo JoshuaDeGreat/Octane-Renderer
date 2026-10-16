@@ -1,9 +1,10 @@
 import { IAssetData, IRoomGeometry, IRoomObjectController, IRoomObjectModel, IVector3D, MouseEventType, RoomObjectVariable } from '@octane/api';
 import { GetConfiguration } from '@octane/configuration';
 import { RoomObjectMouseEvent, RoomObjectRoomAdEvent, RoomObjectStateChangedEvent, RoomObjectWidgetRequestEvent, RoomSpriteMouseEvent } from '@octane/events';
-import { Vector3d } from '@octane/utils';
-import { ObjectDataUpdateMessage, ObjectHeightUpdateMessage, ObjectItemDataUpdateMessage, ObjectMoveUpdateMessage, ObjectSelectedMessage, RoomObjectUpdateMessage } from '../../../messages';
+import { GetTickerTime, Vector3d } from '@octane/utils';
+import { ObjectDataUpdateMessage, ObjectFurnitureHighlightUpdateMessage, ObjectFurnitureTransparencyUpdateMessage, ObjectHeightUpdateMessage, ObjectItemDataUpdateMessage, ObjectMoveUpdateMessage, ObjectSelectedMessage, RoomObjectUpdateMessage } from '../../../messages';
 import { MovingObjectLogic } from '../MovingObjectLogic';
+import { WiredFurnitureEffectState } from './WiredFurnitureEffectState';
 
 export class FurnitureLogic extends MovingObjectLogic
 {
@@ -163,6 +164,10 @@ export class FurnitureLogic extends MovingObjectLogic
     {
         super.update(time);
 
+        this._wiredEffectTime = time;
+
+        if(this._wiredEffectState && this.object && this.object.model) this._wiredEffectState.update(time, this.object.model);
+
         if(this._bouncingStep > 0)
         {
             this._bouncingStep++;
@@ -171,8 +176,44 @@ export class FurnitureLogic extends MovingObjectLogic
         }
     }
 
+    private _wiredEffectState: WiredFurnitureEffectState = null;
+    private _wiredEffectTime: number = 0;
+
+    private getWiredEffectState(): WiredFurnitureEffectState
+    {
+        if(!this._wiredEffectState) this._wiredEffectState = new WiredFurnitureEffectState();
+
+        return this._wiredEffectState;
+    }
+
+    private getWiredEffectTime(): number
+    {
+        return (this._wiredEffectTime > 0) ? this._wiredEffectTime : GetTickerTime();
+    }
+
+    private processWiredEffectMessage(message: RoomObjectUpdateMessage): boolean
+    {
+        if(message instanceof ObjectFurnitureTransparencyUpdateMessage)
+        {
+            this.getWiredEffectState().setTransparency(message.transparency, message.allowClickThrough, message.easingMode, message.initialize, this.getWiredEffectTime(), this.object.model);
+
+            return true;
+        }
+
+        if(message instanceof ObjectFurnitureHighlightUpdateMessage)
+        {
+            this.getWiredEffectState().setHighlight(message.highlightType, message.strength, message.color, message.animationMode, message.easingMode, message.initialize, this.getWiredEffectTime(), this.object.model);
+
+            return true;
+        }
+
+        return false;
+    }
+
     public processUpdateMessage(message: RoomObjectUpdateMessage): void
     {
+        if(this.processWiredEffectMessage(message)) return;
+
         if(message instanceof ObjectDataUpdateMessage)
         {
             this.processDataUpdateMessage(message);
