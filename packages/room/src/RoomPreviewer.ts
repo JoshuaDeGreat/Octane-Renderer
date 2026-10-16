@@ -93,7 +93,6 @@ export class RoomPreviewer
 
         // reset() removes the object, but the engine still owns the preview room and its canvas;
         // every preview gets a new room id, so each one used to stay behind for good.
-        // (Ported from Volt-Renderer 7443d6ac, GPL-3.0.)
         if(this.isRoomEngineReady) this._roomEngine.destroyRoom(this._previewRoomId);
 
         if(this.isRoomEngineReady && GetEventDispatcher())

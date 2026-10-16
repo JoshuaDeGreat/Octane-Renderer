@@ -74,13 +74,55 @@ export class ExtendedSprite extends Sprite
     {
         const previous = super.texture;
 
-        if(previous && (previous !== texture)) previous.off('destroy', this.onTextureDestroyed, this);
+        if(previous && (previous !== texture)) ExtendedSprite.unwatchTexture(previous, this);
 
         super.texture = texture;
 
         const current = super.texture;
 
-        if(current && (current !== previous) && (current !== Texture.EMPTY)) current.on('destroy', this.onTextureDestroyed, this);
+        if(current && (current !== previous) && (current !== Texture.EMPTY)) ExtendedSprite.watchTexture(current, this);
+    }
+
+    // Thousands of room sprites can share one texture, and an emitter rebuilds its whole
+    // listener list on every off(). One listener per texture keeps each sprite's watch O(1).
+    private static TEXTURE_SPRITES: WeakMap<Texture, Set<ExtendedSprite>> = new WeakMap();
+
+    private static watchTexture(texture: Texture, sprite: ExtendedSprite): void
+    {
+        let sprites = ExtendedSprite.TEXTURE_SPRITES.get(texture);
+
+        if(!sprites)
+        {
+            sprites = new Set();
+
+            ExtendedSprite.TEXTURE_SPRITES.set(texture, sprites);
+            texture.on('destroy', ExtendedSprite.onSharedTextureDestroyed);
+        }
+
+        sprites.add(sprite);
+    }
+
+    private static unwatchTexture(texture: Texture, sprite: ExtendedSprite): void
+    {
+        const sprites = ExtendedSprite.TEXTURE_SPRITES.get(texture);
+
+        if(!sprites?.delete(sprite) || sprites.size) return;
+
+        ExtendedSprite.TEXTURE_SPRITES.delete(texture);
+        texture.off('destroy', ExtendedSprite.onSharedTextureDestroyed);
+    }
+
+    // Like the emitter it replaces: every sprite watching when the texture is destroyed is
+    // told, in the order it started watching, even if an earlier one stops watching meanwhile.
+    private static onSharedTextureDestroyed(texture: Texture): void
+    {
+        const sprites = ExtendedSprite.TEXTURE_SPRITES.get(texture);
+
+        if(!sprites) return;
+
+        ExtendedSprite.TEXTURE_SPRITES.delete(texture);
+
+        for(const sprite of [ ...sprites ]) sprite.onTextureDestroyed();
     }
 
     private onTextureDestroyed(): void
@@ -90,7 +132,7 @@ export class ExtendedSprite extends Sprite
 
     public override destroy(options?: DestroyOptions): void
     {
-        super.texture?.off('destroy', this.onTextureDestroyed, this);
+        if(super.texture) ExtendedSprite.unwatchTexture(super.texture, this);
 
         super.destroy(options);
     }
@@ -139,9 +181,14 @@ export class ExtendedSprite extends Sprite
         const width = Math.max(Math.round(textureSource.width * textureSource.resolution), 1);
         const height = Math.max(Math.round(textureSource.height * textureSource.resolution), 1);
 
-        let pixels: Uint8ClampedArray = null;
+        let pixels: Uint8ClampedArray = ExtendedSprite.getImagePixels(textureSource, width, height);
 
-        if(renderer instanceof WebGPURenderer)
+        if(pixels)
+        {
+            // Read from the decoded image itself, no GPU round trip.
+        }
+
+        else if(renderer instanceof WebGPURenderer)
         {
             pixels = TextureUtils.getPixels(new Texture(textureSource))?.pixels ?? null;
         }
@@ -150,23 +197,25 @@ export class ExtendedSprite extends Sprite
         {
             pixels = new Uint8ClampedArray(BYTES_PER_PIXEL * width * height);
 
-            const webglRenderer = renderer;
-            const renderTarget = webglRenderer.renderTarget.getRenderTarget(textureSource);
-            const glRenderTarget = webglRenderer.renderTarget.getGpuRenderTarget(renderTarget);
+            const gl = renderer.gl;
+            const adaptor = renderer.renderTarget.adaptor;
+            const framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
 
-            const gl = webglRenderer.gl;
+            // Bind through the adaptor: it caches the bound framebuffer, and a raw
+            // gl.bindFramebuffer would leave the next draw on the hit-test target.
+            try
+            {
+                const renderTarget = renderer.renderTarget.getRenderTarget(textureSource);
+                const glRenderTarget = renderer.renderTarget.getGpuRenderTarget(renderTarget);
 
-            gl.bindFramebuffer(gl.FRAMEBUFFER, glRenderTarget.resolveTargetFramebuffer);
+                adaptor.bindFramebuffer(glRenderTarget.resolveTargetFramebuffer);
 
-            gl.readPixels(
-                0,
-                0,
-                width,
-                height,
-                gl.RGBA,
-                gl.UNSIGNED_BYTE,
-                pixels
-            );
+                gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+            }
+            finally
+            {
+                adaptor.bindFramebuffer(framebuffer);
+            }
         }
 
         if(!pixels) return false;
@@ -176,6 +225,53 @@ export class ExtendedSprite extends Sprite
         textureSource.hitMapTime = Date.now();
 
         return true;
+    }
+
+    // A decoded image still holds its pixels on the CPU. Reading them there spares the GPU
+    // read back, which waits for every queued frame. Render textures (avatars, palette
+    // results) and other sources still go through the GPU.
+    private static getImagePixels(textureSource: TextureSource, width: number, height: number): Uint8ClampedArray
+    {
+        const resource = textureSource.resource;
+
+        let image: ImageBitmap | HTMLImageElement = null;
+        let imageWidth = 0;
+        let imageHeight = 0;
+
+        if((typeof ImageBitmap !== 'undefined') && (resource instanceof ImageBitmap))
+        {
+            image = resource;
+            imageWidth = resource.width;
+            imageHeight = resource.height;
+        }
+
+        else if((typeof HTMLImageElement !== 'undefined') && (resource instanceof HTMLImageElement))
+        {
+            image = resource;
+            imageWidth = resource.naturalWidth;
+            imageHeight = resource.naturalHeight;
+        }
+
+        if(!image || (typeof OffscreenCanvas === 'undefined')) return null;
+
+        // The hit map is indexed in texture pixels; an image of another size would not line up.
+        if((imageWidth !== width) || (imageHeight !== height)) return null;
+
+        try
+        {
+            const context = new OffscreenCanvas(width, height).getContext('2d', { willReadFrequently: true });
+
+            if(!context) return null;
+
+            context.drawImage(image, 0, 0);
+
+            return context.getImageData(0, 0, width, height).data;
+        }
+        catch
+        {
+            // A closed bitmap or a cross-origin image: the GPU path tries instead.
+            return null;
+        }
     }
 
     public get offsetX(): number

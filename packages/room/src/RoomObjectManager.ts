@@ -83,7 +83,12 @@ export class RoomObjectManager implements IRoomObjectManager
         {
             const object = this._objects.getWithIndex(i);
 
-            if(object) object.dispose();
+            if(object)
+            {
+                // Leaving the room needs the same listener and widget teardown as a pickup.
+                object.tearDown();
+                object.dispose();
+            }
 
             i++;
         }

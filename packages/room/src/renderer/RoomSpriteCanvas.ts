@@ -2,7 +2,7 @@ import { IPlaneVisualization, IRoomCanvasMouseListener, IRoomGeometry, IRoomObje
 import { GetConfiguration } from '@octane/configuration';
 import { RoomSpriteMouseEvent } from '@octane/events';
 import { GetTicker, TextureUtils, Vector3d } from '@octane/utils';
-import { Container, Graphics, Matrix, Point, PointData, Rectangle, Sprite, Texture } from 'pixi.js';
+import { Container, Graphics, Matrix, Point, PointData, Rectangle, Texture } from 'pixi.js';
 import { RoomEnterEffect, RoomGeometry, RoomRotatingEffect, RoomShakingEffect } from '../utils';
 import { RoomObjectCache, RoomObjectCacheItem } from './cache';
 import { getObjectAltitudeDepth } from './ObjectAltitudeDepth';
@@ -24,7 +24,7 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
 
     private _master: Container = null;
     private _display: Container = null;
-    private _mask: Sprite = null;
+    private _mask: Graphics = null;
     private _boundaryMask: Graphics = null;
     private _lastBoundaryOffsetX: number = NaN;
     private _lastBoundaryOffsetY: number = NaN;
@@ -33,6 +33,7 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
     private _lastBoundaryFlipped: boolean = false;
 
     private _sortableSprites: SortableSprite[] = [];
+    private _sortableSpritesDirty: boolean = false;
     private _spriteCount: number = 0;
     private _activeSpriteCount: number = 0;
     private _spritePool: ExtendedSprite[] = [];
@@ -195,20 +196,19 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
         {
             if(!this._mask)
             {
-                this._mask = new Sprite(Texture.WHITE);
-                this._mask.width = width;
-                this._mask.height = height;
+                // A Graphics rectangle masks through the stencil buffer; a sprite
+                // mask would cost a render-to-texture plus a filter pass per frame.
+                this._mask = new Graphics().rect(0, 0, width, height).fill(0xFFFFFF);
 
                 if(this._master)
                 {
                     this._master.addChild(this._mask);
-                    if(this._display) this._display.mask = this._mask;
+                    if(this._display) this.setDisplayMask(this._mask);
                 }
             }
             else
             {
-                this._mask.width = width;
-                this._mask.height = height;
+                this._mask.clear().rect(0, 0, width, height).fill(0xFFFFFF);
             }
         }
 
@@ -230,6 +230,19 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
         this._height = height;
     }
 
+    // Both masks are white Graphics in the master container. Pixi only hides a stencil mask
+    // while it is assigned; once replaced it draws again, as a white shape over the room.
+    // So the mask that is not in use is hidden here.
+    private setDisplayMask(mask: Graphics): void
+    {
+        if(!this._display) return;
+
+        this._display.mask = mask;
+
+        if(this._mask) this._mask.visible = (mask === this._mask);
+        if(this._boundaryMask) this._boundaryMask.visible = (mask === this._boundaryMask);
+    }
+
     public setMask(flag: boolean): void
     {
         if(flag && !this._usesMask)
@@ -240,7 +253,7 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
             {
                 this._master.addChild(this._mask);
 
-                this._display.mask = this._mask;
+                this.setDisplayMask(this._mask);
             }
         }
 
@@ -252,7 +265,7 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
             {
                 this._master.removeChild(this._mask);
 
-                this._display.mask = null;
+                this.setDisplayMask(null);
             }
         }
     }
@@ -361,7 +374,7 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
 
         if(pts.length < 3)
         {
-            if(this._display.mask === this._boundaryMask) this._display.mask = this._mask ?? null;
+            if(this._display.mask === this._boundaryMask) this.setDisplayMask(this._mask ?? null);
 
             return;
         }
@@ -374,7 +387,7 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
 
         if(this._display.mask !== this._boundaryMask)
         {
-            this._display.mask = this._boundaryMask;
+            this.setDisplayMask(this._boundaryMask);
         }
     }
 
@@ -496,7 +509,14 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
             }
         }
 
-        this._sortableSprites.sort((a, b) => (b.z - a.z));
+        // Only sort when a depth changed or a sprite came or went. Disposed sprites sit at
+        // -infinity until the sort moves them to the end, where the splice drops them.
+        if(this._sortableSpritesDirty || (this._sortableSprites.length !== spriteCount))
+        {
+            this._sortableSprites.sort((a, b) => (b.z - a.z));
+
+            this._sortableSpritesDirty = false;
+        }
 
         if(spriteCount < this._sortableSprites.length) this._sortableSprites.splice(spriteCount);
 
@@ -572,6 +592,8 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
     public removeFromCache(identifier: string): void
     {
         this._objectCache.removeObjectCache(identifier);
+
+        this._sortableSpritesDirty = true;
     }
 
     private renderObject(object: IRoomObject, identifier: string, time: number, update: boolean, updateVisuals: boolean, count: number): number
@@ -664,6 +686,8 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
 
                 this._sortableSprites.push(sortableSprite);
 
+                this._sortableSpritesDirty = true;
+
                 sortableSprite.name = identifier;
             }
 
@@ -677,11 +701,20 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
             sortableSprite.x = (spriteX - this._screenOffsetX);
             sortableSprite.y = (spriteY - this._screenOffsetY);
 
-            sortableSprite.z = ((z + sprite.relativeDepth) + (3.7E-11 * count));
+            const spriteZ = ((z + sprite.relativeDepth) + (3.7E-11 * count));
+
+            if(sortableSprite.z !== spriteZ)
+            {
+                sortableSprite.z = spriteZ;
+
+                this._sortableSpritesDirty = true;
+            }
 
             spriteCount++;
             count++;
         }
+
+        if(spriteCount < sortableCache.spriteCount) this._sortableSpritesDirty = true;
 
         sortableCache.setSpriteCount(spriteCount);
 
@@ -1137,12 +1170,12 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
 
         this.render(-1, true);
 
-        this._display.mask = null;
+        this.setDisplayMask(null);
 
         const bounds = this._display.getBounds();
         const texture = TextureUtils.createAndWriteRenderTexture(this._display.width, this._display.height, this._display, new Matrix(1, 0, 0, 1, -(bounds.x), -(bounds.y)));
 
-        this._display.mask = this._mask;
+        this.setDisplayMask(this._mask);
 
         this._noSpriteVisibilityChecking = false;
 

@@ -125,7 +125,6 @@ export class RoomCameraWidgetManager implements IRoomCameraWidgetManager
         const effects = GetConfiguration().getValue<CameraEffectConfiguration[]>('camera.available.effects');
 
         // The effect textures download together; the effects keep their configured order.
-        // (Parallel download ported from Volt-Renderer d45c2820, GPL-3.0.)
         const loaded = await Promise.all((effects ?? []).filter(effect => effect.enabled).map(async effect =>
         {
             const cameraEffect = new RoomCameraWidgetEffect(effect.name, effect.minLevel, resolveCameraEffectType(effect));

@@ -204,7 +204,6 @@ export class LegacyExternalInterface
      * The parent's origin when it is known, otherwise '*' (the receiving end validates the message).
      * Firefox reports an opaque "null" ancestor origin when the frame gets no referrer, and
      * postMessage throws a SyntaxError for that target, which stopped the client right after loading.
-     * Ported from Volt-Renderer (plus-emulator/volt-renderer 995a8289, GPL-3.0).
      */
     public static getParentOrigin(): string
     {

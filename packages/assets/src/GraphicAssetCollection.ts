@@ -7,7 +7,14 @@ export class GraphicAssetCollection implements IGraphicAssetCollection
 {
     private static PALETTE_ASSET_DISPOSE_THRESHOLD: number = 10;
 
-    private _referenceCount: number;
+    private _referenceCount: number = 0;
+
+    public onAssetChanged: (name: string, added: boolean) => void = null;
+
+    public get assetNames(): IterableIterator<string>
+    {
+        return this._assets.keys();
+    }
 
     private _name: string;
     private _textureSource: TextureSource;
@@ -54,7 +61,11 @@ export class GraphicAssetCollection implements IGraphicAssetCollection
 
         if(this._assets)
         {
-            for(const asset of this._assets.values()) asset.recycle();
+            for(const [name, asset] of this._assets)
+            {
+                this.onAssetChanged?.(name, false);
+                asset.recycle();
+            }
 
             this._assets.clear();
         }
@@ -219,6 +230,7 @@ export class GraphicAssetCollection implements IGraphicAssetCollection
         const graphicAsset = GraphicAsset.createAsset(name, source, texture, x, y, flipH, flipV, usesPalette);
 
         this._assets.set(name, graphicAsset);
+        this.onAssetChanged?.(name, true);
 
         return true;
     }
@@ -230,6 +242,7 @@ export class GraphicAssetCollection implements IGraphicAssetCollection
         if(existing)
         {
             this._assets.delete(name);
+            this.onAssetChanged?.(name, false);
 
             existing.recycle();
         }
@@ -357,6 +370,7 @@ export class GraphicAssetCollection implements IGraphicAssetCollection
         if(!existing) return;
 
         this._assets.delete(name);
+        this.onAssetChanged?.(name, false);
 
         const texture = this.getLibraryAsset(existing.source);
 

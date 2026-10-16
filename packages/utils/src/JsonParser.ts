@@ -79,7 +79,18 @@ const parseStrict = <T>(text: string, sourceUrl: string): T =>
 };
 
 const parseJsonc = <T>(text: string): T =>
-    JSON.parse(stripJsonComments(text, { trailingCommas: true })) as T;
+{
+    // JSON is also valid JSONC. Native parsing avoids a JavaScript character scan
+    // of multi-megabyte gamedata when a JSONC deployment serves ordinary JSON.
+    try
+    {
+        return JSON.parse(text) as T;
+    }
+    catch
+    {
+        return JSON.parse(stripJsonComments(text, { trailingCommas: true })) as T;
+    }
+};
 
 const parseJsoncWithError = <T>(text: string, sourceUrl: string): T =>
 {
