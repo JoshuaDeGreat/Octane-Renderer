@@ -593,6 +593,16 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
                             }
                         }
 
+                        // The SnowWar uniform only draws the fall in even directions and aliases each odd one onto
+                        // the next (1 -> 2, 3 -> 4, 5 -> 6, 7 -> 0). The head has no fall art and is hidden by
+                        // per-direction offsets that exist only for even directions, so at odd directions the
+                        // upright head floated above the lying body: the whole figure takes the aliased direction.
+                        // (Ported from Volt-Renderer a64ec627, plus-emulator, GPL-3.0.)
+                        if(((actionParameter === AvatarAction.SNOWWAR_DIE_FRONT) || (actionParameter === AvatarAction.SNOWWAR_DIE_BACK)) && (this._mainDirection % 2))
+                        {
+                            this.setDirection(AvatarSetType.FULL, ((this._mainDirection + 1) % 8));
+                        }
+
                         this.addActionData(actionParameter);
                         break;
                 }

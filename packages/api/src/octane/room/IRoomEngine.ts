@@ -13,6 +13,7 @@ export interface IRoomEngine
     init(): Promise<void>;
     setActiveRoomId(roomId: number): void;
     createRoomInstance(roomId: number, roomMap: IRoomMapData): void;
+    destroyRoom(roomId: number): void;
     getRoomInstanceDisplay(roomId: number, id: number, width: number, height: number, scale: number): Container;
     // `isFlipForced` toggles the 180 degree room flip instead of zooming;
     // `isAnimated` passes a fractional scale through without snapping it.

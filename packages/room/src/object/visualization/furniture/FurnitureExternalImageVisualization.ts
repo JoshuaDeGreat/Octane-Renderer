@@ -73,9 +73,19 @@ export class FurnitureExternalImageVisualization extends FurnitureDynamicThumbna
             this._typePrefix = (this.object.type.indexOf('') >= 0) ? '' : 'postcards/selfie/';
         }
 
-        const json = JSON.parse(jsonString);
+        // A broken item must not take the room visualization down with it.
+        let json: { w?: string } = null;
 
-        let url = (json.w || '');
+        try
+        {
+            json = JSON.parse(jsonString);
+        }
+        catch
+        {
+            return null;
+        }
+
+        let url = (json?.w || '');
 
         url = this.buildThumbnailUrl(url);
 
