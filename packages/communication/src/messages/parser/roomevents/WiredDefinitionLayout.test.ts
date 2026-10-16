@@ -2,6 +2,7 @@ import { BinaryReader } from '@octane/utils';
 import { describe, expect, it } from 'vitest';
 import { ConditionDefinition } from './ConditionDefinition';
 import { TriggerDefinition } from './TriggerDefinition';
+import { WiredAddonDefinition } from './WiredAddonDefinition';
 import { WiredActionDefinition } from './WiredActionDefinition';
 
 // Framed bytes the server's WiredPacketGoldenCompatibilityTest pins (outgoing-packets-v1.txt), so the
@@ -9,7 +10,8 @@ import { WiredActionDefinition } from './WiredActionDefinition';
 const GOLDEN = {
     trigger: '00000057017f00000005000000010a0b0c0d000000000000002a0102030400057769726564000000020000000100000002000000000000000000000000000000030000000000000000000000000000000000000000000000000000',
     action: '0000005b059a00000005000000010a0b0c0d000000000000002a010203040005776972656400000002000000010000000200000000000000000000000000000003000000040000000000000000000000000000000000000000000000000000',
-    condition: '0000005d045400000005000000010a0b0c0d000000000000002a0102030400057769726564000000020000000100000002000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000000'
+    condition: '0000005d045400000005000000010a0b0c0d000000000000002a0102030400057769726564000000020000000100000002000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000000',
+    addon: '00000057087800000005000000010a0b0c0d000000000000002a0102030400057769726564000000020000000100000002000000000000000000000000000000110000000000000000000000000000000000000000000000000000'
 };
 
 class TestWrapper
@@ -56,7 +58,8 @@ describe('official wired definition layout', () =>
     it.each([
         [ 'trigger', (w: any) => new TriggerDefinition(w) ],
         [ 'action', (w: any) => new WiredActionDefinition(w) ],
-        [ 'condition', (w: any) => new ConditionDefinition(w) ]
+        [ 'condition', (w: any) => new ConditionDefinition(w) ],
+        [ 'addon', (w: any) => new WiredAddonDefinition(w) ]
     ] as const)('reads the %s the emulator sends, to the last byte', (holder, read) =>
     {
         const { wrapper, reader } = body(GOLDEN[holder]);
@@ -70,7 +73,8 @@ describe('official wired definition layout', () =>
         expect(definition.stringData).toBe('wired');
         expect(definition.intData).toEqual([ 1, 2 ]);
         expect(definition.variableIds).toEqual([]);
-        expect(definition.code).toBe(3);
+        // The addon goes out with its official code (execute in order, 17).
+        expect(definition.code).toBe(holder === 'addon' ? 17 : 3);
         expect(definition.delayInPulses).toBe(holder === 'action' ? 4 : 0);
         expect(definition.contexts).toEqual([]);
         expect(definition.defaultIntParams).toEqual([]);

@@ -294,6 +294,10 @@ export class IncomingHeader
     public static USER_CLASSIFICATION = 966;
     public static GET_USER_TAGS = 1255;
     public static WIRED_ACTION = 1434;
+    // Official AIR wired addon, selector and variable definitions.
+    public static WIRED_ADDON = 2168;
+    public static WIRED_SELECTOR = 2509;
+    public static WIRED_VARIABLE = 2955;
     public static WIRED_CONDITION = 1108;
     public static WIRED_ERROR = 156;
     public static WIRED_MONITOR_DATA = 5101;

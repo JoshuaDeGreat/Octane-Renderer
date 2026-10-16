@@ -133,6 +133,31 @@ describe('UserSettingsParser per-user preferences', () =>
         expect(parse(writer).profileVisible).toBe(false);
     });
 
+    it('reads the stored wired menu preferences after the profile flag', () =>
+    {
+        const writer = new BinaryWriter();
+        writeLegacySettings(writer);
+        writer.writeInt(40);
+        writer.writeByte(0);
+        writer.writeInt(1);
+        writer.writeInt(2);
+        writer.writeInt(0);
+        writer.writeInt(2);
+        writer.writeByte(1);
+        writer.writeString('1,0,0,1,volter');
+
+        expect(parse(writer).wiredMenuPreferences).toBe('1,0,0,1,volter');
+    });
+
+    it('has no wired menu preferences from an emulator that does not send them', () =>
+    {
+        const writer = new BinaryWriter();
+        writeLegacySettings(writer);
+        writer.writeInt(40);
+
+        expect(parse(writer).wiredMenuPreferences).toBe('');
+    });
+
     it('keeps the profile visible when the emulator does not send the flag', () =>
     {
         const writer = new BinaryWriter();

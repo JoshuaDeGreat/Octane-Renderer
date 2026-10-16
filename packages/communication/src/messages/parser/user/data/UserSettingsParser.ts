@@ -20,6 +20,7 @@ export class UserSettingsParser implements IMessageParser
     private _chatScrollSpeed: number;
     private _onlineIndicatorPreference: number;
     private _profileVisible: boolean;
+    private _wiredMenuPreferences: string;
 
     public flush(): boolean
     {
@@ -41,6 +42,7 @@ export class UserSettingsParser implements IMessageParser
         this._chatScrollSpeed = 1;
         this._onlineIndicatorPreference = 0;
         this._profileVisible = true;
+        this._wiredMenuPreferences = '';
 
         return true;
     }
@@ -70,6 +72,8 @@ export class UserSettingsParser implements IMessageParser
         this._onlineIndicatorPreference = wrapper.bytesAvailable ? wrapper.readInt() : 0;
         // Whether other users see the full extended profile; visible when the server does not say.
         this._profileVisible = wrapper.bytesAvailable ? wrapper.readBoolean() : true;
+        // The wired menu preferences the server stored ("menu,inspect,playtest,showAll,style"), or ''.
+        this._wiredMenuPreferences = wrapper.bytesAvailable ? wrapper.readString() : '';
 
         return true;
     }
@@ -162,5 +166,10 @@ export class UserSettingsParser implements IMessageParser
     public get profileVisible(): boolean
     {
         return this._profileVisible;
+    }
+
+    public get wiredMenuPreferences(): string
+    {
+        return this._wiredMenuPreferences;
     }
 }

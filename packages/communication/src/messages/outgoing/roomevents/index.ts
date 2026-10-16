@@ -29,3 +29,6 @@ export * from './WiredGenerateWebApiKeyComposer';
 export * from './WiredLeaderboardSubscribeComposer';
 export * from './WiredLabelSaveSettingsComposer';
 export * from './WiredLabelSaveTextComposer';
+export * from './UpdateAddonMessageComposer';
+export * from './UpdateSelectorMessageComposer';
+export * from './UpdateVariableMessageComposer';
