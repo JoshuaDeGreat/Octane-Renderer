@@ -6,6 +6,20 @@ import { BadgeBaseAndLevel } from './BadgeBaseAndLevel';
 
 export class LocalizationManager implements ILocalizationManager
 {
+    /**
+     * Every "%name%" of a text is replaced, in any letter case, as the official Localization.fillParameterValues does
+     * (RegExp "gim"), so a parameter used twice (the author of groupforum.view.forum_details) is filled everywhere.
+     * The value is inserted as it is ("$" patterns are not expanded).
+     */
+    public static replaceParameter(value: string, parameter: string, replacement: string): string
+    {
+        if(!value || !parameter) return value;
+
+        const pattern = new RegExp('%' + parameter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '%', 'gi');
+
+        return value.replace(pattern, () => replacement);
+    }
+
     private _definitions: Map<string, string> = new Map();
     private _overrideDefinitions: Map<string, string> = new Map();
     private _parameters: Map<string, Map<string, string>> = new Map();
@@ -120,7 +134,7 @@ export class LocalizationManager implements ILocalizationManager
             {
                 for(const [parameter, replacement] of parameters)
                 {
-                    value = value.replace('%' + parameter + '%', replacement);
+                    value = LocalizationManager.replaceParameter(value, parameter, replacement);
                 }
             }
         }
@@ -132,7 +146,7 @@ export class LocalizationManager implements ILocalizationManager
     {
         const value = this.getValue(key, false);
 
-        const replacedValue = value.replace('%' + parameter + '%', replacement);
+        const replacedValue = LocalizationManager.replaceParameter(value, parameter, replacement);
 
         if(value.startsWith('%{'))
         {
@@ -197,7 +211,7 @@ export class LocalizationManager implements ILocalizationManager
 
                 if(replacement === undefined) continue;
 
-                value = value.replace('%' + parameter + '%', replacement);
+                value = LocalizationManager.replaceParameter(value, parameter, replacement);
 
                 if(value.startsWith('%{'))
                 {

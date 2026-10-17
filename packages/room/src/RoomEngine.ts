@@ -1,5 +1,6 @@
-import { IFurnitureStackingHeightMap, IGetImageListener, IImageResult, ILegacyWallGeometry, IObjectData, IPetColorResult, IPetCustomPart, IRoomAreaSelectionManager, IRoomContentListener, IRoomContentLoader, IRoomCreator, IRoomEngine, IRoomEngineServices, IRoomGeometry, IRoomInstance, IRoomManager, IRoomManagerListener, IRoomObject, IRoomObjectController, IRoomRenderer, IRoomRenderingCanvas, IRoomSessionManager, ISelectedRoomObjectData, ISessionDataManager, ITileObjectMap, IUpdateReceiver, IVector3D, LegacyDataType, MouseEventType, ObjectDataFactory, PetFigureData, RoomControllerLevel, RoomObjectCategory, RoomObjectOperationType, RoomObjectUserType, RoomObjectVariable, ToolbarIconEnum } from '@octane/api';
+import { IFurnitureStackingHeightMap, IGetImageListener, IImageResult, ILegacyWallGeometry, IObjectData, IPetColorResult, IPlaneDrawingData, IPetCustomPart, IRoomAreaSelectionManager, IRoomContentListener, IRoomContentLoader, IRoomCreator, IRoomEngine, IRoomEngineServices, IRoomGeometry, IRoomInstance, IRoomManager, IRoomManagerListener, IRoomObject, IRoomObjectController, IRoomRenderer, IRoomRenderingCanvas, IRoomSessionManager, ISelectedRoomObjectData, ISessionDataManager, ITileObjectMap, IUpdateReceiver, IVector3D, LegacyDataType, MouseEventType, ObjectDataFactory, PetFigureData, RoomControllerLevel, RoomObjectCategory, RoomObjectOperationType, RoomObjectUserType, RoomObjectVariable, ToolbarIconEnum } from '@octane/api';
 import { GetCommunication, RenderRoomMessageComposer, RenderRoomThumbnailMessageComposer } from '@octane/communication';
+import { GetAssetManager } from '@octane/assets';
 import { GetConfiguration } from '@octane/configuration';
 import { BadgeImageReadyEvent, GetEventDispatcher, OctaneToolbarAnimateIconEvent, RoomBackgroundColorEvent, RoomDragEvent, RoomEngineAreaHideStateEvent, RoomEngineEvent, RoomEngineObjectEvent, RoomObjectEvent, RoomObjectFurnitureActionEvent, RoomObjectMouseEvent, RoomSessionEvent, RoomToObjectOwnAvatarMoveEvent } from '@octane/events';
 import { GetRoomSessionManager, GetSessionDataManager } from '@octane/session';
@@ -13,6 +14,7 @@ import { GetRoomObjectLogicFactory } from './GetRoomObjectLogicFactory';
 import { ImageResult } from './ImageResult';
 import { RoomInstance } from './RoomInstance';
 import { RoomObjectEventHandler } from './RoomObjectEventHandler';
+import { RoomRenderScene } from './RoomRenderScene';
 import { buildRoomObjectImageKey, DisposableTexture, RoomObjectImageCache, SharedImageResult } from './RoomObjectImageCache';
 import { RoomVariableEnum } from './RoomVariableEnum';
 import { ObjectAvatarBlockedUpdateMessage, ObjectAvatarCarryObjectUpdateMessage, ObjectAvatarChatUpdateMessage, ObjectAvatarDanceUpdateMessage, ObjectAvatarEffectUpdateMessage, ObjectAvatarExperienceUpdateMessage, ObjectAvatarExpressionUpdateMessage, ObjectAvatarFigureUpdateMessage, ObjectAvatarFlatControlUpdateMessage, ObjectAvatarGestureUpdateMessage, ObjectAvatarGuideStatusUpdateMessage, ObjectAvatarHabbiconUpdateMessage, ObjectAvatarMutedUpdateMessage, ObjectAvatarOwnMessage, ObjectAvatarPetGestureUpdateMessage, ObjectAvatarPlayerValueUpdateMessage, ObjectAvatarPlayingGameUpdateMessage, ObjectAvatarPostureUpdateMessage, ObjectAvatarSignUpdateMessage, ObjectAvatarSleepUpdateMessage, ObjectAvatarTypingUpdateMessage, ObjectAvatarUpdateMessage, ObjectAvatarUseObjectUpdateMessage, ObjectDataUpdateMessage, ObjectGroupBadgeUpdateMessage, ObjectHeightUpdateMessage, ObjectItemDataUpdateMessage, ObjectModelDataUpdateMessage, ObjectMoveUpdateMessage, ObjectRoomColorUpdateMessage, ObjectRoomFloorHoleUpdateMessage, ObjectRoomMaskUpdateMessage, ObjectRoomPlanePropertyUpdateMessage, ObjectRoomPlaneVisibilityUpdateMessage, ObjectRoomUpdateMessage, ObjectStateUpdateMessage, RoomObjectUpdateMessage } from './messages';
@@ -3595,6 +3597,81 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         }
 
         return texture;
+    }
+
+    /**
+     * Behaviour from the AIR client (RoomEngine.getRenderRoomMessage): the room scene inside `rect` (canvas pixels,
+     * the viewfinder frame) as the AIR render room packet, for the server to draw. Call it when the photo is taken;
+     * the camera adds the effects and zoom later and calls compressData before sending. A thumbnail is packed at once.
+     * Returns null without a canvas, or when the canvas is flipped (AIR's camera refuses a flipped room).
+     */
+    public getRenderRoomMessage(rect: Rectangle, backgroundColor: number, isThumbnail: boolean = false, includeOwnAvatar: boolean = true, skipSpriteVisibilityChecking: boolean = false, canvasId: number = -1): RenderRoomMessageComposer
+    {
+        const canvas = (canvasId > -1) ? this.getRoomInstanceRenderingCanvas(this._activeRoomId, canvasId) : this.getActiveRoomInstanceRenderingCanvas();
+
+        if(!canvas || !rect || canvas.isFlipped) return null;
+
+        // The scene is in unscaled room pixels: map a zoomed canvas's frame back around the screen offset.
+        const scale = ((canvas.scale > 0) ? canvas.scale : 1);
+        const sceneRect = (scale === 1) ? rect : new Rectangle(
+            (canvas.screenOffsetX + ((rect.x - canvas.screenOffsetX) / scale)),
+            (canvas.screenOffsetY + ((rect.y - canvas.screenOffsetY) / scale)),
+            (rect.width / scale),
+            (rect.height / scale));
+
+        if(skipSpriteVisibilityChecking) canvas.skipSpriteVisibilityChecking();
+
+        let excludedObjectId = -1;
+
+        if(!includeOwnAvatar)
+        {
+            const session = GetRoomSessionManager().getSession(this._activeRoomId);
+
+            if(session) excludedObjectId = session.ownRoomIndex;
+        }
+
+        const scene = new RoomRenderScene(this, {
+            imageLibraryUrl: GetConfiguration().getValue<string>('image.library.url', ''),
+            groupBadgeUrl: GetConfiguration().getValue<string>('group.badge.url', '%imagerdata%'),
+            getPaletteSource: (objectType: string, paletteName: string) =>
+            {
+                const palettes = GetAssetManager().getCollection(objectType)?.data?.palettes;
+
+                if(!palettes) return null;
+
+                for(const key in palettes)
+                {
+                    const palette = palettes[key];
+
+                    if(palette && ((key === paletteName) || (String(palette.id) === paletteName))) return (palette.source ?? null);
+                }
+
+                return null;
+            }
+        });
+
+        let sprites: string = null;
+        let modifiers: string = null;
+        let planes: IPlaneDrawingData[] = null;
+
+        try
+        {
+            sprites = scene.getFurniData(sceneRect, canvas, excludedObjectId);
+            modifiers = scene.getRoomRenderingModifiers();
+            planes = scene.getRoomPlanes(sceneRect, canvas, backgroundColor);
+        }
+        finally
+        {
+            if(skipSpriteVisibilityChecking) canvas.resumeSpriteVisibilityChecking();
+        }
+
+        const composer = isThumbnail ? new RenderRoomThumbnailMessageComposer() : new RenderRoomMessageComposer();
+
+        composer.assignRenderData(planes, sprites, modifiers, this._activeRoomId, (GetSessionDataManager().securityLevel || 0));
+
+        if(isThumbnail) composer.compressData();
+
+        return composer;
     }
 
     public async saveTextureAsScreenshot(texture: RenderTexture, saveAsThumbnail: boolean = false): Promise<void>

@@ -1,4 +1,4 @@
-import { RoomObjectVariable } from '@octane/api';
+import { IGraphicAsset, IRoomObjectSprite, RoomObjectVariable } from '@octane/api';
 import { GetAssetManager } from '@octane/assets';
 import { Texture } from 'pixi.js';
 import { FurnitureVisualization } from './FurnitureVisualization';
@@ -38,6 +38,18 @@ export class FurnitureBrandedImageVisualization extends FurnitureVisualization
         this._imageAlpha = 100;
         this._currentFrame = -1;
         this._totalFrames = -1;
+    }
+
+    // AIR: the branded layer is sent to the camera renderer as the image URL.
+    protected getLibraryAssetNameForSprite(asset: IGraphicAsset, sprite: IRoomObjectSprite): string
+    {
+        if(sprite.tag !== FurnitureBrandedImageVisualization.BRANDED_IMAGE) return super.getLibraryAssetNameForSprite(asset, sprite);
+
+        const imageUrl = (this.object && this.object.model.getValue<string>(RoomObjectVariable.FURNITURE_BRANDING_IMAGE_URL));
+
+        if(imageUrl && imageUrl.length) return imageUrl;
+
+        return super.getLibraryAssetNameForSprite(asset, sprite);
     }
 
     public dispose(): void

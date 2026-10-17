@@ -1,10 +1,11 @@
-import { IAssetPlaneVisualizationAnimatedLayer, IAssetPlaneVisualizationLayer, IAssetRoomVisualizationData, IRoomGeometry, IRoomPlane, IVector3D } from '@octane/api';
+import { IAssetPlane, IAssetPlaneMaterialCellColumn, IAssetPlaneMaterialCellMatrix, IAssetPlaneVisualization, IAssetPlaneVisualizationAnimatedLayer, IAssetPlaneVisualizationData, IAssetPlaneVisualizationLayer, IAssetRoomVisualizationData, IPlaneDrawingData, IRoomGeometry, IRoomPlane, IVector3D } from '@octane/api';
 import { GetAssetManager } from '@octane/assets';
 import { GetRenderer, GetTexturePool, OctaneLogger, PlaneMaskFilter, Vector3d } from '@octane/utils';
 import { Container, Filter, Graphics, Matrix, Point, RenderTexture, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { RoomGeometry } from '../../../utils';
 import { IWindowReflectionAvatarState, IWindowReflectionUnitState, RoomWindowReflectionState } from '../RoomWindowReflectionState';
 import { PlaneVisualizationAnimationLayer } from './animated';
+import { PlaneDrawingData } from './PlaneDrawingData';
 import { RoomPlaneBitmapMask } from './RoomPlaneBitmapMask';
 import { RoomPlaneRectangleMask } from './RoomPlaneRectangleMask';
 import { PlaneMaskManager } from './mask';
@@ -1442,6 +1443,246 @@ export class RoomPlane implements IRoomPlane
         });
 
         container.destroy({ children: true });
+    }
+
+    // AIR RoomPlane.blend: Canvas.colorize(layerColor, planeColor | 0xFF000000) & 0xFFFFFF.
+    public static blendColor(planeColor: number, layerColor: number): number
+    {
+        const multiplier = ((planeColor | 0xFF000000) >>> 0);
+
+        if(multiplier === 0xFFFFFFFF) return ((layerColor >>> 0) & 0xFFFFFF);
+
+        const red = Math.trunc((((layerColor >> 16) & 0xFF) * ((multiplier >> 16) & 0xFF)) / 255);
+        const green = Math.trunc((((layerColor >> 8) & 0xFF) * ((multiplier >> 8) & 0xFF)) / 255);
+        const blue = Math.trunc(((layerColor & 0xFF) * (multiplier & 0xFF)) / 255);
+
+        return (((red << 16) | (green << 8) | blue) & 0xFFFFFF);
+    }
+
+    private static matchesNormal(item: { normalMinX?: number, normalMaxX?: number, normalMinY?: number, normalMaxY?: number }, normal: IVector3D): boolean
+    {
+        const minX = (item.normalMinX !== undefined) ? item.normalMinX : -1;
+        const maxX = (item.normalMaxX !== undefined) ? item.normalMaxX : 1;
+        const minY = (item.normalMinY !== undefined) ? item.normalMinY : -1;
+        const maxY = (item.normalMaxY !== undefined) ? item.normalMaxY : 1;
+
+        return ((normal.x >= minX) && (normal.x <= maxX) && (normal.y >= minY) && (normal.y <= maxY));
+    }
+
+    // The plane visualization the rasterizer draws for this plane id and scale; AIR PlaneRasterizer.getLayers falls back to "default".
+    private getDrawingVisualization(scale: number): { data: IAssetPlaneVisualizationData, visualization: IAssetPlaneVisualization }
+    {
+        const dataType: keyof IAssetRoomVisualizationData = (this._type === RoomPlane.TYPE_FLOOR) ? 'floorData' : (this._type === RoomPlane.TYPE_WALL) ? 'wallData' : 'landscapeData';
+        const candidates: IAssetPlaneVisualizationData[] = [];
+        const roomData = GetAssetManager().getCollection('room')?.data?.roomVisualization?.[dataType] as IAssetPlaneVisualizationData;
+
+        if(roomData) candidates.push(roomData);
+
+        if(this._type === RoomPlane.TYPE_LANDSCAPE)
+        {
+            const landscapeData = GetAssetManager().getCollection('landscape')?.data?.roomVisualization?.landscapeData as IAssetPlaneVisualizationData;
+
+            if(landscapeData) candidates.push(landscapeData);
+        }
+
+        let data: IAssetPlaneVisualizationData = null;
+        let plane: IAssetPlane = null;
+
+        for(const candidate of candidates)
+        {
+            plane = candidate.planes?.find(entry => (entry.id === this._id)) ?? null;
+
+            if(plane)
+            {
+                data = candidate;
+                break;
+            }
+        }
+
+        if(!plane && roomData)
+        {
+            data = roomData;
+            plane = roomData.planes?.find(entry => (entry.id === 'default')) ?? null;
+        }
+
+        if(!plane) return { data, visualization: null };
+
+        const pick = (list: IAssetPlaneVisualization[]): IAssetPlaneVisualization =>
+        {
+            if(!list || !list.length) return null;
+
+            const sizeOf = (entry: IAssetPlaneVisualization) => (entry.size ?? scale);
+
+            let nearest = list[0];
+
+            for(const entry of list)
+            {
+                if(sizeOf(entry) === scale) return entry;
+
+                if(Math.abs(sizeOf(entry) - scale) < Math.abs(sizeOf(nearest) - scale)) nearest = entry;
+            }
+
+            return nearest;
+        };
+
+        const visualization = (this._type === RoomPlane.TYPE_LANDSCAPE) ? (pick(plane.animatedVisualization) ?? pick(plane.visualizations)) : pick(plane.visualizations);
+
+        return { data, visualization };
+    }
+
+    // AIR PlaneMaterialCellMatrix.getColumns: a random matrix picks columns until the plane is covered, the others give all of them.
+    private static getMatrixColumns(matrix: IAssetPlaneMaterialCellMatrix, width: number): IAssetPlaneMaterialCellColumn[]
+    {
+        const columns = matrix.columns ?? [];
+
+        if(matrix.repeatMode !== 'random') return columns;
+
+        const picked: IAssetPlaneMaterialCellColumn[] = [];
+
+        if(!columns.length) return picked;
+
+        let covered = 0;
+
+        while(covered < width)
+        {
+            const column = columns[Randomizer.getValues(1, 0, (columns.length * 17631))[0] % columns.length];
+
+            if(!column) break;
+
+            picked.push(column);
+
+            const columnWidth = Math.max(1, Math.trunc(column.width ?? 1));
+
+            if(columnWidth <= 1) break;
+
+            covered += columnWidth;
+        }
+
+        return picked;
+    }
+
+    private getScreenWidth(geometry: IRoomGeometry): number
+    {
+        const origin = geometry.getScreenPoint(new Vector3d(0, 0, 0));
+        const unit = geometry.getScreenPoint(new Vector3d(0, 1, 0));
+
+        if(!origin || !unit) return 0;
+
+        return Math.round(this._leftSide.length * Math.abs(origin.x - unit.x));
+    }
+
+    // AIR RoomPlane.resolveMasks: the bitmap masks (doors, windows) as asset names placed on the plane texture.
+    private resolveDrawingMasks(geometry: IRoomGeometry): PlaneDrawingData
+    {
+        if(!this._useMask) return null;
+
+        const drawingData = new PlaneDrawingData();
+
+        if(!this._maskManager) return drawingData;
+
+        for(const bitmapMask of this._bitmapMasks)
+        {
+            if(!bitmapMask) continue;
+
+            const mask = this._maskManager.getMask(bitmapMask.type);
+
+            if(!mask) continue;
+
+            const assetName = mask.getAssetName(geometry.scale);
+
+            if(!assetName) continue;
+
+            const normal = geometry.getCoordinatePosition(this._normal);
+            const asset = mask.getGraphicAsset(geometry.scale, normal);
+
+            if(!asset) continue;
+
+            const x = Math.trunc(this._width * (1 - (bitmapMask.leftSideLoc / this._leftSide.length)));
+            const y = Math.trunc(this._height * (1 - (bitmapMask.rightSideLoc / this._rightSide.length)));
+
+            drawingData.addMask(assetName, new Point((x + asset.offsetX), (y + asset.offsetY)), asset.flipH, asset.flipV);
+        }
+
+        return drawingData;
+    }
+
+    /**
+     * Behaviour from the AIR client (RoomPlane.getDrawingDatas): what the server needs to draw this plane for a photo,
+     * one entry per visualization layer with its colour, its texture columns as asset names and the plane's masks.
+     * The camera scene builder sets the corner points and the depth.
+     */
+    public getDrawingDatas(geometry: IRoomGeometry): IPlaneDrawingData[]
+    {
+        const drawingDatas: IPlaneDrawingData[] = [];
+
+        if(!this._isVisible || !geometry) return drawingDatas;
+
+        let maskData: PlaneDrawingData = null;
+
+        try
+        {
+            maskData = this.resolveDrawingMasks(geometry);
+
+            const { data, visualization } = this.getDrawingVisualization(geometry.scale);
+
+            for(const entry of (visualization?.allLayers ?? []))
+            {
+                // Animated landscape layers are not PlaneVisualizationLayers in AIR, so they are not drawn here.
+                if(!entry || (entry as IAssetPlaneVisualizationAnimatedLayer).items) continue;
+
+                const layer = entry as IAssetPlaneVisualizationLayer;
+                const layerColor = ((layer.color !== undefined) && (layer.color !== null)) ? layer.color : 0xFFFFFF;
+                const material = layer.materialId ? (data?.materials?.find(item => (item.id === layer.materialId)) ?? null) : null;
+
+                if(this._hasTexture && material)
+                {
+                    const normal = geometry.getCoordinatePosition(this._normal);
+                    const matrix = (material.matrices ?? []).find(item => RoomPlane.matchesNormal(item, normal));
+
+                    // AIR reads the missing matrix and stops on the error, keeping the layers it already has.
+                    if(!matrix) break;
+
+                    const drawingData = new PlaneDrawingData(maskData, RoomPlane.blendColor(this._color, layerColor), (matrix.align === 'bottom'));
+
+                    Randomizer.setSeed(this._randomSeed);
+
+                    for(const column of RoomPlane.getMatrixColumns(matrix, this.getScreenWidth(geometry)))
+                    {
+                        const assetNames: string[] = [];
+
+                        for(const cell of (column.cells ?? []))
+                        {
+                            const texture = cell?.textureId ? data?.textures?.find(item => (item.id === cell.textureId)) : null;
+                            const bitmap = texture ? (texture.bitmaps ?? []).find(item => RoomPlane.matchesNormal(item, normal)) : null;
+                            const assetName = bitmap?.assetName;
+
+                            if((assetName !== undefined) && (assetName !== null)) assetNames.push(assetName);
+                        }
+
+                        if(assetNames.length > 0)
+                        {
+                            if(column.repeatMode === 'none') assetNames.push('');
+
+                            drawingData.addAssetColumn(assetNames);
+                        }
+                    }
+
+                    if(drawingData.assetNameColumns.length > 0) drawingDatas.push(drawingData);
+                }
+                else
+                {
+                    drawingDatas.push(new PlaneDrawingData(maskData, RoomPlane.blendColor(this._color, layerColor)));
+                }
+            }
+        }
+        catch (error)
+        {
+            OctaneLogger.error('Error in getting RoomPlane drawing data.', error);
+        }
+
+        if(!drawingDatas.length) drawingDatas.push(new PlaneDrawingData(maskData, this._color));
+
+        return drawingDatas;
     }
 
     private updateCorners(geometry: IRoomGeometry): void

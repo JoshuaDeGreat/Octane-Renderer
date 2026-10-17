@@ -2,6 +2,11 @@ import { RoomObjectVariable } from '@octane/api';
 import { RoomObjectWidgetRequestEvent } from '@octane/events';
 import { FurnitureGuildCustomizedLogic } from './FurnitureGuildCustomizedLogic';
 
+/**
+ * The group forum terminal: a group furni whose double click opens the forum of its group through the internal link
+ * "groupforum/<group id>". A single click only selects it, as in the official client, which overrides openContextMenu
+ * with an empty body, so the group furni context menu is never asked for.
+ */
 export class FurnitureGroupForumTerminalLogic extends FurnitureGuildCustomizedLogic
 {
     public getEventTypes(): string[]
@@ -11,6 +16,11 @@ export class FurnitureGroupForumTerminalLogic extends FurnitureGuildCustomizedLo
         ];
 
         return this.mergeTypes(super.getEventTypes(), types);
+    }
+
+    protected openContextMenu(): void
+    {
+        return;
     }
 
     protected updateGroupId(id: string): void

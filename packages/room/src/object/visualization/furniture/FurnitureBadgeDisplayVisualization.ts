@@ -169,6 +169,17 @@ export class FurnitureBadgeDisplayVisualization extends FurnitureAnimatedVisuali
         return assetName;
     }
 
+    // AIR: the badge layer is sent to the camera renderer as the badge image in the image library.
+    protected getLibraryAssetNameForSprite(asset: IGraphicAsset, sprite: IRoomObjectSprite): string
+    {
+        if((sprite.tag === FurnitureBadgeDisplayVisualization.BADGE_TAG) && this._badgeAssetNameNormalScale && (sprite.name === this._badgeAssetNameNormalScale))
+        {
+            return '%image.library.url%album1584/' + this._badgeAssetNameNormalScale.replace('badge_', '') + '.png';
+        }
+
+        return super.getLibraryAssetNameForSprite(asset, sprite);
+    }
+
     protected updateSprite(scale: number, layerId: number): void
     {
         super.updateSprite(scale, layerId);

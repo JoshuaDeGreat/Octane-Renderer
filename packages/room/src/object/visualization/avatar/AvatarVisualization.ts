@@ -1,4 +1,4 @@
-import { AlphaTolerance, AvatarAction, AvatarGuideStatus, AvatarSetType, IAdvancedMap, IAvatarEffectListener, IAvatarImage, IAvatarImageListener, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObject, IRoomObjectModel, IRoomObjectSprite, RoomObjectSpriteType, RoomObjectVariable } from '@octane/api';
+import { AlphaTolerance, AvatarAction, AvatarGuideStatus, AvatarSetType, IAdvancedMap, IAvatarEffectListener, IAvatarImage, IAvatarImageListener, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObject, IRoomObjectModel, IRoomObjectSprite, RoomObjectSpriteData, RoomObjectSpriteType, RoomObjectVariable } from '@octane/api';
 import { GetAssetManager, getHalfSizeTexture, halfSizeOffset, halfSizePadding, isPixelArtTexture } from '@octane/assets';
 import { AdvancedMap, GetRenderer, Vector3d } from '@octane/utils';
 import { Container, RenderTexture, Sprite, Texture } from 'pixi.js';
@@ -1437,6 +1437,101 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
         this._additions.delete(addition.id);
 
         addition.dispose();
+    }
+
+    /**
+     * Behaviour from the AIR client (AvatarVisualization.getSpriteList): the figure as camera scene sprites, the
+     * figure parts from the avatar image, then the effect sprites, then the shadow. Positions are relative to the
+     * avatar's screen location; the scene builder moves them into place.
+     */
+    public getSpriteList(): RoomObjectSpriteData[]
+    {
+        if(!this._avatarImage) return null;
+
+        let shadowData: RoomObjectSpriteData = null;
+        const shadowSprite = this.getSprite(AvatarVisualization.SHADOW_LAYER_ID);
+
+        // AIR always adds the shadow sprite; we leave it out while it is hidden (sitting, laying).
+        if(shadowSprite && shadowSprite.visible && shadowSprite.libraryAssetName)
+        {
+            shadowData = new RoomObjectSpriteData();
+            shadowData.alpha = shadowSprite.alpha;
+            shadowData.x = Math.trunc(shadowSprite.offsetX);
+            shadowData.y = Math.trunc(shadowSprite.offsetY);
+            shadowData.name = shadowSprite.libraryAssetName;
+            shadowData.width = Math.trunc(shadowSprite.width);
+            shadowData.height = Math.trunc(shadowSprite.height);
+        }
+
+        const spriteList = this._avatarImage.getServerRenderData() || [];
+        const direction = this._avatarImage.getDirection();
+        // AIR always places the effect sprites for the 64 scale.
+        const scale = 64;
+
+        for(const spriteData of (this._avatarImage.getSprites() || []))
+        {
+            if(spriteData.id === AvatarVisualization.AVATAR) continue;
+
+            const layerData = this._avatarImage.getLayerData(spriteData);
+
+            let frameNumber = 0;
+            let offsetX = spriteData.getDirectionOffsetX(direction);
+            let offsetY = spriteData.getDirectionOffsetY(direction);
+            const offsetZ = spriteData.getDirectionOffsetZ(direction);
+            let dd = (spriteData.hasDirections ? direction : 0);
+
+            if(layerData)
+            {
+                frameNumber = layerData.animationFrame;
+                offsetX += layerData.dx;
+                offsetY += layerData.dy;
+                dd += layerData.dd;
+            }
+
+            if(dd < 0) dd += 8;
+            else if(dd > 7) dd -= 8;
+
+            const assetName = (this._avatarImage.getScale() + '_' + spriteData.member + '_' + dd + '_' + frameNumber);
+            const asset = GetAssetManager().getAsset(assetName);
+
+            if(!asset) continue;
+
+            const data = new RoomObjectSpriteData();
+
+            data.x = Math.trunc((asset.offsetX - (scale / 2)) + offsetX);
+            data.y = Math.trunc(asset.offsetY + offsetY);
+
+            if(spriteData.hasStaticY) data.y = Math.trunc(data.y + ((this._verticalOffset * scale) / (2 * AvatarVisualization.BASE_Y_SCALE)));
+
+            if(spriteData.ink === 33) data.blendMode = 'add';
+
+            data.name = assetName;
+            data.z = (this._isLaying ? (-0.409 - ((0.001 * this.spriteCount) * offsetZ)) : ((-0.001 * this.spriteCount) * offsetZ));
+
+            const rectangle = asset.rectangle;
+
+            data.width = (rectangle ? Math.trunc(rectangle.width) : 60);
+            data.height = (rectangle ? Math.trunc(rectangle.height) : 60);
+
+            spriteList.push(data);
+        }
+
+        // A grayscale effect palette tints every part but the effect and shadow sprites with its first red.
+        const avatarData = (this._avatarImage as unknown as { avatarSpriteData?: { paletteIsGrayscale: boolean, reds: number[] } }).avatarSpriteData;
+
+        if(avatarData && avatarData.paletteIsGrayscale && avatarData.reds && avatarData.reds.length)
+        {
+            const color = avatarData.reds[0].toString();
+
+            for(const data of spriteList)
+            {
+                if((data.name.indexOf('h_std_fx') === -1) && (data.name.indexOf('h_std_sd') === -1)) data.color = color;
+            }
+        }
+
+        if(shadowData) spriteList.push(shadowData);
+
+        return spriteList;
     }
 
     private updateShadow(scale: number): void

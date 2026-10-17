@@ -1,4 +1,4 @@
-import { AvatarAction, AvatarDirectionAngle, AvatarScaleType, AvatarSetType, IActiveActionData, IAnimationLayerData, IAvatarDataContainer, IAvatarEffectListener, IAvatarFigureContainer, IAvatarImage, IGraphicAsset, IPartColor, ISpriteDataContainer } from '@octane/api';
+import { AvatarAction, AvatarDirectionAngle, AvatarScaleType, AvatarSetType, IActiveActionData, IAnimationLayerData, IAvatarDataContainer, IAvatarEffectListener, IAvatarFigureContainer, IAvatarImage, IGraphicAsset, IPartColor, ISpriteDataContainer, RoomObjectSpriteData } from '@octane/api';
 import { GetRenderer, GetTexturePool, GetTickerTime, PaletteMapFilter, TextureUtils } from '@octane/utils';
 import { ColorMatrixFilter, Container, Filter, ICanvas, RenderTexture, Sprite, Texture } from 'pixi.js';
 import { AvatarFigureContainer } from './AvatarFigureContainer';
@@ -124,6 +124,12 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
         this._disposed = true;
     }
 
+    // The effect's avatar data (palette, ink), read by the camera scene like AIR's avatarSpriteData.
+    public get avatarSpriteData(): IAvatarDataContainer
+    {
+        return this._avatarSpriteData;
+    }
+
     public get disposed(): boolean
     {
         return this._disposed;
@@ -216,6 +222,27 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
         this._frameCounter = 0;
         this._effectAnimationStartFrame = 0;
         this._changes = true;
+    }
+
+    /**
+     * Behaviour from the AIR client (AvatarImage.getServerRenderData / getAvatarPartsForCamera): every part of the
+     * full figure, body parts walked back to front, as the camera scene sends it to the server.
+     */
+    public getServerRenderData(): RoomObjectSpriteData[]
+    {
+        const data: RoomObjectSpriteData[] = [];
+
+        if(this._disposed || !this._mainAction || !this._mainAction.definition || !this._cache) return data;
+
+        const geometryType = this._mainAction.definition.geometryType;
+
+        if(!this._structure.getCanvas(this._scale, geometryType)) return data;
+
+        const bodyParts = this.getBodyParts(AvatarSetType.FULL, geometryType, this._mainDirection) || [];
+
+        for(let index = (bodyParts.length - 1); index >= 0; index--) this._cache.collectServerRenderData(bodyParts[index], this._frameCounter, data);
+
+        return data;
     }
 
     private getBodyParts(avatarSet: string, geometryType: string, direction: number): string[]

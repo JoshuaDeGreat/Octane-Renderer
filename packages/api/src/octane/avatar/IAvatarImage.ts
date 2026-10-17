@@ -1,4 +1,5 @@
 import { Container, Texture } from 'pixi.js';
+import { RoomObjectSpriteData } from '../../room/RoomObjectSpriteData';
 import { IActiveActionData } from './actions';
 import { IAvatarFigureContainer } from './IAvatarFigureContainer';
 import { IAnimationLayerData, ISpriteDataContainer } from './animation';
@@ -33,4 +34,6 @@ export interface IAvatarImage
     isPlaceholder(): boolean;
     animationHasResetOnToggle: boolean;
     resetAnimationFrameCounter(): void;
+    /** The full figure as camera scene sprites, one per drawn part (AIR AvatarImage.getServerRenderData). */
+    getServerRenderData(): RoomObjectSpriteData[];
 }
