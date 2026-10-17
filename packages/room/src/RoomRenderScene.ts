@@ -31,6 +31,8 @@ const MANNEQUIN_MAGIC_X_OFFSET: number = 1;
 const MANNEQUIN_MAGIC_Y_OFFSET: number = -16;
 const AVATAR_WATER_EFFECT_MAGIC_Y_OFFSET: number = -52;
 const MAX_EXTERNAL_IMAGE_COUNT: number = 30;
+// A group badge named by its code, for a server that draws it (no group.badge.url imager).
+export const GROUP_BADGE_PREFIX: string = 'group_badge:';
 
 // AS3 int(): toward zero, 32 bits.
 const toInt = (value: number): number => (Math.trunc(Number(value) || 0) | 0);
@@ -57,6 +59,16 @@ export class RoomRenderScene
     public get spriteCount(): number
     {
         return this._spriteCount;
+    }
+
+    /** True when group.badge.url points at a badge imager: a URL with %imagerdata% in it, not the bare placeholder. */
+    public static hasGroupBadgeImager(groupBadgeUrl: string): boolean
+    {
+        if(!groupBadgeUrl) return false;
+
+        const url = groupBadgeUrl.trim();
+
+        return (url.indexOf('%imagerdata%') >= 0) && (url !== '%imagerdata%');
     }
 
     public static sortQuadPoints(p1: Point, p2: Point, p3: Point, p4: Point): Point[]
@@ -268,10 +280,20 @@ export class RoomRenderScene
 
         name = name.replace('%image.library.url%', (this._options.imageLibraryUrl ?? ''));
 
+        let isGroupBadge = false;
+
         if(name.indexOf('%group.badge.url%') !== -1)
         {
             name = name.replace('%group.badge.url%', '');
-            name = (this._options.groupBadgeUrl ?? '').replace('%imagerdata%', name);
+
+            // With a badge imager (group.badge.url with %imagerdata%) the name is its URL, as in AIR. Our client
+            // builds group badges itself, so without one the server is told the badge code and draws the badge.
+            if(RoomRenderScene.hasGroupBadgeImager(this._options.groupBadgeUrl)) name = this._options.groupBadgeUrl.replace('%imagerdata%', name);
+            else
+            {
+                name = (GROUP_BADGE_PREFIX + name);
+                isGroupBadge = true;
+            }
         }
 
         data.name = name;
@@ -299,6 +321,12 @@ export class RoomRenderScene
             this._externalImageCount++;
 
             if(this._externalImageCount > MAX_EXTERNAL_IMAGE_COUNT) data.name = 'box';
+        }
+        else if(isGroupBadge)
+        {
+            // The server draws the badge at the size the client drew it, like an external image.
+            data.width = sprite.width;
+            data.height = sprite.height;
         }
 
         if(sprite.posture) data.posture = sprite.posture;

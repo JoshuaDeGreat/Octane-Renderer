@@ -23,6 +23,8 @@ export interface IWiredArrayVariableMetadata
     permanent?: boolean;
     /** The value-to-text table of a text connected definition, when the server sent one. */
     textConnector?: IWiredVariableTextConnectorEntry[];
+    /** AIR WiredVariable.requiresExecutionContext: a pointer, which only exists while a stack runs. */
+    requiresExecutionContext?: boolean;
     /** Set when the server reported a stored array schema it could not parse. */
     unavailable?: boolean;
     valueShape?: 'single' | 'array';
@@ -313,6 +315,8 @@ export class WiredUserVariablesDataParser implements IMessageParser
                 const definition = definitions?.find(current => current.itemId === value.itemId);
 
                 if(!definition) continue;
+
+                if(value.requiresExecutionContext === true) definition.requiresExecutionContext = true;
 
                 if(Array.isArray(value.textConnector))
                 {

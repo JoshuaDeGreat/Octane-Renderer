@@ -35,7 +35,7 @@ import { RareValuesEvent, RequestRareValuesComposer } from './messages';
 import { GetHotLooksComposer, HotLooksEvent } from './messages';
 import { WheelBuySpinComposer, WheelDataEvent, WheelOpenComposer, WheelRecentWinsEvent, WheelResultEvent, WheelSpinComposer } from './messages';
 import { WheelAdminGetPrizesComposer, WheelAdminPrizesEvent, WheelAdminSavePrizesComposer } from './messages';
-import { ChestDataEvent, ChestDepositComposer, ChestDepositFurniComposer, ChestDepositInventoryItemComposer, ChestFurniChunkEvent, ChestFurniDeltaEvent, ChestOpenComposer, ChestOpenEvent, ChestStartDepositComposer, ChestWithdrawAllFurniComposer, ChestWithdrawComposer, ChestWithdrawFurniComposer, ChestLogEvent, ChestCloseComposer, ChestEnableWiredComposer, ChestSaveOptionsComposer, ChestSaveSettingsComposer, ChestSaveNotificationsComposer, ChestUpgradeCapacityComposer, ChestNotificationEvent, ChestUpgradeResultEvent, ChestRequestLogComposer, WiredChestRoomLogsComposer, WiredChestLockComposer, WiredChestTransactionDetailsComposer, WiredChestRoomLogsEvent, WiredChestLockStateEvent, WiredChestTransactionDetailsEvent, WiredTradeOpenEvent, WiredTradeItemsEvent, WiredTradeCancelledEvent, WiredTradeCompletedEvent, WiredTradeOfferItemsComposer, WiredTradeAcceptComposer, WiredTradeCancelComposer } from './messages';
+import { ChestCoinsEvent, ChestDataEvent, ChestFurniChunkEvent, ChestFurniDeltaEvent, ChestOpenComposer, ChestOpenEvent, ChestSettingsUpdatedEvent, ChestStartDepositComposer, ChestWithdrawAllComposer, ChestWithdrawCoinsComposer, ChestWithdrawFurniComposer, ChestLogEvent, ChestCloseComposer, ChestSaveOptionsComposer, ChestSaveSettingsComposer, ChestSaveNotificationsComposer, ChestUpgradeCapacityComposer, ChestNotificationEvent, ChestUpgradeResultEvent, ChestRequestLogComposer, WiredChestRoomLogsComposer, WiredChestLockComposer, WiredChestTransactionDetailsComposer, WiredChestRoomLogsEvent, WiredChestLockStateEvent, WiredChestTransactionDetailsEvent, WiredTradeOpenEvent, WiredTradeItemsEvent, WiredTradeCancelledEvent, WiredTradeCompletedEvent, WiredTradeOfferItemsComposer, WiredTradeAcceptComposer, WiredTradeCancelComposer, WiredTradeErrorEvent, WiredTransactionFailEvent, WiredTransactionSuccessEvent } from './messages';
 import { SoundboardCatalogEvent, SoundboardCatalogReorderComposer, SoundboardCatalogRequestComposer, SoundboardCatalogResultEvent, SoundboardCatalogUpsertComposer, SoundboardPlayComposer, SoundboardPlayDeniedEvent, SoundboardPlayEvent, SoundboardRequestSettingsComposer, SoundboardSaveVolumeComposer, SoundboardSetEnabledComposer, SoundboardSettingsEvent } from './messages';
 import { PressKeybindComposer } from './messages';
 import { EarningsCenterEvent, EarningsClaimResultEvent, IncomeRewardNotificationEvent, RequestEarningsCenterComposer, ClaimEarningsRewardComposer, ClaimAllEarningsRewardsComposer } from './messages';
@@ -553,6 +553,11 @@ export class OctaneMessages implements IMessageConfiguration
         this._events.set(IncomingHeader.WIRED_TRADE_ITEMS, WiredTradeItemsEvent);
         this._events.set(IncomingHeader.WIRED_TRADE_CANCELLED, WiredTradeCancelledEvent);
         this._events.set(IncomingHeader.WIRED_TRADE_COMPLETED, WiredTradeCompletedEvent);
+        this._events.set(IncomingHeader.CHEST_COINS, ChestCoinsEvent);
+        this._events.set(IncomingHeader.CHEST_SETTINGS_UPDATED, ChestSettingsUpdatedEvent);
+        this._events.set(IncomingHeader.WIRED_TRANSACTION_SUCCESS, WiredTransactionSuccessEvent);
+        this._events.set(IncomingHeader.WIRED_TRANSACTION_FAIL, WiredTransactionFailEvent);
+        this._events.set(IncomingHeader.WIRED_TRADE_ERROR, WiredTradeErrorEvent);
         this._events.set(IncomingHeader.FURNITURE_STATE_2, DiceValueMessageEvent);
         this._events.set(IncomingHeader.RECOLOR_FURNI_UPDATE, RecolorFurniUpdateEvent);
         this._events.set(IncomingHeader.LOVELOCK_FURNI_FINISHED, LoveLockFurniFinishedEvent);
@@ -1334,18 +1339,14 @@ export class OctaneMessages implements IMessageConfiguration
         this._composers.set(OutgoingHeader.ITEM_DIMMER_TOGGLE, MoodlightTogggleStateComposer);
 
         // Player-facing wired chest (Scrigno)
-        this._composers.set(OutgoingHeader.CHEST_DEPOSIT, ChestDepositComposer);
-        this._composers.set(OutgoingHeader.CHEST_WITHDRAW, ChestWithdrawComposer);
+        this._composers.set(OutgoingHeader.CHEST_WITHDRAW, ChestWithdrawCoinsComposer);
         this._composers.set(OutgoingHeader.CHEST_WITHDRAW_FURNI, ChestWithdrawFurniComposer);
-        this._composers.set(OutgoingHeader.CHEST_DEPOSIT_FURNI, ChestDepositFurniComposer);
         this._composers.set(OutgoingHeader.CHEST_START_DEPOSIT, ChestStartDepositComposer);
-        this._composers.set(OutgoingHeader.CHEST_DEPOSIT_INVENTORY_ITEM, ChestDepositInventoryItemComposer);
-        this._composers.set(OutgoingHeader.CHEST_WITHDRAW_ALL_FURNI, ChestWithdrawAllFurniComposer);
+        this._composers.set(OutgoingHeader.CHEST_WITHDRAW_ALL_FURNI, ChestWithdrawAllComposer);
         this._composers.set(OutgoingHeader.CHEST_OPEN, ChestOpenComposer);
         this._composers.set(OutgoingHeader.CHEST_SAVE_SETTINGS, ChestSaveSettingsComposer);
         this._composers.set(OutgoingHeader.CHEST_SAVE_OPTIONS, ChestSaveOptionsComposer);
         this._composers.set(OutgoingHeader.CHEST_CLOSE, ChestCloseComposer);
-        this._composers.set(OutgoingHeader.CHEST_ENABLE_WIRED, ChestEnableWiredComposer);
         this._composers.set(OutgoingHeader.CHEST_SAVE_NOTIFICATIONS, ChestSaveNotificationsComposer);
         this._composers.set(OutgoingHeader.CHEST_UPGRADE_CAPACITY, ChestUpgradeCapacityComposer);
         this._composers.set(OutgoingHeader.CHEST_REQUEST_LOG, ChestRequestLogComposer);

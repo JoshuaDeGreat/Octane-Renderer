@@ -1,10 +1,9 @@
 import { IFurnitureStackingHeightMap, ILegacyWallGeometry, IObjectData, IRoomCanvasMouseListener, IRoomEngineServices, IRoomGeometry, IRoomObject, IRoomObjectController, IRoomObjectEventManager, ISelectedRoomObjectData, IVector3D, MouseEventType, RoomObjectCategory, RoomObjectOperationType, RoomObjectPlacementSource, RoomObjectType, RoomObjectUserType, RoomObjectVariable } from '@octane/api';
-import { BotPlaceComposer, ChestOpenComposer, ClickFurniMessageComposer, ClickUserMessageComposer, FurnitureColorWheelComposer, FurnitureDiceActivateComposer, FurnitureDiceDeactivateComposer, FurnitureFloorUpdateComposer, FurnitureGroupInfoComposer, FurnitureMultiStateComposer, FurnitureOneWayDoorComposer, FurniturePickupComposer, FurniturePlaceComposer, FurniturePostItPlaceComposer, FurnitureRandomStateComposer, FurnitureWallMultiStateComposer, FurnitureWallUpdateComposer, GetCommunication, GetItemDataComposer, GetResolutionAchievementsMessageComposer, PetMoveComposer, PetPlaceComposer, RemoveWallItemComposer, RoomUnitLookComposer, RoomUnitWalkComposer, SetItemDataMessageComposer, SetObjectDataMessageComposer } from '@octane/communication';
+import { BotPlaceComposer, ClickFurniMessageComposer, ClickUserMessageComposer, FurnitureColorWheelComposer, FurnitureDiceActivateComposer, FurnitureDiceDeactivateComposer, FurnitureFloorUpdateComposer, FurnitureGroupInfoComposer, FurnitureMultiStateComposer, FurnitureOneWayDoorComposer, FurniturePickupComposer, FurniturePlaceComposer, FurniturePostItPlaceComposer, FurnitureRandomStateComposer, FurnitureWallMultiStateComposer, FurnitureWallUpdateComposer, GetCommunication, GetItemDataComposer, GetResolutionAchievementsMessageComposer, PetMoveComposer, PetPlaceComposer, RemoveWallItemComposer, RoomUnitLookComposer, RoomUnitWalkComposer, SetItemDataMessageComposer, SetObjectDataMessageComposer } from '@octane/communication';
 import { GetConfiguration } from '@octane/configuration';
 import { GetEventDispatcher, RoomEngineDimmerStateEvent, RoomEngineObjectEvent, RoomEngineObjectPlacedEvent, RoomEngineObjectPlacedOnUserEvent, RoomEngineObjectPlaySoundEvent, RoomEngineRoomAdEvent, RoomEngineSamplePlaybackEvent, RoomEngineTriggerWidgetEvent, RoomEngineUseProductEvent, RoomObjectBadgeAssetEvent, RoomObjectDataRequestEvent, RoomObjectDimmerStateUpdateEvent, RoomObjectEvent, RoomObjectFloorHoleEvent, RoomObjectFurnitureActionEvent, RoomObjectHSLColorEnableEvent, RoomObjectHSLColorEnabledEvent, RoomObjectMouseEvent, RoomObjectMoveEvent, RoomObjectPlaySoundIdEvent, RoomObjectRoomAdEvent, RoomObjectSamplePlaybackEvent, RoomObjectSoundMachineEvent, RoomObjectStateChangedEvent, RoomObjectTileMouseEvent, RoomObjectWallMouseEvent, RoomObjectWidgetRequestEvent, RoomSpriteMouseEvent } from '@octane/events';
 import { GetRoomSessionManager, GetSessionDataManager } from '@octane/session';
 import { CreateLinkEvent, OctaneLogger, RoomId, Vector3d } from '@octane/utils';
-import { isWiredChestFloorItem } from './utils/isWiredChestFloorItem';
 import { RoomEnterEffect, RoomObjectUpdateMessage } from '../../room';
 import { ObjectAvatarSelectedMessage, ObjectDataUpdateMessage, ObjectSelectedMessage, ObjectTileCursorUpdateMessage, ObjectVisibilityUpdateMessage } from './messages';
 import { SelectedRoomObjectData } from './utils';
@@ -346,7 +345,7 @@ export class RoomObjectEventHandler implements IRoomCanvasMouseListener, IRoomOb
         }
     }
 
-    private clickRoomObject(event: RoomObjectMouseEvent, operation: string): void
+    private clickRoomObject(event: RoomObjectMouseEvent): void
     {
         if(!event || event.altKey || event.ctrlKey || event.shiftKey) return;
 
@@ -369,7 +368,9 @@ export class RoomObjectEventHandler implements IRoomCanvasMouseListener, IRoomOb
             return;
         }
 
-        if((category === RoomObjectCategory.UNIT) && (operation === RoomObjectOperationType.OBJECT_UNDEFINED) && (objectType === RoomObjectUserType.USER))
+        // Every avatar click goes out, bots and pets included, as in the AIR client; the server's Click User trigger
+        // fires for users and bots.
+        if(category === RoomObjectCategory.UNIT)
         {
             GetCommunication().connection.send(new ClickUserMessageComposer(objectId));
         }
@@ -436,7 +437,7 @@ export class RoomObjectEventHandler implements IRoomCanvasMouseListener, IRoomOb
 
         if(this.applyWiredClickSettings(event, roomId, operation)) return;
 
-        this.clickRoomObject(event, operation);
+        this.clickRoomObject(event);
 
         let didWalk = false;
         let didMove = false;
@@ -1590,20 +1591,8 @@ export class RoomObjectEventHandler implements IRoomCanvasMouseListener, IRoomOb
 
         if(category === RoomObjectCategory.FLOOR)
         {
-            const roomObject = this._roomEngine.getRoomObject(roomId, objectId, category);
-
-            if(roomObject?.model && !isRandom)
-            {
-                const typeId = roomObject.model.getValue<number>(RoomObjectVariable.FURNITURE_TYPE_ID);
-
-                if(!isNaN(typeId) && isWiredChestFloorItem(typeId))
-                {
-                    GetCommunication().connection.send(new ChestOpenComposer(objectId));
-
-                    return true;
-                }
-            }
-
+            // A wired chest is used like any furni: the server answers with ChestOpen and the client then asks for the
+            // contents (AIR WiredChestController), so there is no client-side shortcut here.
             if(!isRandom)
             {
                 GetCommunication().connection.send(new FurnitureMultiStateComposer(objectId, state));

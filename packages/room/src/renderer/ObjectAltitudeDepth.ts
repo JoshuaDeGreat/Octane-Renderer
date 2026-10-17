@@ -9,8 +9,9 @@ import { AvatarAction, IRoomObject, RoomObjectVariable } from '@octane/api';
 // while a closer tile still outranks anything elevated less than ~3.5 units.
 export const OBJECT_ALTITUDE_DEPTH: number = 0.2;
 
-// The riding effect; its wearer stands this high above the pet.
+// The riding effects; their wearer stands this high above the pet.
 export const RIDING_EFFECT_ID: number = 77;
+export const RIDING_EFFECT_IDS: readonly number[] = [RIDING_EFFECT_ID, 103];
 export const RIDER_MOUNT_HEIGHT: number = 1;
 
 // How much of an object's altitude is weighted into its sort depth.
@@ -37,7 +38,7 @@ export const getObjectAltitudeDepth = (object: IRoomObject): number =>
         return ((altitude - seatHeight) * OBJECT_ALTITUDE_DEPTH);
     }
 
-    if(object.model?.getValue<number>(RoomObjectVariable.FIGURE_EFFECT) === RIDING_EFFECT_ID)
+    if(RIDING_EFFECT_IDS.includes(object.model?.getValue<number>(RoomObjectVariable.FIGURE_EFFECT)))
     {
         return (Math.max(0, (altitude - RIDER_MOUNT_HEIGHT)) * OBJECT_ALTITUDE_DEPTH);
     }

@@ -1,15 +1,16 @@
 import { IMessageComposer } from '@octane/api';
 
 /**
- * Saves a wired chest's notification prefs. [itemId, full, donation, withdraw, empty, wired, mode].
+ * Save a chest's notification preferences: [chestId, notifyMode, chestFull, donation, someoneWithdraws, chestEmpty,
+ * wiredTransaction]. AIR WIN63-202610131318 (package_95/class_2747, ChestNotificationSettingsUI).
  */
 export class ChestSaveNotificationsComposer implements IMessageComposer<ConstructorParameters<typeof ChestSaveNotificationsComposer>>
 {
     private _data: ConstructorParameters<typeof ChestSaveNotificationsComposer>;
 
-    constructor(itemId: number, full: boolean, donation: boolean, withdraw: boolean, empty: boolean, wired: boolean, mode: number)
+    constructor(chestId: number, notifyMode: number, chestFull: boolean, donation: boolean, someoneWithdraws: boolean, chestEmpty: boolean, wiredTransaction: boolean)
     {
-        this._data = [itemId, full, donation, withdraw, empty, wired, mode];
+        this._data = [chestId, notifyMode, chestFull, donation, someoneWithdraws, chestEmpty, wiredTransaction];
     }
 
     public getMessageArray()

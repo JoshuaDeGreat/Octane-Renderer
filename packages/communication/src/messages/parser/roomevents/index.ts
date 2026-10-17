@@ -46,3 +46,4 @@ export * from './WiredFurniAddonParser';
 export * from './WiredFurniSelectorParser';
 export * from './WiredFurniVariableParser';
 export * from './WiredVisualEffectsParsers';
+export * from './WiredContractData';

@@ -1,6 +1,7 @@
 import { IGraphicAssetCollection, IObjectVisualizationData, IRoomGeometry, IRoomObjectController, IRoomObjectSprite, IRoomObjectSpriteVisualization, RoomObjectSpriteData } from '@octane/api';
 import { TextureUtils } from '@octane/utils';
 import { Container, Point, Rectangle, Sprite, Texture } from 'pixi.js';
+import { RoomPlaneDisplay } from '../../renderer/utils/RoomPlaneDisplay';
 import { RoomObjectSprite } from './RoomObjectSprite';
 
 export class RoomObjectSpriteVisualization implements IRoomObjectSpriteVisualization
@@ -142,7 +143,25 @@ export class RoomObjectSpriteVisualization implements IRoomObjectSpriteVisualiza
             const objectSprite = spriteList[index];
             const texture = objectSprite.texture;
 
-            if(texture)
+            if(objectSprite.planeDrawData)
+            {
+                // A room plane drawn from its tile: same display the canvas uses, under a tinted holder.
+                const holder = new Container();
+                const display = new RoomPlaneDisplay();
+
+                display.setData(objectSprite.planeDrawData);
+
+                holder.addChild(display);
+                holder.alpha = (objectSprite.alpha / 255);
+                holder.tint = objectSprite.color;
+                holder.x = objectSprite.offsetX;
+                holder.y = objectSprite.offsetY;
+                holder.blendMode = objectSprite.blendMode;
+                holder.filters = objectSprite.filters;
+
+                container.addChild(holder);
+            }
+            else if(texture)
             {
                 const sprite = new Sprite(texture);
 

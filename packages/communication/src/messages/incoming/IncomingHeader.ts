@@ -111,6 +111,12 @@ export class IncomingHeader
     public static WIRED_TRADE_ITEMS = 9332;
     public static WIRED_TRADE_CANCELLED = 9333;
     public static WIRED_TRADE_COMPLETED = 9334;
+    // AIR wired chest model: our own ids, never the official rotated table.
+    public static CHEST_COINS = 9337;
+    public static CHEST_SETTINGS_UPDATED = 9338;
+    public static WIRED_TRANSACTION_SUCCESS = 9339;
+    public static WIRED_TRANSACTION_FAIL = 9346;
+    public static WIRED_TRADE_ERROR = 9347;
     public static ITEM_STACK_HELPER = 2816;
     public static ITEM_WALL = 1369;
     public static ITEM_WALL_ADD = 2187;

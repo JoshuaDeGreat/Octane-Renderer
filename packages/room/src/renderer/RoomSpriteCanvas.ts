@@ -656,24 +656,27 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
 
             const spriteX = ((x + sprite.offsetX) + this._screenOffsetX);
             const spriteY = ((y + sprite.offsetY) + this._screenOffsetY);
+            // A plane drawn from its tile has an EMPTY texture; its size is the draw data's.
+            const width = (sprite.planeDrawData ? sprite.width : texture.width);
+            const height = (sprite.planeDrawData ? sprite.height : texture.height);
 
             if(sprite.flipH)
             {
-                const checkX = ((x + (-(texture.width + (-(sprite.offsetX))))) + this._screenOffsetX);
+                const checkX = ((x + (-(width + (-(sprite.offsetX))))) + this._screenOffsetX);
 
-                if(!this.isSpriteVisible(checkX, spriteY, texture.width, texture.height)) continue;
+                if(!this.isSpriteVisible(checkX, spriteY, width, height)) continue;
             }
 
             else if(sprite.flipV)
             {
-                const checkY = ((y + (-(texture.height + (-(sprite.offsetY))))) + this._screenOffsetY);
+                const checkY = ((y + (-(height + (-(sprite.offsetY))))) + this._screenOffsetY);
 
-                if(!this.isSpriteVisible(spriteX, checkY, texture.width, texture.height)) continue;
+                if(!this.isSpriteVisible(spriteX, checkY, width, height)) continue;
             }
 
             else
             {
-                if(!this.isSpriteVisible(spriteX, spriteY, texture.width, texture.height)) continue;
+                if(!this.isSpriteVisible(spriteX, spriteY, width, height)) continue;
             }
 
             let sortableSprite = sortableCache.getSprite(spriteCount);
@@ -793,13 +796,18 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
 
             const objectTexture = ((objectSprite.texture && !objectSprite.texture.destroyed && objectSprite.texture.source) ? objectSprite.texture : Texture.EMPTY);
 
-            if(extendedSprite.texture !== objectTexture) extendedSprite.setTexture(objectTexture);
+            if(extendedSprite.sourceTexture !== objectTexture) extendedSprite.setTexture(objectTexture);
 
             const magnitude = (objectSprite.scale && (objectSprite.scale > 0)) ? objectSprite.scale : 1;
 
             extendedSprite.scale.x = objectSprite.flipH ? -magnitude : magnitude;
             extendedSprite.scale.y = objectSprite.flipV ? -magnitude : magnitude;
+
+            extendedSprite.updateHighlight();
         }
+
+        extendedSprite.setPlaneDrawData(objectSprite.planeDrawData);
+        extendedSprite.validateHighlight();
 
         extendedSprite.x = Math.round(sprite.x);
         extendedSprite.y = Math.round(sprite.y);
@@ -831,6 +839,8 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
             textureSet = true;
         }
 
+        extendedSprite.setPlaneDrawData(null);
+
         if(extendedSprite.children.length) extendedSprite.removeChildren();
 
         extendedSprite.tag = sprite.tag;
@@ -850,6 +860,8 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
 
         if(!textureSet) extendedSprite.setTexture(sprite.texture);
 
+        extendedSprite.setPlaneDrawData(sprite.planeDrawData);
+
         if(sprite.flipH) extendedSprite.scale.x = -1;
         if(sprite.flipV) extendedSprite.scale.y = -1;
 
@@ -865,6 +877,9 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
         {
             this._display.addChildAt(extendedSprite, index);
         }
+
+        // After attaching, so the display's zoom and flip are known.
+        extendedSprite.updateHighlight();
 
         this._activeSpriteCount++;
     }
@@ -917,6 +932,7 @@ export class RoomSpriteCanvas implements IRoomRenderingCanvas
 
         if(!destroy)
         {
+            sprite.setPlaneDrawData(null);
             sprite.setTexture(null);
         }
         else

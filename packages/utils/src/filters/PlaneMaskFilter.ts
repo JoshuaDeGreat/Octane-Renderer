@@ -63,16 +63,16 @@ export class PlaneMaskFilter extends Filter
             name: 'plane-mask-filter',
         });
 
+        // No uniform group of its own: Pixi 8.22 gives every empty UniformGroup the signature of the
+        // empty ShaderOverrides it creates at load (createIdFromString shares one hash across groups),
+        // so an empty group could pick up another group's sync function and throw when bound.
         super({
             gpuProgram: null,
             glProgram,
-            resources: {
-                planeMaskUniforms: {
-                },
-            },
+            resources: {},
         });
 
-        this.uniforms = this.resources.planeMaskUniforms.uniforms;
+        this.uniforms = {};
 
         Object.assign(this, options);
     }

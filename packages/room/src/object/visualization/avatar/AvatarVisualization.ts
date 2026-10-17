@@ -459,7 +459,7 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
                 }
                 else
                 {
-                    const sprite = this.getSprite(spriteIndex);
+                    const sprite = this.getSprite(spriteIndex++);
 
                     if(sprite)
                     {
@@ -503,7 +503,14 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
                         const largeAsset = ((!asset && (scale < 48)) ? GetAssetManager().getAsset(('h_' + spriteData.member + '_' + dd + '_' + frameNumber)) : null);
                         const halfTexture = (isPixelArtTexture(largeAsset?.texture) ? getHalfSizeTexture(largeAsset.texture, halfSizePadding(largeAsset.offsetX), halfSizePadding(largeAsset.offsetY)) : null);
 
-                        if(!asset && !halfTexture) continue;
+                        if(!asset && !halfTexture)
+                        {
+                            // Official: an effect sprite without art for this frame is cleared, not left showing the previous effect.
+                            sprite.texture = Texture.EMPTY;
+                            sprite.visible = false;
+
+                            continue;
+                        }
 
                         if(asset)
                         {
@@ -542,8 +549,6 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
                         if(spriteData.ink === 33) sprite.blendMode = 'add';
                         else sprite.blendMode = 'normal';
                     }
-
-                    spriteIndex++;
                 }
             }
 

@@ -45,8 +45,9 @@ export class RoomObjectVisualizationFactory implements IRoomObjectVisualizationF
                 visualization = PetVisualization;
                 break;
             case RoomObjectVisualizationType.FURNITURE_STATIC:
-            // The official furniture label (wf_label) draws as a static furni; its bubble is client UI.
+            // The official furniture label (wf_label) and region draw as a static furni; their overlays are client UI.
             case 'furniture_label':
+            case 'furniture_region':
                 visualization = FurnitureVisualization;
                 break;
             case RoomObjectVisualizationType.FURNITURE_BRANDED_IMAGE:
@@ -177,6 +178,7 @@ export class RoomObjectVisualizationFactory implements IRoomObjectVisualizationF
         {
             case RoomObjectVisualizationType.FURNITURE_STATIC:
             case 'furniture_label':
+            case 'furniture_region':
             case RoomObjectVisualizationType.FURNITURE_BRANDED_IMAGE:
             case RoomObjectVisualizationType.FURNITURE_GIFT_WRAPPED:
             case RoomObjectVisualizationType.FURNITURE_BB:

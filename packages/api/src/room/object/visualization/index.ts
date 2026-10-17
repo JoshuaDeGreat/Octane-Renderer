@@ -7,4 +7,5 @@ export * from './IRoomObjectVisualization';
 export * from './IRoomObjectVisualizationData';
 export * from './IRoomObjectVisualizationFactory';
 export * from './IRoomPlane';
+export * from './IRoomPlaneDrawData';
 export * from './ISortableSprite';

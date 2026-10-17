@@ -1,4 +1,4 @@
-import { AlphaTolerance, IRoomObjectSprite, RoomObjectSpriteType } from '@octane/api';
+import { AlphaTolerance, IRoomObjectSprite, IRoomPlaneDrawData, RoomObjectSpriteType } from '@octane/api';
 import { BLEND_MODES, Filter, Texture } from 'pixi.js';
 
 export class RoomObjectSprite implements IRoomObjectSprite
@@ -33,12 +33,15 @@ export class RoomObjectSprite implements IRoomObjectSprite
     private _posture: string = null;
     private _alphaTolerance: number = AlphaTolerance.MATCH_OPAQUE_PIXELS;
     private _filters: Filter[] = [];
+    private _planeDrawData: IRoomPlaneDrawData = null;
+    private _planeDrawDataVersion: number = -1;
 
     private _updateCounter: number = 0;
 
     public dispose(): void
     {
         this._texture = null;
+        this._planeDrawData = null;
         this._width = 0;
         this._height = 0;
     }
@@ -101,13 +104,43 @@ export class RoomObjectSprite implements IRoomObjectSprite
     {
         if(this._texture === texture) return;
 
-        if(texture)
+        // A plane drawn from its draw data takes its size from that.
+        if(texture && !this._planeDrawData)
         {
             this._width = texture.width;
             this._height = texture.height;
         }
 
         this._texture = texture;
+
+        this._updateCounter++;
+    }
+
+    public get planeDrawData(): IRoomPlaneDrawData
+    {
+        return this._planeDrawData;
+    }
+
+    // Set again after every plane update: the same draw data object changes size and version in place.
+    public set planeDrawData(data: IRoomPlaneDrawData)
+    {
+        if(data)
+        {
+            this._width = data.width;
+            this._height = data.height;
+        }
+        else if(this._planeDrawData && this._texture)
+        {
+            this._width = this._texture.width;
+            this._height = this._texture.height;
+        }
+
+        const version = (data ? data.version : -1);
+
+        if((data === this._planeDrawData) && (version === this._planeDrawDataVersion)) return;
+
+        this._planeDrawData = data;
+        this._planeDrawDataVersion = version;
 
         this._updateCounter++;
     }

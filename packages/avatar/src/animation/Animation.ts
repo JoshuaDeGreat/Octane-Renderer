@@ -13,6 +13,8 @@ export class Animation implements IAnimation
     private _id: string;
     private _description: string;
     private _frames: AvatarAnimationLayerData[][];
+    private _frameDirections: DirectionDataContainer[];
+    private _hasFrameDirections: boolean;
     private _spriteData: SpriteDataContainer[];
     private _avatarData: AvatarDataContainer;
     private _directionData: DirectionDataContainer;
@@ -20,6 +22,7 @@ export class Animation implements IAnimation
     private _addData: AddDataContainer[];
     private _overriddenActions: Map<string, string>;
     private _overrideFrames: Map<string, AvatarAnimationLayerData[][]>;
+    private _overrideFrameDirections: Map<string, DirectionDataContainer[]>;
     private _resetOnToggle: boolean;
 
     constructor(structure: AvatarStructure, animationData: IAssetAnimation)
@@ -27,6 +30,8 @@ export class Animation implements IAnimation
         this._id = animationData.name;
         this._description = this._id;
         this._frames = [];
+        this._frameDirections = [];
+        this._hasFrameDirections = false;
         this._spriteData = null;
         this._avatarData = null;
         this._directionData = null;
@@ -34,6 +39,7 @@ export class Animation implements IAnimation
         this._addData = null;
         this._overriddenActions = null;
         this._overrideFrames = null;
+        this._overrideFrameDirections = null;
         this._resetOnToggle = (animationData.resetOnToggle || false);
 
         if(animationData.sprites && animationData.sprites.length)
@@ -64,6 +70,7 @@ export class Animation implements IAnimation
         if(animationData.overrides && animationData.overrides.length)
         {
             this._overrideFrames = new Map();
+            this._overrideFrameDirections = new Map();
             this._overriddenActions = new Map();
 
             for(const override of animationData.overrides)
@@ -74,23 +81,32 @@ export class Animation implements IAnimation
                 this._overriddenActions.set(value, name);
 
                 const frames: AvatarAnimationLayerData[][] = [];
+                const frameDirections: DirectionDataContainer[] = [];
 
-                this.parseFrames(frames, override.frames, structure);
+                this.parseFrames(frames, frameDirections, override.frames, structure);
 
                 this._overrideFrames.set(name, frames);
+                this._overrideFrameDirections.set(name, frameDirections);
             }
         }
 
-        this.parseFrames(this._frames, animationData.frames, structure);
+        this.parseFrames(this._frames, this._frameDirections, animationData.frames, structure);
     }
 
-    private parseFrames(frames: AvatarAnimationLayerData[][], frameData: IAssetAnimationFrame[], structure: AvatarStructure): void
+    private parseFrames(frames: AvatarAnimationLayerData[][], frameDirections: DirectionDataContainer[], frameData: IAssetAnimationFrame[], structure: AvatarStructure): void
     {
         if(!frameData || !frameData.length) return;
 
         for(const frame of frameData)
         {
             let repeats = 1;
+            let direction: DirectionDataContainer = null;
+
+            if(frame.directions && frame.directions.length)
+            {
+                direction = new DirectionDataContainer(frame.directions[0]);
+                this._hasFrameDirections = true;
+            }
 
             if(frame.repeats && (frame.repeats > 1)) repeats = frame.repeats;
 
@@ -123,6 +139,7 @@ export class Animation implements IAnimation
                 }
 
                 frames.push(layers);
+                frameDirections.push(direction);
 
                 index++;
             }
@@ -197,6 +214,22 @@ export class Animation implements IAnimation
         return layers;
     }
 
+    public getDirectionOffset(frameCount: number, actionName: string = null): number
+    {
+        let directions = this._frameDirections;
+
+        if(actionName && this._overrideFrameDirections) directions = this._overrideFrameDirections.get(actionName);
+
+        if(directions && directions.length)
+        {
+            const direction = directions[(((frameCount % directions.length) + directions.length) % directions.length)];
+
+            if(direction) return direction.offset;
+        }
+
+        return this._directionData ? this._directionData.offset : 0;
+    }
+
     public getAnimatedBodyPartIds(frameCount: number, actionName: string = null): string[]
     {
         const bodyPartIds: string[] = [];
@@ -251,7 +284,7 @@ export class Animation implements IAnimation
 
     public hasDirectionData(): boolean
     {
-        return this._directionData !== null;
+        return (this._directionData !== null) || this._hasFrameDirections;
     }
 
     public hasAddData(): boolean
