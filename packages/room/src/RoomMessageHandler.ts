@@ -1543,7 +1543,7 @@ export class RoomMessageHandler
                 }
             }
 
-            this._roomEngine.updateRoomObjectUserAction(this._currentRoomId, user.roomIndex, RoomObjectVariable.FIGURE_IS_MUTED, (GetSessionDataManager().isUserIgnored(user.name) ? 1 : 0));
+            this._roomEngine.updateRoomObjectUserAction(this._currentRoomId, user.roomIndex, RoomObjectVariable.FIGURE_IS_MUTED, (((RoomObjectUserType.getTypeString(user.userType) === RoomObjectUserType.USER) && GetSessionDataManager().isUserIgnored(user.webID)) ? 1 : 0));
 
             // Pets and bots have ids too; only users can be on the block list.
             if((RoomObjectUserType.getTypeString(user.userType) === RoomObjectUserType.USER) && (user.webID > 0))
@@ -1925,7 +1925,7 @@ export class RoomMessageHandler
 
         if(!roomSession) return;
 
-        const userData = roomSession.userDataManager.getUserDataByName(parser.name);
+        const userData = roomSession.userDataManager.getUserData(parser.userId);
 
         if(!userData) return;
 

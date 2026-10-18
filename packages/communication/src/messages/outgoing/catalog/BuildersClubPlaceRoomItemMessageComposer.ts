@@ -4,9 +4,9 @@ export class BuildersClubPlaceRoomItemMessageComposer implements IMessageCompose
 {
     private _data: ConstructorParameters<typeof BuildersClubPlaceRoomItemMessageComposer>;
 
-    constructor(pageId: number, offerId: number, extraParam: string, x: number, y: number, direction: number)
+    constructor(pageId: number, offerId: number, extraParam: string, x: number, y: number, direction: number, confirmed: boolean = false)
     {
-        this._data = [pageId, offerId, extraParam, x, y, direction];
+        this._data = [pageId, offerId, extraParam, x, y, direction, confirmed];
     }
 
     dispose(): void

@@ -326,7 +326,7 @@ export class SessionDataManager implements ISessionDataManager
         this._canChangeName = userInfo.canChangeName;
         this._safetyLocked = userInfo.safetyLocked;
 
-        this._ignoredUsersManager.requestIgnoredUsers(userInfo.username);
+        this._ignoredUsersManager.requestIgnoredUsers();
         // Official `BlockedUsersManager.initBlockList()`, sent once the session data is known.
         this._blockedUsersManager.requestBlockedUsers();
 
@@ -808,19 +808,19 @@ export class SessionDataManager implements ISessionDataManager
         this.send(new RoomUnitChatComposer(text));
     }
 
-    public ignoreUser(name: string): void
+    public ignoreUser(userId: number): void
     {
-        this._ignoredUsersManager.ignoreUser(name);
+        this._ignoredUsersManager.ignoreUser(userId);
     }
 
-    public unignoreUser(name: string): void
+    public unignoreUser(userId: number): void
     {
-        this._ignoredUsersManager.unignoreUser(name);
+        this._ignoredUsersManager.unignoreUser(userId);
     }
 
-    public isUserIgnored(name: string): boolean
+    public isUserIgnored(userId: number): boolean
     {
-        return this._ignoredUsersManager.isIgnored(name);
+        return this._ignoredUsersManager.isIgnored(userId);
     }
 
     /** Official `SessionDataManager.blockUser` - the block list, keyed by user id. */

@@ -1,17 +1,11 @@
 import { IMessageComposer } from '@octane/api';
 
-export class GetIgnoredUsersComposer implements IMessageComposer<ConstructorParameters<typeof GetIgnoredUsersComposer>>
+/** Asks for the ignored user ids (AIR `?_-02R?/?_-Y2p?`, no fields). */
+export class GetIgnoredUsersComposer implements IMessageComposer<[]>
 {
-    private _data: ConstructorParameters<typeof GetIgnoredUsersComposer>;
-
-    constructor(username: string)
+    public getMessageArray(): []
     {
-        this._data = [username];
-    }
-
-    public getMessageArray()
-    {
-        return this._data;
+        return [];
     }
 
     public dispose(): void

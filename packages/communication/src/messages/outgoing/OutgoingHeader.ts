@@ -331,6 +331,9 @@ export class OutgoingHeader
     public static WIRED_FEATURE_CAPABILITIES = 10029;
     public static WIRED_ARRAY_INSPECTION_REQUEST = 10034;
     public static WIRED_ARRAY_INSPECTION_UPDATE = 10035;
+    // Wired setup share / import (ours; AIR has no wired sharing).
+    public static WIRED_SETUP_EXPORT = 10096;
+    public static WIRED_SETUP_IMPORT = 10097;
     // AIR 13 wired leftovers, all on their official ids.
     public static WIRED_USER_SELECTED = 3122;
     public static WIRED_MENU_PERMISSIONS_SAVE = 1936;
@@ -339,12 +342,21 @@ export class OutgoingHeader
     public static WIRED_VARIABLE_HOLDERS_PAGE = 975;
     // Official AIR variable leaderboard subscription; also the hello on entering a room.
     public static WIRED_LEADERBOARD_SUBSCRIBE = 2833;
+    // Official AIR WIRED Link window (client -> server). AIR's connections request is 2300, which is our
+    // ROOM_MODEL, so it uses 9494.
+    public static WIRED_LINK_REQUEST_CONFIG = 3208;
+    public static WIRED_LINK_SAVE_SELECTION = 385;
+    public static WIRED_LINK_CREATE_NETWORK = 2192;
+    public static WIRED_LINK_RENAME_NETWORK = 2794;
+    public static WIRED_LINK_DELETE_NETWORK = 2731;
+    public static WIRED_LINK_GET_CONNECTIONS = 9494;
     // Official AIR furniture label (wf_label) text and settings saves.
     public static WIRED_LABEL_SAVE_TEXT = 2638;
     public static WIRED_LABEL_SAVE_SETTINGS = 2970;
     public static WIRED_VARIABLE_HOLDERS_REQUEST = 2973;
     public static WIRED_VARIABLE_HASHES = 1497;
     public static WIRED_ALL_VARIABLES_REQUEST = 1735;
+    public static WIRED_GET_VARIABLES_FOR_OBJECT = 3661;
     public static WIRED_GENERATE_WEB_API_KEY = 2819;
     public static TRANSLATION_LANGUAGES_REQUEST = 10032;
     public static TRANSLATION_TEXT_REQUEST = 10033;
@@ -453,8 +465,8 @@ export class OutgoingHeader
     public static GET_BONUS_RARE_INFO = 957;
     public static CRAFT = 3591;
     public static CRAFT_SECRET = 1251;
-    public static GET_CRAFTABLE_PRODUCTS = 633;
-    public static GET_CRAFTING_RECIPE = 1173;
+    public static GET_CRAFTING_RECIPE = 633;
+    public static GET_CRAFTABLE_PRODUCTS = 1173;
     public static GET_CRAFTING_RECIPES_AVAILABLE = 3086;
     public static PHOTO_COMPETITION = 3959;
     public static PUBLISH_PHOTO = 2068;
