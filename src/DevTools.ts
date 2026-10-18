@@ -8,10 +8,12 @@ declare global
 		OctaneDevTools?:
 		{
             roomEngine: RoomEngine;
+            setPlaneRenderMode: (mode: 'bake' | 'direct') => void;
 		};
 	}
 }
 
 window.OctaneDevTools = {
-    roomEngine: GetRoomEngine()
+    roomEngine: GetRoomEngine(),
+    setPlaneRenderMode: mode => GetRoomEngine().setPlaneRenderMode(mode === 'direct')
 };

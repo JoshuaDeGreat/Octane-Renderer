@@ -61,14 +61,15 @@ export class RoomSessionHandler extends BaseHandler
         if(!parser) return;
 
         const username = parser.userName;
+        const flatId = this.flatIdOf(parser.flatId);
 
         if(!username || !username.length)
         {
-            this.connection.send(new GoToFlatMessageComposer(this.roomId));
+            this.connection.send(new GoToFlatMessageComposer(flatId));
         }
         else
         {
-            const session = this.listener.getSession(this.roomId);
+            const session = this.listener.getSession(flatId);
 
             if(!session) return;
 
@@ -85,15 +86,16 @@ export class RoomSessionHandler extends BaseHandler
         if(!parser) return;
 
         const username = parser.userName;
+        const flatId = this.flatIdOf(parser.flatId);
 
         if(!username || !username.length)
         {
-            OctaneLogger.log('[RoomSessionHandler] FlatAccessDenied (empty username) → RS_DISCONNECTED (roomId=' + this.roomId + ')');
-            this.listener.sessionUpdate(this.roomId, RoomSessionHandler.RS_DISCONNECTED);
+            OctaneLogger.log('[RoomSessionHandler] FlatAccessDenied (empty username) → RS_DISCONNECTED (roomId=' + flatId + ')');
+            this.listener.sessionUpdate(flatId, RoomSessionHandler.RS_DISCONNECTED);
         }
         else
         {
-            const session = this.listener.getSession(this.roomId);
+            const session = this.listener.getSession(flatId);
 
             if(!session) return;
 
@@ -105,7 +107,7 @@ export class RoomSessionHandler extends BaseHandler
     {
         if(this.listener)
         {
-            const session = this.listener.getSession(this.roomId);
+            const session = this.listener.getSession(this.flatIdOf(event.getParser()?.flatId));
 
             if(!session) return;
 
@@ -113,5 +115,11 @@ export class RoomSessionHandler extends BaseHandler
 
             GetEventDispatcher().dispatchEvent(new RoomSessionSpectatorModeEvent(RoomSessionSpectatorModeEvent.SPECTATOR_MODE, session));
         }
+    }
+
+    /** The flat a room access packet names (AIR reads it first); a server that sends 0 means the current room. */
+    private flatIdOf(flatId: number): number
+    {
+        return (flatId > 0) ? flatId : this.roomId;
     }
 }
