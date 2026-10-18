@@ -3,6 +3,7 @@ export * from './CatalogAdminOfferDetailsEvent';
 export * from './CatalogAdminPageDetailsEvent';
 export * from './CatalogAdminResultEvent';
 export * from './BuildersClubFurniCountMessageEvent';
+export * from './BuildersClubPlacementWarningMessageEvent';
 export * from './BuildersClubSubscriptionStatusMessageEvent';
 export * from './BundleDiscountRulesetMessageEvent';
 export * from './CatalogPageExpirationEvent';

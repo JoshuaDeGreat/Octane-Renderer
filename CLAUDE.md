@@ -10,7 +10,7 @@ top of.
 - **TypeScript 6.0** (root) + **tsgo** (`@typescript/native-preview`,
   TS 7 preview compiler — used by `yarn compile:fast`, ~7× faster on
   this codebase)
-- **PixiJS v8** (`pixi.js@8.18`)
+- **PixiJS v8** (`pixi.js@8.22`)
 - **Vite 8** for build + bundling
 - **Vitest 4** for unit tests
 - **Yarn 4.18 workspaces** (`packages/*`) through Corepack, using the
@@ -69,7 +69,7 @@ dispatches an invalidation event. The React side reads via
 |---|---|---|
 | `SessionDataManager` | `getUserDataSnapshot(): Readonly<IUserDataSnapshot>` | `SESSION_DATA_UPDATED` |
 | `RoomSessionManager` | `getActiveRoomSessionSnapshot(): Readonly<IRoomSessionSnapshot> \| null` | `ROOM_SESSION_UPDATED` |
-| `IgnoredUsersManager` | `getIgnoredUsersSnapshot(): ReadonlyArray<string>` | `IGNORED_USERS_UPDATED` |
+| `IgnoredUsersManager` | `getIgnoredUsersSnapshot(): ReadonlyArray<number>` (user ids) | `IGNORED_USERS_UPDATED` |
 | `GroupInformationManager` | `getGroupBadgesSnapshot(): ReadonlyMap<number, string>` | `GROUP_BADGES_UPDATED` (only on real changes — no-op refresh stays quiet) |
 | `UserDataManager` | `getRoomUserListSnapshot(): ReadonlyArray<IRoomUserData>` | `ROOM_USER_LIST_UPDATED` (inner IRoomUserData kept mutable — don't deep-clone) |
 | `SoundManager` | `getVolumesSnapshot(): Readonly<ISoundVolumesSnapshot>` | `SOUND_VOLUMES_UPDATED` (only when a volume actually changes) |

@@ -38,45 +38,73 @@ export class FurnitureGuildIsometricBadgeVisualization extends IsometricImageFur
             }
         }
 
-        const color1 = this.object.model.getValue<number>(RoomObjectVariable.FURNITURE_GUILD_CUSTOMIZED_COLOR_1);
-
-        this._color1 = color1 ? color1 : FurnitureGuildIsometricBadgeVisualization.DEFAULT_COLOR_1;
-
-        const color2 = this.object.model.getValue<number>(RoomObjectVariable.FURNITURE_GUILD_CUSTOMIZED_COLOR_2);
-
-        this._color2 = color2 ? color2 : FurnitureGuildIsometricBadgeVisualization.DEFAULT_COLOR_2;
+        // class_2058.updateModel: a colour the stuff data did not give (NaN) falls back to the default; any parsed colour, black included, is used.
+        this._color1 = FurnitureGuildIsometricBadgeVisualization.getGuildColor(this.object.model.getValue<number>(RoomObjectVariable.FURNITURE_GUILD_CUSTOMIZED_COLOR_1), FurnitureGuildIsometricBadgeVisualization.DEFAULT_COLOR_1);
+        this._color2 = FurnitureGuildIsometricBadgeVisualization.getGuildColor(this.object.model.getValue<number>(RoomObjectVariable.FURNITURE_GUILD_CUSTOMIZED_COLOR_2), FurnitureGuildIsometricBadgeVisualization.DEFAULT_COLOR_2);
 
         return flag;
     }
 
-    protected generateTransformedThumbnail(texture: Texture, asset: IGraphicAsset): Texture
+    public static getGuildColor(color: number, defaultColor: number): number
     {
-        const renderWidth = asset.width || 64;
-        const renderHeight = asset.height || renderWidth;
-        const difference = (renderWidth / texture.width);
-        const dScale = (renderHeight - 0.5 * renderWidth) / texture.height;
+        return ((typeof color === 'number') && !isNaN(color)) ? color : defaultColor;
+    }
+
+    /**
+     * class_1881.generateTransformedThumbnail: the badge is scaled to the width of the THUMBNAIL layer asset and
+     * sheared onto the furni face, into a bitmap of exactly the asset's size (whatever falls outside is cut off).
+     * Directions 0 and 4 slope down to the right, direction 2 up to the right, any other direction is a plain scale.
+     * AIR draws the result unmirrored at the asset's place; our sprite keeps the asset's flipH, so for a mirrored
+     * asset the drawing is mirrored first to show the same picture.
+     */
+    public static getThumbnailMatrix(direction: number, badgeWidth: number, assetWidth: number, flipH: boolean = false): Matrix
+    {
+        const scale = (assetWidth / badgeWidth);
         const matrix = new Matrix();
 
-        if(asset.flipH)
+        switch(direction)
         {
-            matrix.a = -difference;
-            matrix.b = -(0.5 * difference);
-            matrix.c = 0;
-            matrix.d = dScale;
-            matrix.tx = renderWidth;
-            matrix.ty = (0.5 * renderWidth);
-        }
-        else
-        {
-            matrix.a = difference;
-            matrix.b = (0.5 * difference);
-            matrix.c = 0;
-            matrix.d = dScale;
-            matrix.tx = 0;
-            matrix.ty = 0;
+            case 0:
+            case 4:
+                matrix.a = scale;
+                matrix.b = (0.5 * scale);
+                matrix.c = 0;
+                matrix.d = (scale * 1.1);
+                matrix.tx = 0;
+                matrix.ty = 0;
+                break;
+            case 2:
+                matrix.a = scale;
+                matrix.b = (-0.5 * scale);
+                matrix.c = 0;
+                matrix.d = (scale * 1.1);
+                matrix.tx = 0;
+                matrix.ty = (0.5 * scale * badgeWidth);
+                break;
+            default:
+                matrix.a = scale;
+                matrix.b = 0;
+                matrix.c = 0;
+                matrix.d = scale;
+                matrix.tx = 0;
+                matrix.ty = 0;
         }
 
-        return TextureUtils.createAndWriteRenderTexture(renderWidth, renderHeight, new Sprite(texture), matrix);
+        if(flipH)
+        {
+            matrix.a = -matrix.a;
+            matrix.c = -matrix.c;
+            matrix.tx = (assetWidth - matrix.tx);
+        }
+
+        return matrix;
+    }
+
+    protected generateTransformedThumbnail(texture: Texture, asset: IGraphicAsset): Texture
+    {
+        const matrix = FurnitureGuildIsometricBadgeVisualization.getThumbnailMatrix(this.direction, texture.width, asset.width, asset.flipH);
+
+        return TextureUtils.createAndWriteRenderTexture(asset.width, asset.height, new Sprite(texture), matrix);
     }
 
     protected getLayerColor(scale: number, layerId: number, colorId: number): number
@@ -98,7 +126,7 @@ export class FurnitureGuildIsometricBadgeVisualization extends IsometricImageFur
         {
             if(this.object && this.object.model.getValue<string>(RoomObjectVariable.FURNITURE_GUILD_CUSTOMIZED_ASSET_NAME))
             {
-                return '%group.badge.url%' + this.object.model.getValue<string>(RoomObjectVariable.FURNITURE_GUILD_CUSTOMIZED_ASSET_NAME);
+                return '%group.badge.url%' + this.object.model.getValue<string>(RoomObjectVariable.FURNITURE_GUILD_CUSTOMIZED_ASSET_NAME).replace('badge_', '');
             }
         }
 

@@ -1,5 +1,6 @@
 import { IRoomObjectSprite, RoomObjectSpriteData, RoomObjectSpriteType } from '@octane/api';
 import { SortableSprite } from '../utils';
+import { textureAverageColor } from './AverageColor';
 import { RoomObjectCacheItem } from './RoomObjectCacheItem';
 
 export class RoomObjectCache
@@ -97,9 +98,11 @@ export class RoomObjectCache
 
                 if(isSkewed) data.skew = (((sprite.sprite.direction % 4) === 0) ? -0.5 : 0.5);
 
-                // AIR also replaces the colour with the average colour of these small images; we keep the sprite colour.
+                // Small skewed thumbnails, library images and group badges are sent with their average colour instead.
                 if((isSkewed || (data.name.indexOf('%image.library.url%') >= 0) || (data.name.indexOf('%group.badge.url%') >= 0)) && (data.width <= RoomObjectCache.MAX_SIZE_FOR_AVG_COLOR) && (data.height <= RoomObjectCache.MAX_SIZE_FOR_AVG_COLOR))
                 {
+                    data.color = String(textureAverageColor(sprite.sprite.texture));
+
                     if(sprite.sprite.type && (sprite.sprite.type.indexOf('external_image_wallitem') === 0)) data.frame = true;
                 }
 

@@ -111,6 +111,12 @@ export class IncomingHeader
     public static WIRED_TRADE_ITEMS = 9332;
     public static WIRED_TRADE_CANCELLED = 9333;
     public static WIRED_TRADE_COMPLETED = 9334;
+    // AIR wired chest model: our own ids, never the official rotated table.
+    public static CHEST_COINS = 9337;
+    public static CHEST_SETTINGS_UPDATED = 9338;
+    public static WIRED_TRANSACTION_SUCCESS = 9339;
+    public static WIRED_TRANSACTION_FAIL = 9346;
+    public static WIRED_TRADE_ERROR = 9347;
     public static ITEM_STACK_HELPER = 2816;
     public static ITEM_WALL = 1369;
     public static ITEM_WALL_ADD = 2187;
@@ -319,6 +325,9 @@ export class IncomingHeader
     public static WIRED_USER_VISUALIZATION_STATE = 1454;
     public static WIRED_FURNI_MOVE_STYLE = 5110;
     public static WIRED_ARRAY_INSPECTION_DATA = 5111;
+    // Wired setup share / import (ours; AIR has no wired sharing).
+    public static WIRED_SETUP_EXPORT_RESULT = 10096;
+    public static WIRED_SETUP_IMPORT_RESULT = 10097;
     // AIR 13 wired leftovers. 420 (WiredClickUserResponse) and 2901 (WiredUserVariablesPage)
     // are already GROUP_LIST / PET_INFO here, so those two take custom ids instead.
     public static WIRED_ENVIRONMENT = 347;
@@ -326,6 +335,7 @@ export class IncomingHeader
     public static WIRED_LOG_PAGE = 918;
     public static WIRED_ALL_VARIABLES_HASH = 1646;
     public static WIRED_ALL_VARIABLES_DIFF = 2498;
+    public static WIRED_VARIABLES_FOR_OBJECT = 238;
     public static WIRED_CLICK_USER_RESPONSE = 9460;
     public static WIRED_VARIABLE_HOLDERS_PAGE = 9461;
     public static WIRED_VARIABLE_HOLDERS = 9462;
@@ -454,6 +464,7 @@ export class IncomingHeader
     public static CAMPAIGN_CALENDAR_DATA = 2531;
     public static CAMPAIGN_CALENDAR_DOOR_OPENED = 2551;
     public static BUILDERS_CLUB_FURNI_COUNT = 3828;
+    public static BUILDERS_CLUB_PLACEMENT_WARNING = 2075;
     public static BUILDERS_CLUB_SUBSCRIPTION = IncomingHeader.BUILDERS_CLUB_EXPIRED;
     public static CATALOG_PAGE_EXPIRATION = 2668;
     public static CATALOG_EARLIEST_EXPIRY = 2515;
@@ -703,6 +714,13 @@ export class IncomingHeader
     // Official AIR variable leaderboard (server -> client): the room's panels and a chunk of rows.
     public static WIRED_LEADERBOARD_SNAPSHOT = 1494;
     public static WIRED_LEADERBOARD_CHUNK = 3979;
+    // Official AIR WIRED Link window (server -> client). AIR's open push is 1715, which is our UNLOADGAME,
+    // so it uses 9493.
+    public static WIRED_LINK_OPEN = 9493;
+    public static WIRED_LINK_CONFIGURATION = 3405;
+    public static WIRED_LINK_OPERATION_RESULT = 3961;
+    public static WIRED_LINK_CONNECTIONS = 3962;
+    public static WIRED_LINK_NETWORK_INVALIDATED = 999;
     // Official AIR furniture labels (wf_label): every label the player may see, and changes.
     public static WIRED_LABELS = 2237;
     public static WIRED_LABELS_UPDATE = 796;

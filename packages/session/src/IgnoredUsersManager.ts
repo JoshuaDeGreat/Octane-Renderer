@@ -1,11 +1,12 @@
 ﻿import { IIgnoredUsersManager } from '@octane/api';
-import { GetCommunication, GetIgnoredUsersComposer, IgnoreResultEvent, IgnoreUserComposer, IgnoreUserIdComposer, IgnoredUsersEvent, UnignoreUserComposer } from '@octane/communication';
+import { GetCommunication, GetIgnoredUsersComposer, IgnoreResultEvent, IgnoreUserComposer, IgnoredUsersEvent, UnignoreUserComposer } from '@octane/communication';
 import { GetEventDispatcher, OctaneEvent, OctaneEventType } from '@octane/events';
 
+/** The ignored users, keyed by user id as AIR's IgnoredUsersManager, so a name change does not lift an ignore. */
 export class IgnoredUsersManager implements IIgnoredUsersManager
 {
-    private _ignoredUsers: string[] = [];
-    private _ignoredUsersSnapshot: ReadonlyArray<string> | null = null;
+    private _ignoredUsers: number[] = [];
+    private _ignoredUsersSnapshot: ReadonlyArray<number> | null = null;
 
     private invalidateIgnoredUsersSnapshot(): void
     {
@@ -14,11 +15,11 @@ export class IgnoredUsersManager implements IIgnoredUsersManager
         GetEventDispatcher().dispatchEvent(new OctaneEvent(OctaneEventType.IGNORED_USERS_UPDATED));
     }
 
-    public getIgnoredUsersSnapshot(): ReadonlyArray<string>
+    public getIgnoredUsersSnapshot(): ReadonlyArray<number>
     {
         if(this._ignoredUsersSnapshot) return this._ignoredUsersSnapshot;
 
-        this._ignoredUsersSnapshot = Object.freeze<string[]>([ ...this._ignoredUsers ]);
+        this._ignoredUsersSnapshot = Object.freeze<number[]>([ ...this._ignoredUsers ]);
 
         return this._ignoredUsersSnapshot;
     }
@@ -29,9 +30,9 @@ export class IgnoredUsersManager implements IIgnoredUsersManager
         GetCommunication().registerMessageEvent(new IgnoreResultEvent(this.onIgnoreResultEvent.bind(this)));
     }
 
-    public requestIgnoredUsers(username: string): void
+    public requestIgnoredUsers(): void
     {
-        GetCommunication().connection.send(new GetIgnoredUsersComposer(username));
+        GetCommunication().connection.send(new GetIgnoredUsersComposer());
     }
 
     private onIgnoredUsersEvent(event: IgnoredUsersEvent): void
@@ -42,7 +43,7 @@ export class IgnoredUsersManager implements IIgnoredUsersManager
 
         if(!parser) return;
 
-        this._ignoredUsers = parser.ignoredUsers;
+        this._ignoredUsers = [ ...parser.ignoredUserIds ];
         this.invalidateIgnoredUsersSnapshot();
     }
 
@@ -54,37 +55,37 @@ export class IgnoredUsersManager implements IIgnoredUsersManager
 
         if(!parser) return;
 
-        const name = parser.name;
+        const userId = parser.userId;
 
         switch(parser.result)
         {
             case 0:
                 return;
             case 1:
-                this.addUserToIgnoreList(name);
+                this.addUserToIgnoreList(userId);
                 return;
             case 2:
-                this.addUserToIgnoreList(name);
+                this.addUserToIgnoreList(userId);
                 this._ignoredUsers.shift();
                 this.invalidateIgnoredUsersSnapshot();
                 return;
             case 3:
-                this.removeUserFromIgnoreList(name);
+                this.removeUserFromIgnoreList(userId);
                 return;
         }
     }
 
-    private addUserToIgnoreList(name: string): void
+    private addUserToIgnoreList(userId: number): void
     {
-        if(this._ignoredUsers.indexOf(name) >= 0) return;
+        if(this._ignoredUsers.indexOf(userId) >= 0) return;
 
-        this._ignoredUsers.push(name);
+        this._ignoredUsers.push(userId);
         this.invalidateIgnoredUsersSnapshot();
     }
 
-    private removeUserFromIgnoreList(name: string): void
+    private removeUserFromIgnoreList(userId: number): void
     {
-        const index = this._ignoredUsers.indexOf(name);
+        const index = this._ignoredUsers.indexOf(userId);
 
         if(index < 0) return;
 
@@ -92,23 +93,18 @@ export class IgnoredUsersManager implements IIgnoredUsersManager
         this.invalidateIgnoredUsersSnapshot();
     }
 
-    public ignoreUserId(id: number): void
+    public ignoreUser(userId: number): void
     {
-        GetCommunication().connection.send(new IgnoreUserIdComposer(id));
+        GetCommunication().connection.send(new IgnoreUserComposer(userId));
     }
 
-    public ignoreUser(name: string): void
+    public unignoreUser(userId: number): void
     {
-        GetCommunication().connection.send(new IgnoreUserComposer(name));
+        GetCommunication().connection.send(new UnignoreUserComposer(userId));
     }
 
-    public unignoreUser(name: string): void
+    public isIgnored(userId: number): boolean
     {
-        GetCommunication().connection.send(new UnignoreUserComposer(name));
-    }
-
-    public isIgnored(name: string): boolean
-    {
-        return (this._ignoredUsers.indexOf(name) >= 0);
+        return (this._ignoredUsers.indexOf(userId) >= 0);
     }
 }

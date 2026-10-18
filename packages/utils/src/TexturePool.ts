@@ -7,6 +7,9 @@ export class TexturePool
     private static SWEEP_INTERVAL_MS: number = 1000;
     private static MAX_POOL_BYTES: number = 64 * 1024 * 1024;
 
+    private _released: { texture: Texture, destroySource: boolean }[] = [];
+    private _releasedNext: { texture: Texture, destroySource: boolean }[] = [];
+
     private _textures: { [index: string]: { [index: string]: Texture[] } } = {};
     private _pooledAt: WeakMap<Texture, number> = new WeakMap();
     private _totalTextures: number = 0;
@@ -182,6 +185,30 @@ export class TexturePool
         const height = texture.source?.pixelHeight || texture.height;
 
         return (width * height * 4);
+    }
+
+    // Destroyed after the next flush but one: a canvas display may still draw it until it picks up
+    // what replaced it (room plane patches).
+    public releaseTexture(texture: Texture, destroySource: boolean): void
+    {
+        if(!texture || texture.destroyed) return;
+
+        delete texture.source?.hitMap;
+        delete texture.source?.hitMapDirty;
+
+        this._releasedNext.push({ texture, destroySource });
+    }
+
+    // Once per room engine update.
+    public flushReleased(): void
+    {
+        for(const { texture, destroySource } of this._released)
+        {
+            if(!texture.destroyed) texture.destroy(destroySource);
+        }
+
+        this._released = this._releasedNext;
+        this._releasedNext = [];
     }
 
     public get textures(): { [index: string]: { [index: string]: Texture[] } }

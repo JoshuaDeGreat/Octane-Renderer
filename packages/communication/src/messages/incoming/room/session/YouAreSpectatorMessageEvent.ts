@@ -11,6 +11,6 @@ export class YouAreSpectatorMessageEvent extends MessageEvent implements IMessag
 
     public getParser(): YouAreSpectatorMessageParser
     {
-        return this.parser;
+        return this.parser as YouAreSpectatorMessageParser;
     }
 }

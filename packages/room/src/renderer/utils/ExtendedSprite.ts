@@ -1,6 +1,9 @@
-import { AlphaTolerance } from '@octane/api';
+import { AlphaTolerance, IRoomPlaneDrawData } from '@octane/api';
 import { GetRenderer, TextureUtils } from '@octane/utils';
 import { DestroyOptions, Filter, Point, Sprite, Texture, TextureSource, WebGLRenderer, WebGPURenderer } from 'pixi.js';
+import { RoomPlaneDisplay } from './RoomPlaneDisplay';
+import { RoomPlaneContainsPoint } from './RoomPlaneHitTest';
+import { IWiredHighlight, WiredHighlightCache } from './WiredHighlightCache';
 
 const BYTES_PER_PIXEL = 4;
 
@@ -8,6 +11,7 @@ export class ExtendedSprite extends Sprite
 {
     private static SCRATCH_POINT: Point = new Point();
 
+    private _planeDisplay: RoomPlaneDisplay = null;
     private _offsetX: number = 0;
     private _offsetY: number = 0;
     private _tag: string = '';
@@ -19,10 +23,16 @@ export class ExtendedSprite extends Sprite
     private _updateId1: number = -1;
     private _updateId2: number = -1;
     private _filterSource: Filter[] = null;
+    private _filtersShown: boolean = false;
+    private _sourceTexture: Texture = null;
+    private _highlight: IWiredHighlight = null;
+    private _highlightWaitsForParents: boolean = false;
 
     constructor(options?: ConstructorParameters<typeof Sprite>[0])
     {
         super(options);
+
+        this._sourceTexture = super.texture ?? null;
     }
 
     public needsUpdate(updateId1: number, updateId2: number): boolean
@@ -42,23 +52,142 @@ export class ExtendedSprite extends Sprite
         if(filters === this._filterSource) return;
 
         this._filterSource = filters;
-        this.filters = filters;
+
+        if(!this._highlight) this.showFilters(true);
     }
 
     public setTexture(texture: Texture): void
     {
         if(!texture || texture.destroyed || !texture.source) texture = Texture.EMPTY;
 
-        if(texture !== this.texture)
-        {
-            if(texture === Texture.EMPTY)
-            {
-                this._updateId1 = -1;
-                this._updateId2 = -1;
-            }
+        if(texture === this.sourceTexture) return;
 
-            this.texture = texture;
+        if(texture === Texture.EMPTY)
+        {
+            this._updateId1 = -1;
+            this._updateId2 = -1;
         }
+
+        this._sourceTexture = texture;
+        this.showSource();
+    }
+
+    // The room sprite's own texture: hit tests and change checks use it, whatever is drawn.
+    public get sourceTexture(): Texture
+    {
+        return this._sourceTexture ?? super.texture;
+    }
+
+    // Called once the canvas has copied a room sprite's properties. A sprite marked only by a
+    // WiredFilter, drawn as is (no tint, full alpha, normal blend), shows the frame already drawn
+    // through that filter instead of running the filter every frame; anything else draws as before.
+    public updateHighlight(): void
+    {
+        const filter = WiredHighlightCache.getFilter(this._filterSource);
+        const blendMode = this.blendMode;
+        // Flipped or scaled sprites keep the filter: the filter pass rounds its area on the side the
+        // sprite is drawn from, so a drawing flipped afterwards would differ by a column of pixels.
+        const plain = (this.alpha === 1) && (this.tint === 0xFFFFFF) && ((blendMode === 'normal') || (blendMode === 'inherit'))
+            && (this.scale.x === 1) && (this.scale.y === 1);
+        const parentsPlain = this.hasPlainParents();
+
+        // Held back only by a parent (zoom, flip, fade): try again once the parents are plain.
+        this._highlightWaitsForParents = (!!filter && plain && !parentsPlain);
+
+        const highlight = (filter && plain && parentsPlain) ? WiredHighlightCache.acquire(this.sourceTexture, filter) : null;
+
+        if(!highlight)
+        {
+            if(this._highlight) this.showSource();
+
+            return;
+        }
+
+        // acquire() counted it once more; keep one count per sprite.
+        if(highlight === this._highlight)
+        {
+            WiredHighlightCache.release(highlight);
+
+            return;
+        }
+
+        if(this._highlight) WiredHighlightCache.release(this._highlight);
+
+        this._highlight = highlight;
+        this.showFilters(false);
+        this.texture = highlight.texture;
+    }
+
+    // Every frame: a drawing whose source, context or filter colours changed is redrawn in place.
+    public validateHighlight(): void
+    {
+        if(!this._highlight)
+        {
+            if(this._highlightWaitsForParents && this.hasPlainParents()) this.updateHighlight();
+
+            return;
+        }
+
+        // A parent's alpha, tint, zoom, flip or rotation reaches the filter's input but would only reach
+        // the drawing after it.
+        if(!this.hasPlainParents())
+        {
+            this.showSource();
+
+            this._highlightWaitsForParents = true;
+
+            return;
+        }
+
+        WiredHighlightCache.validate(this._highlight);
+    }
+
+    public get hasHighlight(): boolean
+    {
+        return !!this._highlight;
+    }
+
+    private hasPlainParents(): boolean
+    {
+        for(let parent = this.parent; parent; parent = parent.parent)
+        {
+            if((parent.alpha !== 1) || (parent.tint !== 0xFFFFFF)) return false;
+
+            if((parent.scale.x !== 1) || (parent.scale.y !== 1) || (parent.rotation !== 0) || (parent.skew.x !== 0) || (parent.skew.y !== 0)) return false;
+        }
+
+        return true;
+    }
+
+    private showSource(): void
+    {
+        if(this._highlight)
+        {
+            WiredHighlightCache.release(this._highlight);
+
+            this._highlight = null;
+        }
+
+        this.texture = this.sourceTexture;
+        this.showFilters(true);
+    }
+
+    private showFilters(show: boolean): void
+    {
+        if(show)
+        {
+            if(!this._filtersShown && !this._filterSource?.length) return;
+
+            this.filters = this._filterSource;
+            this._filtersShown = !!this._filterSource?.length;
+
+            return;
+        }
+
+        if(!this._filtersShown) return;
+
+        this.filters = null;
+        this._filtersShown = false;
     }
 
     // A pooled or asset texture can be destroyed while this sprite still sits in the
@@ -122,31 +251,92 @@ export class ExtendedSprite extends Sprite
 
         ExtendedSprite.TEXTURE_SPRITES.delete(texture);
 
-        for(const sprite of [ ...sprites ]) sprite.onTextureDestroyed();
+        for(const sprite of [ ...sprites ]) sprite.onTextureDestroyed(texture);
     }
 
-    private onTextureDestroyed(): void
+    private onTextureDestroyed(texture: Texture): void
     {
+        if(texture && this._highlight && (texture === this._highlight.texture))
+        {
+            // The drawn highlight went away (cache trim, context loss, its source destroyed): draw
+            // the frame through the filter again and let the next update draw a new one.
+            this._updateId1 = -1;
+            this._updateId2 = -1;
+
+            const sourceTexture = this.sourceTexture;
+
+            if(!sourceTexture || sourceTexture.destroyed || !sourceTexture.source || sourceTexture.source.destroyed) this._sourceTexture = Texture.EMPTY;
+
+            this.showSource();
+
+            return;
+        }
+
+        this._sourceTexture = null;
         this.setTexture(null);
     }
 
     public override destroy(options?: DestroyOptions): void
     {
+        this.setPlaneDrawData(null);
+
         if(super.texture) ExtendedSprite.unwatchTexture(super.texture, this);
+
+        if(this._highlight)
+        {
+            WiredHighlightCache.release(this._highlight);
+
+            this._highlight = null;
+        }
 
         super.destroy(options);
     }
 
+    // A room plane drawn from its tile (room.planes.direct): a RoomPlaneDisplay child draws it, so this
+    // sprite's tint, alpha, filters and position apply to it unchanged. Null removes the display.
+    public setPlaneDrawData(data: IRoomPlaneDrawData): void
+    {
+        if(!data)
+        {
+            if(this._planeDisplay)
+            {
+                this._planeDisplay.destroy();
+
+                this._planeDisplay = null;
+            }
+
+            return;
+        }
+
+        if(!this._planeDisplay)
+        {
+            this.allowChildren = true;
+            this._planeDisplay = new RoomPlaneDisplay();
+
+            this.addChild(this._planeDisplay);
+        }
+
+        this._planeDisplay.setData(data);
+    }
+
+    public get planeDrawData(): IRoomPlaneDrawData
+    {
+        return (this._planeDisplay ? this._planeDisplay.data : null);
+    }
+
     public containsPoint(point: Point): boolean
     {
-        if(!point || (this.alphaTolerance > 255) || !this.texture || (this.texture === Texture.EMPTY)) return false;
+        if(point && this._planeDisplay) return RoomPlaneContainsPoint(this._planeDisplay.data, (point.x * this.scale.x), (point.y * this.scale.y), this.alphaTolerance);
+
+        const texture = this.sourceTexture;
+
+        if(!point || (this.alphaTolerance > 255) || !texture || (texture === Texture.EMPTY)) return false;
 
         point = ExtendedSprite.SCRATCH_POINT.set((point.x * this.scale.x), (point.y * this.scale.y));
 
         if(!super.containsPoint(point)) return false;
 
-        const texture = this.texture;
-        const textureSource = this.texture.source;
+        const textureSource = texture.source;
 
         if((!textureSource || !textureSource.hitMap) && !ExtendedSprite.generateHitMapForTextureSource(textureSource)) return false;
 
@@ -159,7 +349,7 @@ export class ExtendedSprite extends Sprite
         let dx = (point.x + texture.frame.x);
         let dy = (point.y + texture.frame.y);
 
-        if(this.texture.trim)
+        if(texture.trim)
         {
             dx -= texture.trim.x;
             dy -= texture.trim.y;

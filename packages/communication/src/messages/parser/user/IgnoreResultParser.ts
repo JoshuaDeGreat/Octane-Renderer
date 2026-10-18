@@ -1,14 +1,15 @@
 import { IMessageDataWrapper, IMessageParser } from '@octane/api';
 
+/** The answer to an ignore request (AIR `?_-A1M?/?_-M1q?`): the result, then the user's id. */
 export class IgnoreResultParser implements IMessageParser
 {
     private _result: number;
-    private _name: string;
+    private _userId: number;
 
     public flush(): boolean
     {
         this._result = -1;
-        this._name = null;
+        this._userId = 0;
 
         return true;
     }
@@ -18,7 +19,7 @@ export class IgnoreResultParser implements IMessageParser
         if(!wrapper) return false;
 
         this._result = wrapper.readInt();
-        this._name = wrapper.readString();
+        this._userId = wrapper.readInt();
 
         return true;
     }
@@ -28,8 +29,8 @@ export class IgnoreResultParser implements IMessageParser
         return this._result;
     }
 
-    public get name(): string
+    public get userId(): number
     {
-        return this._name;
+        return this._userId;
     }
 }

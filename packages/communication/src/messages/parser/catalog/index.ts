@@ -1,5 +1,6 @@
 export * from './BonusRareInfoMessageParser';
 export * from './BuildersClubFurniCountMessageParser';
+export * from './BuildersClubPlacementWarningMessageParser';
 export * from './BuildersClubSubscriptionStatusMessageParser';
 export * from './BundleDiscountRuleset';
 export * from './BundleDiscountRulesetMessageParser';

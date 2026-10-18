@@ -26,7 +26,7 @@ export class FurniturePlaceComposer implements IMessageComposer<string[]>
             case RoomObjectCategory.FLOOR:
                 return [`${this._itemId} ${this._x} ${this._y} ${this._direction}`];
             case RoomObjectCategory.WALL:
-                return [`${this._itemId} ${this._wallLocation} `];
+                return [`${this._itemId} ${this._wallLocation}`];
             default:
                 return [];
         }

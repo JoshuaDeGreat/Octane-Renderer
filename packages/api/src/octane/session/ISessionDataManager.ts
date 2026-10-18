@@ -30,9 +30,9 @@ export interface ISessionDataManager
     giveRespect(userId: number): void;
     givePetRespect(petId: number): void;
     sendSpecialCommandMessage(text: string, styleId?: number): void;
-    ignoreUser(name: string): void;
-    unignoreUser(name: string): void;
-    isUserIgnored(name: string): boolean;
+    ignoreUser(userId: number): void;
+    unignoreUser(userId: number): void;
+    isUserIgnored(userId: number): boolean;
     blockUser(userId: number): void;
     unblockUser(userId: number): void;
     isBlocked(userId: number): boolean;

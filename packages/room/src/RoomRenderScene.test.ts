@@ -141,6 +141,27 @@ describe('RoomRenderScene (AIR camera scene)', () =>
         expect(data[31].name).toBe('box');
     });
 
+    it('names a group badge by its code when there is no badge imager, keeping its size', () =>
+    {
+        const sprites = [
+            spriteData({ name: '%group.badge.url%b001034s002044', x: 300, y: 200, z: 20, width: 39, height: 39, color: '4210752' }),
+            spriteData({ name: 'http://photos.example/1.png', x: 300, y: 200, z: 10, width: 5, height: 5 })
+        ];
+        const rect = new Rectangle(300, 200, 320, 320);
+
+        for(const groupBadgeUrl of [ undefined, '', '%imagerdata%', 'https://images.example/badge/without-placeholder.png' ])
+        {
+            const scene = new RoomRenderScene(makeEngine([]), { groupBadgeUrl });
+            const data = JSON.parse(scene.getFurniData(rect, makeCanvas(sprites))) as Record<string, unknown>[];
+
+            expect(data[0]).toEqual({ name: 'group_badge:b001034s002044', x: 10, y: 20, z: 20, color: 4210752, width: 39, height: 39 });
+            expect(data[1].name).toBe('http://photos.example/1.png');
+        }
+
+        expect(RoomRenderScene.hasGroupBadgeImager('https://images.example/badge/%imagerdata%.png')).toBe(true);
+        expect(RoomRenderScene.hasGroupBadgeImager(' %imagerdata% ')).toBe(false);
+    });
+
     it('gives the background plane first, then the planes in the frame with their corners and depth', () =>
     {
         const { planes } = buildScene();

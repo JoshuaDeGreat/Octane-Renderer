@@ -4,8 +4,8 @@ import { GetAssetManager } from '@octane/assets';
 import { GetConfiguration } from '@octane/configuration';
 import { BadgeImageReadyEvent, GetEventDispatcher, OctaneToolbarAnimateIconEvent, RoomBackgroundColorEvent, RoomDragEvent, RoomEngineAreaHideStateEvent, RoomEngineEvent, RoomEngineObjectEvent, RoomObjectEvent, RoomObjectFurnitureActionEvent, RoomObjectMouseEvent, RoomSessionEvent, RoomToObjectOwnAvatarMoveEvent } from '@octane/events';
 import { GetRoomSessionManager, GetSessionDataManager } from '@octane/session';
-import { FurniId, GetTexturePool, GetTickerTime, OctaneLogger, NumberBank, TextureUtils, Vector3d } from '@octane/utils';
-import { Container, Matrix, Point, PointData, Rectangle, RenderTexture, Sprite, Texture, Ticker } from 'pixi.js';
+import { FurniId, GetRenderer, GetTexturePool, GetTickerTime, OctaneLogger, NumberBank, TextureUtils, Vector3d } from '@octane/utils';
+import { Container, Matrix, Point, PointData, Rectangle, RenderTexture, Sprite, Texture, Ticker, WebGLRenderer } from 'pixi.js';
 import { DEFAULT_WIRED_CLICK_SETTINGS, normalizeWiredClickSettings, WiredClickSettings } from './utils/WiredClickSettings';
 import { GetRoomContentLoader } from './GetRoomContentLoader';
 import { GetRoomManager } from './GetRoomManager';
@@ -18,7 +18,7 @@ import { RoomRenderScene } from './RoomRenderScene';
 import { buildRoomObjectImageKey, DisposableTexture, RoomObjectImageCache, SharedImageResult } from './RoomObjectImageCache';
 import { RoomVariableEnum } from './RoomVariableEnum';
 import { ObjectAvatarBlockedUpdateMessage, ObjectAvatarCarryObjectUpdateMessage, ObjectAvatarChatUpdateMessage, ObjectAvatarDanceUpdateMessage, ObjectAvatarEffectUpdateMessage, ObjectAvatarExperienceUpdateMessage, ObjectAvatarExpressionUpdateMessage, ObjectAvatarFigureUpdateMessage, ObjectAvatarFlatControlUpdateMessage, ObjectAvatarGestureUpdateMessage, ObjectAvatarGuideStatusUpdateMessage, ObjectAvatarHabbiconUpdateMessage, ObjectAvatarMutedUpdateMessage, ObjectAvatarOwnMessage, ObjectAvatarPetGestureUpdateMessage, ObjectAvatarPlayerValueUpdateMessage, ObjectAvatarPlayingGameUpdateMessage, ObjectAvatarPostureUpdateMessage, ObjectAvatarSignUpdateMessage, ObjectAvatarSleepUpdateMessage, ObjectAvatarTypingUpdateMessage, ObjectAvatarUpdateMessage, ObjectAvatarUseObjectUpdateMessage, ObjectDataUpdateMessage, ObjectGroupBadgeUpdateMessage, ObjectHeightUpdateMessage, ObjectItemDataUpdateMessage, ObjectModelDataUpdateMessage, ObjectMoveUpdateMessage, ObjectRoomColorUpdateMessage, ObjectRoomFloorHoleUpdateMessage, ObjectRoomMaskUpdateMessage, ObjectRoomPlanePropertyUpdateMessage, ObjectRoomPlaneVisibilityUpdateMessage, ObjectRoomUpdateMessage, ObjectStateUpdateMessage, RoomObjectUpdateMessage } from './messages';
-import { RoomLogic, RoomMapData } from './object';
+import { RoomLogic, RoomMapData, RoomPlane, RoomVisualization } from './object';
 import { RoomWindowReflectionState } from './object/visualization/RoomWindowReflectionState';
 import { RoomRenderer } from './renderer';
 import { RoomAreaSelectionManager, RoomCamera, RoomData, RoomEnterEffect, RoomFurnitureData, RoomGeometry, RoomInstanceData, RoomObjectBadgeImageAssetListener } from './utils';
@@ -77,6 +77,8 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
     public async init(): Promise<void>
     {
+        this.setPlaneRenderMode(GetConfiguration().getValue<boolean>('room.planes.direct', false));
+
         GetRoomObjectLogicFactory().registerEventFunction(event => this.processRoomObjectEvent(event));
 
         this._roomSessionEventCallback = (event: RoomSessionEvent) => this.onRoomSessionEvent(event);
@@ -834,6 +836,31 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         }
     }
 
+    // Direct planes (room.planes.direct) draw floors and walls from their tile with a GLSL ES 3.0 shader
+    // instead of baking each plane into a render texture. WebGL2 only: anything else keeps the bake.
+    public setPlaneRenderMode(direct: boolean): void
+    {
+        const renderer = GetRenderer();
+        const webGL2 = (renderer instanceof WebGLRenderer) && (renderer.context?.webGLVersion === 2);
+        const enabled = (!!direct && webGL2);
+
+        if(enabled === RoomPlane.DIRECT_DRAW) return;
+
+        RoomPlane.DIRECT_DRAW = enabled;
+
+        if(!this._roomManager?.rooms) return;
+
+        for(const instance of this._roomManager.rooms.values())
+        {
+            for(const object of instance.getRoomObjectsForCategory(RoomObjectCategory.ROOM))
+            {
+                const visualization = object?.visualization;
+
+                if(visualization instanceof RoomVisualization) visualization.rebuildPlanes();
+            }
+        }
+    }
+
     public isRoomIdPlayingGame(roomId: number): boolean
     {
         const roomInstance = this.getRoomInstance(roomId);
@@ -858,6 +885,8 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         RoomEnterEffect.turnVisualizationOn();
 
         this.processPendingFurniture();
+
+        GetTexturePool().flushReleased();
 
         this._roomManager.update(time, update);
 
@@ -1769,7 +1798,7 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
         if(roomInstanceData) roomInstanceData.removePendingFunitureFloor(objectId);
 
-        if((this._sessionDataManager.userId === userId) && !FurniId.isBuilderClubId(objectId))
+        if((this._sessionDataManager.userId === userId) && FurniId.isNormalId(objectId))
         {
             const roomObject = this.getRoomObject(roomId, objectId, RoomObjectCategory.FLOOR);
 
@@ -1819,7 +1848,7 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
     public removeRoomObjectWall(roomId: number, objectId: number, userId: number = -1): void
     {
-        if((this._sessionDataManager.userId === userId) && !FurniId.isBuilderClubId(objectId))
+        if((this._sessionDataManager.userId === userId) && FurniId.isNormalId(objectId))
         {
             const roomObject = this.getRoomObject(roomId, objectId, RoomObjectCategory.WALL);
 

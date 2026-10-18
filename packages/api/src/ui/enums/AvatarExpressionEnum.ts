@@ -8,6 +8,7 @@
     public static IDLE: AvatarExpressionEnum = new AvatarExpressionEnum(5);
     public static JUMP: AvatarExpressionEnum = new AvatarExpressionEnum(6);
     public static RESPECT: AvatarExpressionEnum = new AvatarExpressionEnum(7);
+    public static EXPRESSION_67: AvatarExpressionEnum = new AvatarExpressionEnum(67);
 
     private _ordinal: number;
 

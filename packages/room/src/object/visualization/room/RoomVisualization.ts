@@ -1,4 +1,4 @@
-import { AlphaTolerance, IObjectVisualizationData, IPlaneVisualization, IRoomGeometry, IRoomObjectModel, IRoomObjectSprite, IRoomPlane, RoomObjectSpriteType, RoomObjectVariable } from '@octane/api';
+import { AlphaTolerance, IObjectVisualizationData, IPlaneVisualization, IRoomGeometry, IRoomObjectModel, IRoomObjectSprite, IRoomPlane, IVector3D, RoomObjectSpriteType, RoomObjectVariable } from '@octane/api';
 import { ToInt32, Vector3d } from '@octane/utils';
 import { Filter, Rectangle, Texture } from 'pixi.js';
 import { RoomMapData } from '../../RoomMapData';
@@ -364,6 +364,7 @@ export class RoomVisualization extends RoomObjectSpriteVisualization implements 
         let landscapeOffsetX = 0;
         let randomSeed = this.object.model.getValue<number>(RoomObjectVariable.ROOM_RANDOM_SEED);
         let index = offset;
+        let lastWall: RoomPlane = null;
 
         while(index < this._roomPlaneParser.planeCount)
         {
@@ -412,8 +413,12 @@ export class RoomVisualization extends RoomObjectSpriteVisualization implements 
 
                     plane.color = (normal.y > 0) ? RoomVisualization.LANDSCAPE_COLOR_TOP : (normal.y === 0) ? RoomVisualization.LANDSCAPE_COLOR_SIDE : RoomVisualization.LANDSCAPE_COLOR_BOTTOM;
 
+                    if(lastWall && RoomVisualization.isSameRectangle(lastWall, location, leftSide, rightSide)) plane.occluder = lastWall;
+
                     landscapeOffsetX = (landscapeOffsetX + leftSide.length);
                 }
+
+                if(planeType === RoomPlaneData.PLANE_WALL) lastWall = plane;
 
                 if(plane)
                 {
@@ -448,6 +453,23 @@ export class RoomVisualization extends RoomObjectSpriteVisualization implements 
 
         this._isPlaneSet = true;
         this.defineSprites();
+    }
+
+    private static isSameRectangle(plane: RoomPlane, location: IVector3D, leftSide: IVector3D, rightSide: IVector3D): boolean
+    {
+        const same = (a: IVector3D, b: IVector3D) => ((a.x === b.x) && (a.y === b.y) && (a.z === b.z));
+
+        return (same(plane.location, location) && same(plane.leftSide, leftSide) && same(plane.rightSide, rightSide));
+    }
+
+    // Recreates every plane, e.g. after RoomPlane.DIRECT_DRAW changed.
+    public rebuildPlanes(): void
+    {
+        this.clearPlanes();
+
+        // clearPlanes forgets the plane types and masks, which are only read again when the model changes:
+        // without this the new planes came up untextured (white) and without their window holes.
+        this.updateModelCounter = -1;
     }
 
     public initializeHighlightArea(highlightAreaX: number, highlightAreaY: number, highlightAreaWidth: number, highlightAreaHeight: number, highlightFilter: Filter): void
@@ -660,6 +682,12 @@ export class RoomVisualization extends RoomObjectSpriteVisualization implements 
         this._typeVisibility[RoomPlane.TYPE_FLOOR] = floorVisibility;
         this._typeVisibility[RoomPlane.TYPE_WALL] = wallVisibility;
         this._typeVisibility[RoomPlane.TYPE_LANDSCAPE] = landscapeVisibility;
+
+        // With the walls hidden the whole landscape shows, not just what their holes let through.
+        for(const plane of this._planes)
+        {
+            if(plane && (plane.type === RoomPlane.TYPE_LANDSCAPE)) plane.occluderUsable = wallVisibility;
+        }
 
         this._visiblePlanes = [];
         this._visiblePlaneSpriteNumbers = [];
@@ -874,6 +902,7 @@ export class RoomVisualization extends RoomObjectSpriteVisualization implements 
         sprite.offsetY = -(offset.y);
         sprite.relativeDepth = relativeDepth;
         sprite.color = plane.color;
+        sprite.planeDrawData = plane.drawData;
         sprite.texture = plane.planeTexture ?? Texture.EMPTY;
         sprite.name = ((name + '_') + this._assetUpdateCounter);
     }

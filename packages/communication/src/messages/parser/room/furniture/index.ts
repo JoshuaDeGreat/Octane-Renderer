@@ -43,3 +43,8 @@ export * from './WiredTradeCancelledMessageParser';
 export * from './WiredTradeCompletedMessageParser';
 export * from './ObjectRemoveConfirmParser';
 export * from './RecolorFurniUpdateParser';
+export * from './ChestCoinsMessageParser';
+export * from './ChestSettingsUpdatedMessageParser';
+export * from './WiredTradeErrorMessageParser';
+export * from './WiredTransactionFailMessageParser';
+export * from './WiredTransactionSuccessMessageParser';

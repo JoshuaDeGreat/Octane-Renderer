@@ -1,4 +1,4 @@
-import { AvatarAction, AvatarDirectionAngle, AvatarScaleType, AvatarSetType, IActiveActionData, IAnimationLayerData, IAvatarDataContainer, IAvatarEffectListener, IAvatarFigureContainer, IAvatarImage, IGraphicAsset, IPartColor, ISpriteDataContainer, RoomObjectSpriteData } from '@octane/api';
+import { AvatarAction, AvatarScaleType, AvatarSetType, IActiveActionData, IAnimationLayerData, IAvatarDataContainer, IAvatarEffectListener, IAvatarFigureContainer, IAvatarImage, IGraphicAsset, IPartColor, ISpriteDataContainer, RoomObjectSpriteData } from '@octane/api';
 import { GetRenderer, GetTexturePool, GetTickerTime, PaletteMapFilter, TextureUtils } from '@octane/utils';
 import { ColorMatrixFilter, Container, Filter, ICanvas, RenderTexture, Sprite, Texture } from 'pixi.js';
 import { AvatarFigureContainer } from './AvatarFigureContainer';
@@ -38,6 +38,12 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
     private _defaultAction: IActiveActionData = null;
     private _frameCounter: number = 0;
     private _directionOffset: number = 0;
+    // The direction without the animation offset, so a per-frame offset can be re-applied as the frame counter moves.
+    private _baseMainDirection: number = 0;
+    private _baseHeadDirection: number = 0;
+    private _directionAnimationId: string = null;
+    private _directionAnimationStartFrame: number = 0;
+    private _directionAnimationActionName: string = null;
     private _changes: boolean = true;
     private _sprites: ISpriteDataContainer[];
     private _isAnimating: boolean = false;
@@ -152,16 +158,16 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
 
     public setDirection(avatarPart: string, direction: number): void
     {
-        direction += this._directionOffset;
+        if(this._structure.isMainAvatarSet(avatarPart)) this._baseMainDirection = direction;
 
-        if(direction < AvatarDirectionAngle.MIN_DIRECTION)
-        {
-            direction = AvatarDirectionAngle.MAX_DIRECTION + (direction + 1);
-        }
-        else if(direction > AvatarDirectionAngle.MAX_DIRECTION)
-        {
-            direction -= (AvatarDirectionAngle.MAX_DIRECTION + 1);
-        }
+        if(avatarPart === AvatarSetType.HEAD || avatarPart === AvatarSetType.FULL) this._baseHeadDirection = direction;
+
+        this.setDirectionWithOffset(avatarPart, direction);
+    }
+
+    private setDirectionWithOffset(avatarPart: string, direction: number): void
+    {
+        direction = (((direction + this._directionOffset) % 8) + 8) % 8;
 
         if(this._structure.isMainAvatarSet(avatarPart)) this._mainDirection = direction;
 
@@ -214,14 +220,45 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
     public updateAnimationByFrames(frameCount: number = 1): void
     {
         this._frameCounter += frameCount;
+        this.updateDirectionOffset();
         this._changes = true;
     }
 
     public resetAnimationFrameCounter(): void
     {
         this._frameCounter = 0;
+
+        if(this._directionAnimationId === this._effectAnimationId) this._directionAnimationStartFrame = 0;
+
         this._effectAnimationStartFrame = 0;
+        this.updateDirectionOffset();
         this._changes = true;
+    }
+
+    private setDirectionOffset(offset: number): void
+    {
+        if(this._directionOffset === offset) return;
+
+        this._directionOffset = offset;
+
+        this.setDirectionWithOffset(AvatarSetType.FULL, this._baseMainDirection);
+
+        if(this._baseHeadDirection !== this._baseMainDirection) this.setDirectionWithOffset(AvatarSetType.HEAD, this._baseHeadDirection);
+    }
+
+    /** Official AvatarImage.updateDirectionOffset: the running direction animation's offset for the current frame. */
+    private updateDirectionOffset(): void
+    {
+        let offset = 0;
+
+        if(this._directionAnimationId)
+        {
+            const animation = this._structure.getAnimation(this._directionAnimationId);
+
+            if(animation) offset = animation.getDirectionOffset((this._frameCounter - this._directionAnimationStartFrame), this._directionAnimationActionName);
+        }
+
+        this.setDirectionOffset(offset);
     }
 
     /**
@@ -768,7 +805,10 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
         this._isAnimating = false;
         this._sprites = [];
         this._avatarSpriteData = null;
-        this._directionOffset = 0;
+        this._directionAnimationId = null;
+        this._directionAnimationStartFrame = 0;
+        this._directionAnimationActionName = null;
+        this.setDirectionOffset(0);
         this._effectAnimationId = null;
         this._effectAnimationStartFrame = 0;
         this._structure.removeDynamicItems(this);
@@ -911,7 +951,12 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
 
                         this._sprites = [...this._sprites, ...animation.spriteData];
 
-                        if(animation.hasDirectionData()) this._directionOffset = animation.directionData.offset;
+                        if(animation.hasDirectionData())
+                        {
+                            this._directionAnimationId = animation.id;
+                            this._directionAnimationStartFrame = action.startFrame;
+                            this._directionAnimationActionName = action.overridingAction;
+                        }
 
                         if(animation.hasAvatarData()) this._avatarSpriteData = animation.avatarData;
 
@@ -923,6 +968,8 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
                 }
             }
         }
+
+        this.updateDirectionOffset();
     }
 
     private setActionToParts(action: IActiveActionData, currentTime: number): void

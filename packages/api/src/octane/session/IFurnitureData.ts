@@ -24,6 +24,8 @@ export interface IFurnitureData
     purchaseCouldBeUsedForBuyout: boolean;
     rentCouldBeUsedForBuyout: boolean;
     availableForBuildersClub: boolean;
+    /** The Builders Club catalogue offer placing this furni, -1 when none (furnidata bcofferid). */
+    bcOfferId: number;
     allowStack: boolean;
     canPutStuffOn?: boolean;
     height?: number;
