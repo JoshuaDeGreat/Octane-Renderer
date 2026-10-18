@@ -4,9 +4,10 @@ export class FurniturePickupComposer implements IMessageComposer<ConstructorPara
 {
     private _data: ConstructorParameters<typeof FurniturePickupComposer>;
 
-    constructor(category: number, objectId: number)
+    /** Official layout: `confirmed` is true when the pick-up answers the server's ObjectRemoveConfirm. */
+    constructor(category: number, objectId: number, confirmed: boolean = false)
     {
-        this._data = [category, objectId];
+        this._data = [category, objectId, confirmed];
     }
 
     public getMessageArray()

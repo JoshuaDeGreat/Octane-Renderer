@@ -21,6 +21,9 @@ export class CommunicationManager implements ICommunicationManager
 
     private _machineIdPromise: Promise<string> | null = null;
     private _initResolved: boolean = false;
+    private _listenersRegistered: boolean = false;
+    private _connectionStarted: boolean = false;
+    private _initAttempt: { resolve: () => void; reject: (error: Error) => void } = null;
     private _recoveryToken: string = '';
 
     private async generateMachineID(): Promise<string>
@@ -60,9 +63,48 @@ export class CommunicationManager implements ICommunicationManager
         this._connection.registerMessages(this._messages);
     }
 
-    public async init(): Promise<void>
+    /**
+     * Connects and logs in; resolves on the first AuthenticationOK. Once logged in, later calls resolve at
+     * once. A call while an earlier attempt never logged in (a refused ticket, a dead socket) closes that
+     * attempt and starts a fresh login, so a second login from the login screen works.
+     */
+    public init(): Promise<void>
     {
-        // Store callback for cleanup
+        if(this._initResolved && this._connection.isAuthenticated) return Promise.resolve();
+
+        this.registerListeners();
+
+        if(this._initAttempt)
+        {
+            const previous = this._initAttempt;
+
+            this._initAttempt = null;
+            previous.reject(new Error('Replaced by a new connection attempt'));
+        }
+
+        if(this._connectionStarted)
+        {
+            this.stopPong();
+            this._connection.dispose();
+            this._initResolved = false;
+            this._recoveryToken = '';
+        }
+
+        return new Promise((resolve, reject) =>
+        {
+            this._initAttempt = { resolve, reject };
+            this._connectionStarted = true;
+
+            this._connection.init(GetConfiguration().getValue<string>('socket.url'));
+        });
+    }
+
+    private registerListeners(): void
+    {
+        if(this._listenersRegistered) return;
+
+        this._listenersRegistered = true;
+
         this._socketClosedCallback = () =>
         {
             this.stopPong();
@@ -80,76 +122,79 @@ export class CommunicationManager implements ICommunicationManager
         };
         GetEventDispatcher().addEventListener(OctaneEventType.SOCKET_RECONNECTED, this._socketReconnectedCallback);
 
-        return new Promise((resolve, reject) =>
+        this._socketOpenedCallback = () =>
         {
-            // Store callback for cleanup
-            this._socketOpenedCallback = () =>
+            if(GetConfiguration().getValue<boolean>('system.pong.manually', false)) this.startPong();
+
+            void this.sendHandshake();
+        };
+        GetEventDispatcher().addEventListener(OctaneEventType.SOCKET_OPENED, this._socketOpenedCallback);
+
+        this._socketErrorCallback = () =>
+        {
+            if(this._initResolved || !this._initAttempt) return;
+
+            const attempt = this._initAttempt;
+
+            this._initAttempt = null;
+            attempt.reject(new Error('Socket error before init resolved'));
+        };
+        GetEventDispatcher().addEventListener(OctaneEventType.SOCKET_ERROR, this._socketErrorCallback);
+
+        const pingEvent = new ClientPingEvent((event: ClientPingEvent) => this.sendPong());
+        const authEvent = new AuthenticatedEvent((event: AuthenticatedEvent) =>
+        {
+            const isReconnect = this._initResolved;
+            const parser = event.getParser();
+
+            this._recoveryToken = parser.recoveryToken;
+
+            OctaneLogger.log('[CommunicationManager] AuthenticatedEvent received (isReconnect=' + isReconnect + ')');
+
+            this._connection.authenticated();
+
+            if(!this._initResolved)
             {
-                if(GetConfiguration().getValue<boolean>('system.pong.manually', false)) this.startPong();
+                this._initResolved = true;
 
-                void this.sendHandshake();
-            };
-            GetEventDispatcher().addEventListener(OctaneEventType.SOCKET_OPENED, this._socketOpenedCallback);
+                const attempt = this._initAttempt;
 
-            // Store callback for cleanup
-            this._socketErrorCallback = () =>
+                this._initAttempt = null;
+                attempt?.resolve();
+            }
+
+            // A reconnect while the hotel is still loading must keep holding messages until the
+            // client registered its handlers and released them itself.
+            if(isReconnect && this._connection.hasBeenReady)
             {
-                if(!this._initResolved) reject(new Error('Socket error before init resolved'));
-            };
-            GetEventDispatcher().addEventListener(OctaneEventType.SOCKET_ERROR, this._socketErrorCallback);
+                this._connection.ready();
+            }
 
-            // Store message events for cleanup
-            const pingEvent = new ClientPingEvent((event: ClientPingEvent) => this.sendPong());
-            const authEvent = new AuthenticatedEvent((event: AuthenticatedEvent) =>
+            event.connection.send(new InfoRetrieveMessageComposer());
+
+            if(isReconnect)
             {
-                const isReconnect = this._initResolved;
-                const parser = event.getParser();
-
-                this._recoveryToken = parser.recoveryToken;
-
-                OctaneLogger.log('[CommunicationManager] AuthenticatedEvent received (isReconnect=' + isReconnect + ')');
-
-                this._connection.authenticated();
-
-                if(!this._initResolved)
-                {
-                    this._initResolved = true;
-                    resolve();
-                }
-
-                if(isReconnect)
-                {
-                    this._connection.ready();
-                }
-
-                event.connection.send(new InfoRetrieveMessageComposer());
-
-                if(isReconnect)
-                {
-                    OctaneLogger.log('[CommunicationManager] Dispatching SOCKET_REAUTHENTICATED');
-                    GetEventDispatcher().dispatchEvent(new SocketReauthenticatedEvent(
-                        OctaneEventType.SOCKET_REAUTHENTICATED,
-                        parser.sessionResumed,
-                        parser.roomId));
-                }
-            });
-
-            const disconnectEvent = new DisconnectReasonEvent((event: DisconnectReasonEvent) =>
-            {
-                const reason = event.getParser()?.reason ?? -1;
-
-                OctaneLogger.log('[CommunicationManager] Server disconnect reason ' + reason);
-
-                this._connection.serverDisconnected(reason);
-            });
-
-            this._messageEvents.push(pingEvent, authEvent, disconnectEvent);
-            this._connection.addMessageEvent(pingEvent);
-            this._connection.addMessageEvent(authEvent);
-            this._connection.addMessageEvent(disconnectEvent);
-
-            this._connection.init(GetConfiguration().getValue<string>('socket.url'));
+                OctaneLogger.log('[CommunicationManager] Dispatching SOCKET_REAUTHENTICATED');
+                GetEventDispatcher().dispatchEvent(new SocketReauthenticatedEvent(
+                    OctaneEventType.SOCKET_REAUTHENTICATED,
+                    parser.sessionResumed,
+                    parser.roomId));
+            }
         });
+
+        const disconnectEvent = new DisconnectReasonEvent((event: DisconnectReasonEvent) =>
+        {
+            const reason = event.getParser()?.reason ?? -1;
+
+            OctaneLogger.log('[CommunicationManager] Server disconnect reason ' + reason);
+
+            this._connection.serverDisconnected(reason);
+        });
+
+        this._messageEvents.push(pingEvent, authEvent, disconnectEvent);
+        this._connection.addMessageEvent(pingEvent);
+        this._connection.addMessageEvent(authEvent);
+        this._connection.addMessageEvent(disconnectEvent);
     }
 
     public dispose(): void
@@ -188,6 +233,7 @@ export class CommunicationManager implements ICommunicationManager
             this._connection.removeMessageEvent(event);
         }
         this._messageEvents = [];
+        this._listenersRegistered = false;
         this._recoveryToken = '';
     }
 

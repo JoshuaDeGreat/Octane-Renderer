@@ -93,7 +93,8 @@ export class FurnitureGuildCustomizedVisualization extends FurnitureAnimatedVisu
     {
         if(sprite.tag === FurnitureGuildCustomizedVisualization.BADGE)
         {
-            return '%group.badge.url%' + sprite.libraryAssetName.replace('badge_', '');
+            // AIR: the sprite's asset name (badge_<code>), set just before this is read.
+            return '%group.badge.url%' + (sprite.name || '').replace('badge_', '');
         }
 
         return super.getLibraryAssetNameForSprite(asset, sprite);

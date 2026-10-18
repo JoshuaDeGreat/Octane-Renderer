@@ -6,6 +6,20 @@ import { BadgeBaseAndLevel } from './BadgeBaseAndLevel';
 
 export class LocalizationManager implements ILocalizationManager
 {
+    /**
+     * Every "%name%" of a text is replaced, in any letter case, as the official Localization.fillParameterValues does
+     * (RegExp "gim"), so a parameter used twice (the author of groupforum.view.forum_details) is filled everywhere.
+     * The value is inserted as it is ("$" patterns are not expanded).
+     */
+    public static replaceParameter(value: string, parameter: string, replacement: string): string
+    {
+        if(!value || !parameter) return value;
+
+        const pattern = new RegExp('%' + parameter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '%', 'gi');
+
+        return value.replace(pattern, () => replacement);
+    }
+
     private _definitions: Map<string, string> = new Map();
     private _overrideDefinitions: Map<string, string> = new Map();
     private _parameters: Map<string, Map<string, string>> = new Map();
@@ -20,25 +34,23 @@ export class LocalizationManager implements ILocalizationManager
 
             if(!urls || !urls.length) throw new Error('Missing "external.texts.url" in config — add the localization URL to your ui-config.json');
 
-            for(let url of urls)
+            const firstEmptyUrl = urls.findIndex(url => !url || !url.length);
+            const textUrls = ((firstEmptyUrl >= 0) ? urls.slice(0, firstEmptyUrl) : urls).map(url => GetConfiguration().interpolate(url));
+
+            // Downloaded together, applied in order so later files still override earlier ones.
+            const documents = await Promise.all(textUrls.map(async url =>
             {
-                if(!url || !url.length) return;
-
-                url = GetConfiguration().interpolate(url);
-
-                let data: any;
-
                 try
                 {
-                    data = await loadGamedata(url);
+                    return await loadGamedata(url);
                 }
                 catch (err)
                 {
                     throw new Error(`Could not load localization file "${ url }" — check "external.texts.url" in ui-config.json (${ err?.message || err })`);
                 }
+            }));
 
-                this.parseLocalization(data);
-            }
+            for(const data of documents) this.parseLocalization(data);
 
             GetCommunication().registerMessageEvent(new BadgePointLimitsEvent(this.onBadgePointLimitsEvent.bind(this)));
         }
@@ -122,7 +134,7 @@ export class LocalizationManager implements ILocalizationManager
             {
                 for(const [parameter, replacement] of parameters)
                 {
-                    value = value.replace('%' + parameter + '%', replacement);
+                    value = LocalizationManager.replaceParameter(value, parameter, replacement);
                 }
             }
         }
@@ -134,7 +146,7 @@ export class LocalizationManager implements ILocalizationManager
     {
         const value = this.getValue(key, false);
 
-        const replacedValue = value.replace('%' + parameter + '%', replacement);
+        const replacedValue = LocalizationManager.replaceParameter(value, parameter, replacement);
 
         if(value.startsWith('%{'))
         {
@@ -199,7 +211,7 @@ export class LocalizationManager implements ILocalizationManager
 
                 if(replacement === undefined) continue;
 
-                value = value.replace('%' + parameter + '%', replacement);
+                value = LocalizationManager.replaceParameter(value, parameter, replacement);
 
                 if(value.startsWith('%{'))
                 {

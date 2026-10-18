@@ -1,14 +1,14 @@
 import { IMessageDataWrapper, IMessageParser } from '@octane/api';
 
-/** The player walked away themselves; the window says nothing about it. */
+/**
+ * Reason 0: the user cancelled the trade themselves, so the window says nothing. Every other reason is shown with the
+ * official `wired_transactions.notification.fail.<reason>` text.
+ */
 export const WIRED_TRADE_FAILURE_SILENT = 0;
-export const WIRED_TRADE_FAILURE_TIMEOUT = 1;
-export const WIRED_TRADE_FAILURE_REQUIREMENTS = 2;
-export const WIRED_TRADE_FAILURE_LEFT_ROOM = 3;
-export const WIRED_TRADE_FAILURE_CONTRACT_GONE = 4;
-export const WIRED_TRADE_FAILURE_REWARD_UNAVAILABLE = 5;
 
-/** The negotiation ended without settling. Wire layout: int failureId. */
+/**
+ * The wired trade ended without settling: int failureReason. AIR WIN63-202610131318 (package_192/class_3825).
+ */
 export class WiredTradeCancelledMessageParser implements IMessageParser
 {
     private _failureId: number = WIRED_TRADE_FAILURE_SILENT;

@@ -1,5 +1,6 @@
-﻿import { IRoomObjectSprite, RoomObjectSpriteData, RoomObjectSpriteType } from '@octane/api';
+import { IRoomObjectSprite, RoomObjectSpriteData, RoomObjectSpriteType } from '@octane/api';
 import { SortableSprite } from '../utils';
+import { textureAverageColor } from './AverageColor';
 import { RoomObjectCacheItem } from './RoomObjectCacheItem';
 
 export class RoomObjectCache
@@ -56,6 +57,8 @@ export class RoomObjectCache
         existing.dispose();
     }
 
+    // Behaviour from the AIR client (RoomObjectCache.getSortableSpriteList): the drawn sprites as the camera scene
+    // names them, by the library asset each one draws (aliases resolved, flipH kept).
     public getSortableSpriteList(): RoomObjectSpriteData[]
     {
         const spriteData: RoomObjectSpriteData[] = [];
@@ -70,49 +73,42 @@ export class RoomObjectCache
 
             for(const sprite of sprites)
             {
-                if(!sprite) continue;
+                if(!sprite || !sprite.sprite) continue;
 
-                if((sprite.sprite.spriteType !== RoomObjectSpriteType.ROOM_PLANE) && (sprite.sprite.name !== ''))
+                if((sprite.sprite.spriteType === RoomObjectSpriteType.ROOM_PLANE) || !sprite.sprite.libraryAssetName) continue;
+
+                const data = new RoomObjectSpriteData();
+
+                data.objectId = item.objectId;
+                data.x = Math.round(sprite.x);
+                data.y = Math.round(sprite.y);
+                data.z = sprite.z;
+                data.name = (sprite.sprite.libraryAssetName || '');
+                data.flipH = sprite.sprite.flipH;
+                data.alpha = sprite.sprite.alpha;
+                data.color = String(sprite.sprite.color);
+                data.blendMode = String(sprite.sprite.blendMode);
+                data.width = Math.trunc(sprite.sprite.width);
+                data.height = Math.trunc(sprite.sprite.height);
+                data.type = sprite.sprite.type;
+                data.objectType = sprite.sprite.type;
+                data.posture = sprite.sprite.posture;
+
+                const isSkewed = this.isSkewedSprite(sprite.sprite);
+
+                if(isSkewed) data.skew = (((sprite.sprite.direction % 4) === 0) ? -0.5 : 0.5);
+
+                // Small skewed thumbnails, library images and group badges are sent with their average colour instead.
+                if((isSkewed || (data.name.indexOf('%image.library.url%') >= 0) || (data.name.indexOf('%group.badge.url%') >= 0)) && (data.width <= RoomObjectCache.MAX_SIZE_FOR_AVG_COLOR) && (data.height <= RoomObjectCache.MAX_SIZE_FOR_AVG_COLOR))
                 {
-                    const data = new RoomObjectSpriteData();
+                    data.color = String(textureAverageColor(sprite.sprite.texture));
 
-                    data.objectId = item.objectId;
-                    data.x = sprite.x;
-                    data.y = sprite.y;
-                    data.z = sprite.z;
-                    data.name = sprite.sprite.name || '';
-                    data.flipH = sprite.sprite.flipH;
-                    data.alpha = sprite.sprite.alpha;
-                    data.color = sprite.sprite.color.toString();
-                    data.blendMode = sprite.sprite.blendMode.toString();
-                    data.width = sprite.sprite.width;
-                    data.height = sprite.sprite.height;
-                    data.type = sprite.sprite.type;
-                    data.posture = sprite.sprite.posture;
-
-                    const isSkewed = this.isSkewedSprite(sprite.sprite);
-
-                    /* if(isSkewed)
-                    {
-                        data.skew = (((sprite.sprite.direction % 4) === 0) ? -0.5 : 0.5);
-                    } */
-
-                    if(((((isSkewed || (sprite.name.indexOf('%image.library.url%') >= 0)) || (sprite.name.indexOf('%group.badge.url%') >= 0)) && (data.width <= RoomObjectCache.MAX_SIZE_FOR_AVG_COLOR)) && (data.height <= RoomObjectCache.MAX_SIZE_FOR_AVG_COLOR)))
-                    {
-                        //data.color = Canvas._Str_23439(sprite.sprite.texture).toString();
-
-                        if(sprite.sprite.name.indexOf('external_image_wallitem') === 0)
-                        {
-                            data.frame = true;
-                        }
-                    }
-
-                    spriteData.push(data);
+                    if(sprite.sprite.type && (sprite.sprite.type.indexOf('external_image_wallitem') === 0)) data.frame = true;
                 }
+
+                spriteData.push(data);
             }
         }
-
-        if(!spriteData || !spriteData.length) return null;
 
         return spriteData;
     }

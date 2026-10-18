@@ -5,7 +5,7 @@ import { OctaneLogger } from '@octane/utils';
 import { EvaWireFormat, InvalidMessageLengthError } from './codec';
 import { aesGcmDecrypt, aesGcmEncrypt, buildClientHello, deriveAesKey, deriveSharedSecret, exportPublicKeySpki, generateEphemeralKeyPair, importPublicKeySpki, importSigningPublicKeyFromBase64, NONCE_LEN, parseServerHello, randomNonce, verifyEphemeralSignature } from './crypto';
 import { ConnectionStateStore } from './ConnectionStateStore';
-import { MessageClassManager } from './messages';
+import { IncomingHeader, MessageClassManager, PongMessageComposer } from './messages';
 import { shouldReconnectAfterClose } from './socketClosePolicy';
 
 type CryptoState = 'disabled' | 'awaiting_server_hello' | 'ready' | 'error';
@@ -19,6 +19,7 @@ export class SocketConnection implements IConnection
     private _pendingChunks: Uint8Array[] = [];
     private _pendingBytes: number = 0;
     private _isReady: boolean = false;
+    private _hasBeenReady: boolean = false;
     private _pendingClientMessages: IMessageComposer<unknown[]>[] = [];
     private _pendingServerMessages: IMessageDataWrapper[] = [];
     private _isAuthenticated: boolean = false;
@@ -509,6 +510,9 @@ export class SocketConnection implements IConnection
         this._isReconnecting = false;
         this._reconnectAttempt = 0;
         this._wasAuthenticated = false;
+        this._isAuthenticated = false;
+        this._isReady = false;
+        this._hasBeenReady = false;
 
         this.cleanupSocket();
 
@@ -571,6 +575,7 @@ export class SocketConnection implements IConnection
         if(this._isReady) return;
 
         this._isReady = true;
+        this._hasBeenReady = true;
 
         if(this._pendingServerMessages && this._pendingServerMessages.length) this.processWrappers(...this._pendingServerMessages);
 
@@ -608,9 +613,14 @@ export class SocketConnection implements IConnection
 
         if(this._isAuthenticated && !this._isReady)
         {
-            this._pendingClientMessages.push(...composers);
+            // The pong answers a ping that was let through while the hotel loads.
+            const held = composers.filter(composer => !(composer instanceof PongMessageComposer));
 
-            return false;
+            this._pendingClientMessages.push(...held);
+
+            if(held.length === composers.length) return false;
+
+            composers = composers.filter(composer => (composer instanceof PongMessageComposer));
         }
 
         for(const composer of composers)
@@ -707,9 +717,7 @@ export class SocketConnection implements IConnection
 
         if(this._isAuthenticated && !this._isReady)
         {
-            if(!this._pendingServerMessages) this._pendingServerMessages = [];
-
-            this._pendingServerMessages.push(...wrappers);
+            this.holdUntilReady(wrappers);
 
             return;
         }
@@ -721,17 +729,49 @@ export class SocketConnection implements IConnection
     {
         if(!wrappers || !wrappers.length) return;
 
+        for(let index = 0; index < wrappers.length; index++)
+        {
+            const wrapper = wrappers[index];
+
+            if(!wrapper) continue;
+
+            this.processWrapper(wrapper);
+
+            // Authentication can complete mid-batch: the rest waits for ready(), like processData does.
+            if(this._isAuthenticated && !this._isReady)
+            {
+                this.holdUntilReady(wrappers.slice(index + 1));
+
+                return;
+            }
+        }
+    }
+
+    private processWrapper(wrapper: IMessageDataWrapper): void
+    {
+        const messages = this.getMessagesForWrapper(wrapper);
+
+        if(!messages || !messages.length) return;
+
+        OctaneLogger.packets('IncomingMessage', wrapper.header, messages[0].constructor.name, messages[0].parser);
+
+        this.handleMessages(...messages);
+    }
+
+    // Messages the connection itself answers are not held: the hotel can log in while it is still
+    // loading, and an unanswered ping or an unread disconnect reason would end that session.
+    private static PASS_THROUGH_HEADERS: ReadonlySet<number> = new Set([ IncomingHeader.CLIENT_PING, IncomingHeader.DISCONNECT_REASON ]);
+
+    private holdUntilReady(wrappers: IMessageDataWrapper[]): void
+    {
+        if(!this._pendingServerMessages) this._pendingServerMessages = [];
+
         for(const wrapper of wrappers)
         {
             if(!wrapper) continue;
 
-            const messages = this.getMessagesForWrapper(wrapper);
-
-            if(!messages || !messages.length) continue;
-
-            OctaneLogger.packets('IncomingMessage', wrapper.header, messages[0].constructor.name, messages[0].parser);
-
-            this.handleMessages(...messages);
+            if(SocketConnection.PASS_THROUGH_HEADERS.has(wrapper.header)) this.processWrapper(wrapper);
+            else this._pendingServerMessages.push(wrapper);
         }
     }
 
@@ -816,6 +856,12 @@ export class SocketConnection implements IConnection
         if(!event || !this._messages) return;
 
         this._messages.removeMessageEvent(event);
+    }
+
+    /** Whether the client has released held messages at least once, i.e. its handlers are registered. */
+    public get hasBeenReady(): boolean
+    {
+        return this._hasBeenReady;
     }
 
     public get isAuthenticated(): boolean

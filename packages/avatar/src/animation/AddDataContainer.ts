@@ -14,7 +14,7 @@ export class AddDataContainer
         this._align = data.align || '';
         this._base = data.base || '';
         this._ink = data.ink || 0;
-        this._blend = 0;
+        this._blend = 1;
 
         const blend = data.blend;
 
@@ -22,7 +22,7 @@ export class AddDataContainer
         {
             if(blend.length > 0)
             {
-                this._blend = parseInt(blend);
+                this._blend = parseFloat(blend);
 
                 if(this._blend > 1) this._blend = (this._blend / 100);
             }

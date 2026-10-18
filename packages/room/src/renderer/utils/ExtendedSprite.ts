@@ -1,6 +1,9 @@
-import { AlphaTolerance } from '@octane/api';
+import { AlphaTolerance, IRoomPlaneDrawData } from '@octane/api';
 import { GetRenderer, TextureUtils } from '@octane/utils';
 import { DestroyOptions, Filter, Point, Sprite, Texture, TextureSource, WebGLRenderer, WebGPURenderer } from 'pixi.js';
+import { RoomPlaneDisplay } from './RoomPlaneDisplay';
+import { RoomPlaneContainsPoint } from './RoomPlaneHitTest';
+import { IWiredHighlight, WiredHighlightCache } from './WiredHighlightCache';
 
 const BYTES_PER_PIXEL = 4;
 
@@ -8,6 +11,7 @@ export class ExtendedSprite extends Sprite
 {
     private static SCRATCH_POINT: Point = new Point();
 
+    private _planeDisplay: RoomPlaneDisplay = null;
     private _offsetX: number = 0;
     private _offsetY: number = 0;
     private _tag: string = '';
@@ -19,10 +23,16 @@ export class ExtendedSprite extends Sprite
     private _updateId1: number = -1;
     private _updateId2: number = -1;
     private _filterSource: Filter[] = null;
+    private _filtersShown: boolean = false;
+    private _sourceTexture: Texture = null;
+    private _highlight: IWiredHighlight = null;
+    private _highlightWaitsForParents: boolean = false;
 
     constructor(options?: ConstructorParameters<typeof Sprite>[0])
     {
         super(options);
+
+        this._sourceTexture = super.texture ?? null;
     }
 
     public needsUpdate(updateId1: number, updateId2: number): boolean
@@ -42,23 +52,142 @@ export class ExtendedSprite extends Sprite
         if(filters === this._filterSource) return;
 
         this._filterSource = filters;
-        this.filters = filters;
+
+        if(!this._highlight) this.showFilters(true);
     }
 
     public setTexture(texture: Texture): void
     {
         if(!texture || texture.destroyed || !texture.source) texture = Texture.EMPTY;
 
-        if(texture !== this.texture)
-        {
-            if(texture === Texture.EMPTY)
-            {
-                this._updateId1 = -1;
-                this._updateId2 = -1;
-            }
+        if(texture === this.sourceTexture) return;
 
-            this.texture = texture;
+        if(texture === Texture.EMPTY)
+        {
+            this._updateId1 = -1;
+            this._updateId2 = -1;
         }
+
+        this._sourceTexture = texture;
+        this.showSource();
+    }
+
+    // The room sprite's own texture: hit tests and change checks use it, whatever is drawn.
+    public get sourceTexture(): Texture
+    {
+        return this._sourceTexture ?? super.texture;
+    }
+
+    // Called once the canvas has copied a room sprite's properties. A sprite marked only by a
+    // WiredFilter, drawn as is (no tint, full alpha, normal blend), shows the frame already drawn
+    // through that filter instead of running the filter every frame; anything else draws as before.
+    public updateHighlight(): void
+    {
+        const filter = WiredHighlightCache.getFilter(this._filterSource);
+        const blendMode = this.blendMode;
+        // Flipped or scaled sprites keep the filter: the filter pass rounds its area on the side the
+        // sprite is drawn from, so a drawing flipped afterwards would differ by a column of pixels.
+        const plain = (this.alpha === 1) && (this.tint === 0xFFFFFF) && ((blendMode === 'normal') || (blendMode === 'inherit'))
+            && (this.scale.x === 1) && (this.scale.y === 1);
+        const parentsPlain = this.hasPlainParents();
+
+        // Held back only by a parent (zoom, flip, fade): try again once the parents are plain.
+        this._highlightWaitsForParents = (!!filter && plain && !parentsPlain);
+
+        const highlight = (filter && plain && parentsPlain) ? WiredHighlightCache.acquire(this.sourceTexture, filter) : null;
+
+        if(!highlight)
+        {
+            if(this._highlight) this.showSource();
+
+            return;
+        }
+
+        // acquire() counted it once more; keep one count per sprite.
+        if(highlight === this._highlight)
+        {
+            WiredHighlightCache.release(highlight);
+
+            return;
+        }
+
+        if(this._highlight) WiredHighlightCache.release(this._highlight);
+
+        this._highlight = highlight;
+        this.showFilters(false);
+        this.texture = highlight.texture;
+    }
+
+    // Every frame: a drawing whose source, context or filter colours changed is redrawn in place.
+    public validateHighlight(): void
+    {
+        if(!this._highlight)
+        {
+            if(this._highlightWaitsForParents && this.hasPlainParents()) this.updateHighlight();
+
+            return;
+        }
+
+        // A parent's alpha, tint, zoom, flip or rotation reaches the filter's input but would only reach
+        // the drawing after it.
+        if(!this.hasPlainParents())
+        {
+            this.showSource();
+
+            this._highlightWaitsForParents = true;
+
+            return;
+        }
+
+        WiredHighlightCache.validate(this._highlight);
+    }
+
+    public get hasHighlight(): boolean
+    {
+        return !!this._highlight;
+    }
+
+    private hasPlainParents(): boolean
+    {
+        for(let parent = this.parent; parent; parent = parent.parent)
+        {
+            if((parent.alpha !== 1) || (parent.tint !== 0xFFFFFF)) return false;
+
+            if((parent.scale.x !== 1) || (parent.scale.y !== 1) || (parent.rotation !== 0) || (parent.skew.x !== 0) || (parent.skew.y !== 0)) return false;
+        }
+
+        return true;
+    }
+
+    private showSource(): void
+    {
+        if(this._highlight)
+        {
+            WiredHighlightCache.release(this._highlight);
+
+            this._highlight = null;
+        }
+
+        this.texture = this.sourceTexture;
+        this.showFilters(true);
+    }
+
+    private showFilters(show: boolean): void
+    {
+        if(show)
+        {
+            if(!this._filtersShown && !this._filterSource?.length) return;
+
+            this.filters = this._filterSource;
+            this._filtersShown = !!this._filterSource?.length;
+
+            return;
+        }
+
+        if(!this._filtersShown) return;
+
+        this.filters = null;
+        this._filtersShown = false;
     }
 
     // A pooled or asset texture can be destroyed while this sprite still sits in the
@@ -74,37 +203,140 @@ export class ExtendedSprite extends Sprite
     {
         const previous = super.texture;
 
-        if(previous && (previous !== texture)) previous.off('destroy', this.onTextureDestroyed, this);
+        if(previous && (previous !== texture)) ExtendedSprite.unwatchTexture(previous, this);
 
         super.texture = texture;
 
         const current = super.texture;
 
-        if(current && (current !== previous) && (current !== Texture.EMPTY)) current.on('destroy', this.onTextureDestroyed, this);
+        if(current && (current !== previous) && (current !== Texture.EMPTY)) ExtendedSprite.watchTexture(current, this);
     }
 
-    private onTextureDestroyed(): void
+    // Thousands of room sprites can share one texture, and an emitter rebuilds its whole
+    // listener list on every off(). One listener per texture keeps each sprite's watch O(1).
+    private static TEXTURE_SPRITES: WeakMap<Texture, Set<ExtendedSprite>> = new WeakMap();
+
+    private static watchTexture(texture: Texture, sprite: ExtendedSprite): void
     {
+        let sprites = ExtendedSprite.TEXTURE_SPRITES.get(texture);
+
+        if(!sprites)
+        {
+            sprites = new Set();
+
+            ExtendedSprite.TEXTURE_SPRITES.set(texture, sprites);
+            texture.on('destroy', ExtendedSprite.onSharedTextureDestroyed);
+        }
+
+        sprites.add(sprite);
+    }
+
+    private static unwatchTexture(texture: Texture, sprite: ExtendedSprite): void
+    {
+        const sprites = ExtendedSprite.TEXTURE_SPRITES.get(texture);
+
+        if(!sprites?.delete(sprite) || sprites.size) return;
+
+        ExtendedSprite.TEXTURE_SPRITES.delete(texture);
+        texture.off('destroy', ExtendedSprite.onSharedTextureDestroyed);
+    }
+
+    // Like the emitter it replaces: every sprite watching when the texture is destroyed is
+    // told, in the order it started watching, even if an earlier one stops watching meanwhile.
+    private static onSharedTextureDestroyed(texture: Texture): void
+    {
+        const sprites = ExtendedSprite.TEXTURE_SPRITES.get(texture);
+
+        if(!sprites) return;
+
+        ExtendedSprite.TEXTURE_SPRITES.delete(texture);
+
+        for(const sprite of [ ...sprites ]) sprite.onTextureDestroyed(texture);
+    }
+
+    private onTextureDestroyed(texture: Texture): void
+    {
+        if(texture && this._highlight && (texture === this._highlight.texture))
+        {
+            // The drawn highlight went away (cache trim, context loss, its source destroyed): draw
+            // the frame through the filter again and let the next update draw a new one.
+            this._updateId1 = -1;
+            this._updateId2 = -1;
+
+            const sourceTexture = this.sourceTexture;
+
+            if(!sourceTexture || sourceTexture.destroyed || !sourceTexture.source || sourceTexture.source.destroyed) this._sourceTexture = Texture.EMPTY;
+
+            this.showSource();
+
+            return;
+        }
+
+        this._sourceTexture = null;
         this.setTexture(null);
     }
 
     public override destroy(options?: DestroyOptions): void
     {
-        super.texture?.off('destroy', this.onTextureDestroyed, this);
+        this.setPlaneDrawData(null);
+
+        if(super.texture) ExtendedSprite.unwatchTexture(super.texture, this);
+
+        if(this._highlight)
+        {
+            WiredHighlightCache.release(this._highlight);
+
+            this._highlight = null;
+        }
 
         super.destroy(options);
     }
 
+    // A room plane drawn from its tile (room.planes.direct): a RoomPlaneDisplay child draws it, so this
+    // sprite's tint, alpha, filters and position apply to it unchanged. Null removes the display.
+    public setPlaneDrawData(data: IRoomPlaneDrawData): void
+    {
+        if(!data)
+        {
+            if(this._planeDisplay)
+            {
+                this._planeDisplay.destroy();
+
+                this._planeDisplay = null;
+            }
+
+            return;
+        }
+
+        if(!this._planeDisplay)
+        {
+            this.allowChildren = true;
+            this._planeDisplay = new RoomPlaneDisplay();
+
+            this.addChild(this._planeDisplay);
+        }
+
+        this._planeDisplay.setData(data);
+    }
+
+    public get planeDrawData(): IRoomPlaneDrawData
+    {
+        return (this._planeDisplay ? this._planeDisplay.data : null);
+    }
+
     public containsPoint(point: Point): boolean
     {
-        if(!point || (this.alphaTolerance > 255) || !this.texture || (this.texture === Texture.EMPTY)) return false;
+        if(point && this._planeDisplay) return RoomPlaneContainsPoint(this._planeDisplay.data, (point.x * this.scale.x), (point.y * this.scale.y), this.alphaTolerance);
+
+        const texture = this.sourceTexture;
+
+        if(!point || (this.alphaTolerance > 255) || !texture || (texture === Texture.EMPTY)) return false;
 
         point = ExtendedSprite.SCRATCH_POINT.set((point.x * this.scale.x), (point.y * this.scale.y));
 
         if(!super.containsPoint(point)) return false;
 
-        const texture = this.texture;
-        const textureSource = this.texture.source;
+        const textureSource = texture.source;
 
         if((!textureSource || !textureSource.hitMap) && !ExtendedSprite.generateHitMapForTextureSource(textureSource)) return false;
 
@@ -117,7 +349,7 @@ export class ExtendedSprite extends Sprite
         let dx = (point.x + texture.frame.x);
         let dy = (point.y + texture.frame.y);
 
-        if(this.texture.trim)
+        if(texture.trim)
         {
             dx -= texture.trim.x;
             dy -= texture.trim.y;
@@ -139,9 +371,14 @@ export class ExtendedSprite extends Sprite
         const width = Math.max(Math.round(textureSource.width * textureSource.resolution), 1);
         const height = Math.max(Math.round(textureSource.height * textureSource.resolution), 1);
 
-        let pixels: Uint8ClampedArray = null;
+        let pixels: Uint8ClampedArray = ExtendedSprite.getImagePixels(textureSource, width, height);
 
-        if(renderer instanceof WebGPURenderer)
+        if(pixels)
+        {
+            // Read from the decoded image itself, no GPU round trip.
+        }
+
+        else if(renderer instanceof WebGPURenderer)
         {
             pixels = TextureUtils.getPixels(new Texture(textureSource))?.pixels ?? null;
         }
@@ -150,23 +387,25 @@ export class ExtendedSprite extends Sprite
         {
             pixels = new Uint8ClampedArray(BYTES_PER_PIXEL * width * height);
 
-            const webglRenderer = renderer;
-            const renderTarget = webglRenderer.renderTarget.getRenderTarget(textureSource);
-            const glRenderTarget = webglRenderer.renderTarget.getGpuRenderTarget(renderTarget);
+            const gl = renderer.gl;
+            const adaptor = renderer.renderTarget.adaptor;
+            const framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
 
-            const gl = webglRenderer.gl;
+            // Bind through the adaptor: it caches the bound framebuffer, and a raw
+            // gl.bindFramebuffer would leave the next draw on the hit-test target.
+            try
+            {
+                const renderTarget = renderer.renderTarget.getRenderTarget(textureSource);
+                const glRenderTarget = renderer.renderTarget.getGpuRenderTarget(renderTarget);
 
-            gl.bindFramebuffer(gl.FRAMEBUFFER, glRenderTarget.resolveTargetFramebuffer);
+                adaptor.bindFramebuffer(glRenderTarget.resolveTargetFramebuffer);
 
-            gl.readPixels(
-                0,
-                0,
-                width,
-                height,
-                gl.RGBA,
-                gl.UNSIGNED_BYTE,
-                pixels
-            );
+                gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+            }
+            finally
+            {
+                adaptor.bindFramebuffer(framebuffer);
+            }
         }
 
         if(!pixels) return false;
@@ -176,6 +415,53 @@ export class ExtendedSprite extends Sprite
         textureSource.hitMapTime = Date.now();
 
         return true;
+    }
+
+    // A decoded image still holds its pixels on the CPU. Reading them there spares the GPU
+    // read back, which waits for every queued frame. Render textures (avatars, palette
+    // results) and other sources still go through the GPU.
+    private static getImagePixels(textureSource: TextureSource, width: number, height: number): Uint8ClampedArray
+    {
+        const resource = textureSource.resource;
+
+        let image: ImageBitmap | HTMLImageElement = null;
+        let imageWidth = 0;
+        let imageHeight = 0;
+
+        if((typeof ImageBitmap !== 'undefined') && (resource instanceof ImageBitmap))
+        {
+            image = resource;
+            imageWidth = resource.width;
+            imageHeight = resource.height;
+        }
+
+        else if((typeof HTMLImageElement !== 'undefined') && (resource instanceof HTMLImageElement))
+        {
+            image = resource;
+            imageWidth = resource.naturalWidth;
+            imageHeight = resource.naturalHeight;
+        }
+
+        if(!image || (typeof OffscreenCanvas === 'undefined')) return null;
+
+        // The hit map is indexed in texture pixels; an image of another size would not line up.
+        if((imageWidth !== width) || (imageHeight !== height)) return null;
+
+        try
+        {
+            const context = new OffscreenCanvas(width, height).getContext('2d', { willReadFrequently: true });
+
+            if(!context) return null;
+
+            context.drawImage(image, 0, 0);
+
+            return context.getImageData(0, 0, width, height).data;
+        }
+        catch
+        {
+            // A closed bitmap or a cross-origin image: the GPU path tries instead.
+            return null;
+        }
     }
 
     public get offsetX(): number

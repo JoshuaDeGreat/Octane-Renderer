@@ -1,4 +1,4 @@
-import { IGraphicAsset, RoomObjectVariable } from '@octane/api';
+import { IGraphicAsset, IRoomObjectSprite, RoomObjectVariable } from '@octane/api';
 import { Matrix, RenderTexture, Texture } from 'pixi.js';
 import { FurnitureDynamicThumbnailVisualization } from './FurnitureDynamicThumbnailVisualization';
 
@@ -73,15 +73,31 @@ export class FurnitureExternalImageVisualization extends FurnitureDynamicThumbna
             this._typePrefix = (this.object.type.indexOf('') >= 0) ? '' : 'postcards/selfie/';
         }
 
-        const json = JSON.parse(jsonString);
+        // A broken item must not take the room visualization down with it.
+        let json: { w?: string } = null;
 
-        let url = (json.w || '');
+        try
+        {
+            json = JSON.parse(jsonString);
+        }
+        catch
+        {
+            return null;
+        }
+
+        let url = (json?.w || '');
 
         url = this.buildThumbnailUrl(url);
 
         this._url = url;
 
         return this._url;
+    }
+
+    // AIR: every layer of a photo is sent to the camera renderer as the photo URL.
+    protected getLibraryAssetNameForSprite(asset: IGraphicAsset, sprite: IRoomObjectSprite): string
+    {
+        return (this.getThumbnailURL() || '');
     }
 
     private buildThumbnailUrl(url: string): string

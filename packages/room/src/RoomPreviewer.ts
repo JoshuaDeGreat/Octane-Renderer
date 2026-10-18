@@ -32,6 +32,7 @@ export class RoomPreviewer
     private static ZOOM_ENABLED: boolean = true;
 
     private _roomEngine: IRoomEngine;
+    private _disposed: boolean = false;
     private _planeParser: RoomPlaneParser;
     private _previewRoomId: number = 1;
     private _currentPreviewObjectType: number = 0;
@@ -85,8 +86,14 @@ export class RoomPreviewer
 
     public dispose(): void
     {
+        if(this._disposed) return;
+
         this.reset(true);
         this._previewCapabilityListeners.clear();
+
+        // reset() removes the object, but the engine still owns the preview room and its canvas;
+        // every preview gets a new room id, so each one used to stay behind for good.
+        if(this.isRoomEngineReady) this._roomEngine.destroyRoom(this._previewRoomId);
 
         if(this.isRoomEngineReady && GetEventDispatcher())
         {
@@ -108,6 +115,8 @@ export class RoomPreviewer
 
             this._planeParser = null;
         }
+
+        this._disposed = true;
     }
 
     private createRoomForPreview(): void
@@ -1098,7 +1107,7 @@ export class RoomPreviewer
 
     public get isRoomEngineReady(): boolean
     {
-        return true;
+        return !!this._roomEngine && !this._disposed;
     }
 
     public get roomId(): number

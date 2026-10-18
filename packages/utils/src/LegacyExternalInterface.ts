@@ -200,6 +200,18 @@ export class LegacyExternalInterface
         }
     }
 
+    /**
+     * The parent's origin when it is known, otherwise '*' (the receiving end validates the message).
+     * Firefox reports an opaque "null" ancestor origin when the frame gets no referrer, and
+     * postMessage throws a SyntaxError for that target, which stopped the client right after loading.
+     */
+    public static getParentOrigin(): string
+    {
+        const origin = window.location.ancestorOrigins?.[0];
+
+        return (origin && origin !== 'null') ? origin : '*';
+    }
+
     public static call<K extends keyof typeof window.FlashExternalInterface>(
         method: K,
         ...params: Parameters<typeof window.FlashExternalInterface[K]>
@@ -207,17 +219,10 @@ export class LegacyExternalInterface
     {
         if(window.top !== window)
         {
-            // Use parent origin if known, otherwise use '*' with caution
-            // Note: Using '*' is necessary when the parent origin is unknown
-            // The receiving end should validate the message content
-            const targetOrigin = window.location.ancestorOrigins?.length > 0
-                ? window.location.ancestorOrigins[0]
-                : '*';
-
             window.top.postMessage(LegacyExternalInterface.MESSAGE_KEY + JSON.stringify({
                 method,
                 params
-            }), targetOrigin);
+            }), LegacyExternalInterface.getParentOrigin());
         }
 
         if(!('FlashExternalInterface' in window)) return undefined;
@@ -234,15 +239,10 @@ export class LegacyExternalInterface
     {
         if(window.top !== window)
         {
-            // Use parent origin if known, otherwise use '*' with caution
-            const targetOrigin = window.location.ancestorOrigins?.length > 0
-                ? window.location.ancestorOrigins[0]
-                : '*';
-
             window.top.postMessage(LegacyExternalInterface.GAME_MESSAGE_KEY + JSON.stringify({
                 method,
                 params
-            }), targetOrigin);
+            }), LegacyExternalInterface.getParentOrigin());
         }
 
         if(!('FlashExternalGameInterface' in window)) return undefined;

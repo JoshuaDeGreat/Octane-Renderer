@@ -63,6 +63,10 @@ export class RoomSettingsDataParser implements IMessageParser
             this._roomSettingsData.idleAutokickTimeoutSeconds = wrapper.readInt();
         }
 
+        if(!wrapper.bytesAvailable) return true;
+
+        this._roomSettingsData.hiddenByBc = wrapper.readBoolean();
+
         return true;
     }
 

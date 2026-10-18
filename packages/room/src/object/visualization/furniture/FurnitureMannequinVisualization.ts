@@ -1,4 +1,4 @@
-import { AvatarSetType, IAvatarImage, IAvatarImageListener, IGraphicAsset, IObjectVisualizationData, RoomObjectVariable } from '@octane/api';
+import { AvatarSetType, IAvatarImage, IAvatarImageListener, IGraphicAsset, IObjectVisualizationData, IRoomObjectSprite, RoomObjectSpriteData, RoomObjectVariable } from '@octane/api';
 import { Texture } from 'pixi.js';
 import { FurnitureMannequinVisualizationData } from './FurnitureMannequinVisualizationData';
 import { FurnitureVisualization } from './FurnitureVisualization';
@@ -129,6 +129,27 @@ export class FurnitureMannequinVisualization extends FurnitureVisualization impl
         }
 
         return super.getTexture(scale, layerId, asset);
+    }
+
+    // AIR: the camera scene finds the dressed figure by this name and swaps in the figure parts.
+    protected getLibraryAssetNameForSprite(asset: IGraphicAsset, sprite: IRoomObjectSprite): string
+    {
+        if((sprite.tag === FurnitureMannequinVisualization.AVATAR_IMAGE_SPRITE_TAG) && this._avatarImage && this._figure && this.object)
+        {
+            return `mannequin_${ this._figure }_${ this._mannequinScale }_${ this.direction }_${ this.object.id }`;
+        }
+
+        return super.getLibraryAssetNameForSprite(asset, sprite);
+    }
+
+    // Behaviour from the AIR client (FurnitureMannequinVisualization.getSpriteList): the dressed figure's parts.
+    public getSpriteList(): RoomObjectSpriteData[]
+    {
+        if(!this._avatarImage) return super.getSpriteList();
+
+        this._avatarImage.setDirection(AvatarSetType.FULL, this.direction);
+
+        return this._avatarImage.getServerRenderData();
     }
 
     public get disposed(): boolean

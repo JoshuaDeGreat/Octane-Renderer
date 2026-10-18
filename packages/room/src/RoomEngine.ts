@@ -1,10 +1,11 @@
-import { IFurnitureStackingHeightMap, IGetImageListener, IImageResult, ILegacyWallGeometry, IObjectData, IPetColorResult, IPetCustomPart, IRoomAreaSelectionManager, IRoomContentListener, IRoomContentLoader, IRoomCreator, IRoomEngine, IRoomEngineServices, IRoomGeometry, IRoomInstance, IRoomManager, IRoomManagerListener, IRoomObject, IRoomObjectController, IRoomRenderer, IRoomRenderingCanvas, IRoomSessionManager, ISelectedRoomObjectData, ISessionDataManager, ITileObjectMap, IUpdateReceiver, IVector3D, LegacyDataType, MouseEventType, ObjectDataFactory, PetFigureData, RoomControllerLevel, RoomObjectCategory, RoomObjectOperationType, RoomObjectUserType, RoomObjectVariable, ToolbarIconEnum } from '@octane/api';
+import { IFurnitureStackingHeightMap, IGetImageListener, IImageResult, ILegacyWallGeometry, IObjectData, IPetColorResult, IPlaneDrawingData, IPetCustomPart, IRoomAreaSelectionManager, IRoomContentListener, IRoomContentLoader, IRoomCreator, IRoomEngine, IRoomEngineServices, IRoomGeometry, IRoomInstance, IRoomManager, IRoomManagerListener, IRoomObject, IRoomObjectController, IRoomRenderer, IRoomRenderingCanvas, IRoomSessionManager, ISelectedRoomObjectData, ISessionDataManager, ITileObjectMap, IUpdateReceiver, IVector3D, LegacyDataType, MouseEventType, ObjectDataFactory, PetFigureData, RoomControllerLevel, RoomObjectCategory, RoomObjectOperationType, RoomObjectUserType, RoomObjectVariable, ToolbarIconEnum } from '@octane/api';
 import { GetCommunication, RenderRoomMessageComposer, RenderRoomThumbnailMessageComposer } from '@octane/communication';
+import { GetAssetManager } from '@octane/assets';
 import { GetConfiguration } from '@octane/configuration';
 import { BadgeImageReadyEvent, GetEventDispatcher, OctaneToolbarAnimateIconEvent, RoomBackgroundColorEvent, RoomDragEvent, RoomEngineAreaHideStateEvent, RoomEngineEvent, RoomEngineObjectEvent, RoomObjectEvent, RoomObjectFurnitureActionEvent, RoomObjectMouseEvent, RoomSessionEvent, RoomToObjectOwnAvatarMoveEvent } from '@octane/events';
 import { GetRoomSessionManager, GetSessionDataManager } from '@octane/session';
-import { FurniId, GetTexturePool, GetTickerTime, OctaneLogger, NumberBank, TextureUtils, Vector3d } from '@octane/utils';
-import { Container, Matrix, Point, PointData, Rectangle, RenderTexture, Sprite, Texture, Ticker } from 'pixi.js';
+import { FurniId, GetRenderer, GetTexturePool, GetTickerTime, OctaneLogger, NumberBank, TextureUtils, Vector3d } from '@octane/utils';
+import { Container, Matrix, Point, PointData, Rectangle, RenderTexture, Sprite, Texture, Ticker, WebGLRenderer } from 'pixi.js';
 import { DEFAULT_WIRED_CLICK_SETTINGS, normalizeWiredClickSettings, WiredClickSettings } from './utils/WiredClickSettings';
 import { GetRoomContentLoader } from './GetRoomContentLoader';
 import { GetRoomManager } from './GetRoomManager';
@@ -13,10 +14,11 @@ import { GetRoomObjectLogicFactory } from './GetRoomObjectLogicFactory';
 import { ImageResult } from './ImageResult';
 import { RoomInstance } from './RoomInstance';
 import { RoomObjectEventHandler } from './RoomObjectEventHandler';
+import { RoomRenderScene } from './RoomRenderScene';
 import { buildRoomObjectImageKey, DisposableTexture, RoomObjectImageCache, SharedImageResult } from './RoomObjectImageCache';
 import { RoomVariableEnum } from './RoomVariableEnum';
 import { ObjectAvatarBlockedUpdateMessage, ObjectAvatarCarryObjectUpdateMessage, ObjectAvatarChatUpdateMessage, ObjectAvatarDanceUpdateMessage, ObjectAvatarEffectUpdateMessage, ObjectAvatarExperienceUpdateMessage, ObjectAvatarExpressionUpdateMessage, ObjectAvatarFigureUpdateMessage, ObjectAvatarFlatControlUpdateMessage, ObjectAvatarGestureUpdateMessage, ObjectAvatarGuideStatusUpdateMessage, ObjectAvatarHabbiconUpdateMessage, ObjectAvatarMutedUpdateMessage, ObjectAvatarOwnMessage, ObjectAvatarPetGestureUpdateMessage, ObjectAvatarPlayerValueUpdateMessage, ObjectAvatarPlayingGameUpdateMessage, ObjectAvatarPostureUpdateMessage, ObjectAvatarSignUpdateMessage, ObjectAvatarSleepUpdateMessage, ObjectAvatarTypingUpdateMessage, ObjectAvatarUpdateMessage, ObjectAvatarUseObjectUpdateMessage, ObjectDataUpdateMessage, ObjectGroupBadgeUpdateMessage, ObjectHeightUpdateMessage, ObjectItemDataUpdateMessage, ObjectModelDataUpdateMessage, ObjectMoveUpdateMessage, ObjectRoomColorUpdateMessage, ObjectRoomFloorHoleUpdateMessage, ObjectRoomMaskUpdateMessage, ObjectRoomPlanePropertyUpdateMessage, ObjectRoomPlaneVisibilityUpdateMessage, ObjectRoomUpdateMessage, ObjectStateUpdateMessage, RoomObjectUpdateMessage } from './messages';
-import { RoomLogic, RoomMapData } from './object';
+import { RoomLogic, RoomMapData, RoomPlane, RoomVisualization } from './object';
 import { RoomWindowReflectionState } from './object/visualization/RoomWindowReflectionState';
 import { RoomRenderer } from './renderer';
 import { RoomAreaSelectionManager, RoomCamera, RoomData, RoomEnterEffect, RoomFurnitureData, RoomGeometry, RoomInstanceData, RoomObjectBadgeImageAssetListener } from './utils';
@@ -69,11 +71,14 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
     private _skipFurnitureCreationForNextFrame: boolean = false;
     private _mouseCursorUpdate: boolean = false;
     private _badgeListenerObjects: Map<string, RoomObjectBadgeImageAssetListener[]> = new Map();
+    private _badgeImageReadyCallback: (event: BadgeImageReadyEvent) => void = null;
     private _areaSelectionManager: IRoomAreaSelectionManager = new RoomAreaSelectionManager(this);
     private _roomSessionEventCallback: (event: RoomSessionEvent) => void = null;
 
     public async init(): Promise<void>
     {
+        this.setPlaneRenderMode(GetConfiguration().getValue<boolean>('room.planes.direct', false));
+
         GetRoomObjectLogicFactory().registerEventFunction(event => this.processRoomObjectEvent(event));
 
         this._roomSessionEventCallback = (event: RoomSessionEvent) => this.onRoomSessionEvent(event);
@@ -137,6 +142,7 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         this._imageCallbacks.clear();
         this._thumbnailCallbacks.clear();
         this._badgeListenerObjects.clear();
+        this.removeIdleBadgeImageListener();
         this.clearRoomObjectImageCache();
     }
 
@@ -181,6 +187,8 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         {
             this._roomManager && this._roomManager.removeRoomInstance(this.getRoomId(roomId));
         }
+
+        this.pruneBadgeImageListeners();
 
         const existing = this._roomInstanceDatas.get(roomId);
 
@@ -828,6 +836,31 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         }
     }
 
+    // Direct planes (room.planes.direct) draw floors and walls from their tile with a GLSL ES 3.0 shader
+    // instead of baking each plane into a render texture. WebGL2 only: anything else keeps the bake.
+    public setPlaneRenderMode(direct: boolean): void
+    {
+        const renderer = GetRenderer();
+        const webGL2 = (renderer instanceof WebGLRenderer) && (renderer.context?.webGLVersion === 2);
+        const enabled = (!!direct && webGL2);
+
+        if(enabled === RoomPlane.DIRECT_DRAW) return;
+
+        RoomPlane.DIRECT_DRAW = enabled;
+
+        if(!this._roomManager?.rooms) return;
+
+        for(const instance of this._roomManager.rooms.values())
+        {
+            for(const object of instance.getRoomObjectsForCategory(RoomObjectCategory.ROOM))
+            {
+                const visualization = object?.visualization;
+
+                if(visualization instanceof RoomVisualization) visualization.rebuildPlanes();
+            }
+        }
+    }
+
     public isRoomIdPlayingGame(roomId: number): boolean
     {
         const roomInstance = this.getRoomInstance(roomId);
@@ -842,6 +875,94 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         return this.isRoomIdPlayingGame(this._activeRoomId);
     }
 
+    /** AIR `setChooserDisabled`: ConfigurationItemStates keeps the `:chooser` user list closed for visitors below rights. */
+    public setChooserDisabled(roomId: number, disabled: boolean): void
+    {
+        const roomInstance = this.getRoomInstance(roomId);
+
+        if(!roomInstance) return;
+
+        roomInstance.model.setValue(RoomVariableEnum.CHOOSER_DISABLED, (disabled ? 1 : 0));
+    }
+
+    public get activeRoomHasChooserDisabled(): boolean
+    {
+        const roomInstance = this.getRoomInstance(this._activeRoomId);
+
+        if(!roomInstance) return false;
+
+        return (roomInstance.model.getValue<number>(RoomVariableEnum.CHOOSER_DISABLED) > 0);
+    }
+
+    /** AIR `setHanditemControlBlocked`: ConfigurationItemStates hides the give / drop handitem actions. */
+    public setHanditemControlBlocked(roomId: number, blocked: boolean): void
+    {
+        this.setRoomVariableFlag(roomId, RoomVariableEnum.HANDITEM_CONTROL_BLOCKED, blocked);
+    }
+
+    public get activeRoomHasHanditemControlBlocked(): boolean
+    {
+        return this.isRoomVariableActive(this._activeRoomId, RoomVariableEnum.HANDITEM_CONTROL_BLOCKED);
+    }
+
+    /** AIR `setFreeFurniMovementsMode`: ConfigurationItemStates lets this viewer move, rotate and use any furni. */
+    public setFreeFurniMovementsMode(roomId: number, enabled: boolean): void
+    {
+        this.setRoomVariableFlag(roomId, RoomVariableEnum.FREE_FURNI_MOVEMENTS_MODE, enabled);
+    }
+
+    public get activeRoomHasFreeFurniMovementsMode(): boolean
+    {
+        return this.isRoomVariableActive(this._activeRoomId, RoomVariableEnum.FREE_FURNI_MOVEMENTS_MODE);
+    }
+
+    /**
+     * AIR `setInvisibleFurni`: while the room's invisible-furni controller is on, every floor and wall furni hides
+     * its layers tagged `invisible` (`furniture_invisible_layer`); furni added later picks the state up on creation.
+     */
+    public setInvisibleFurni(roomId: number, invisible: boolean): void
+    {
+        if(!this.setRoomVariableFlag(roomId, RoomVariableEnum.INVISIBLE_FURNI, invisible)) return;
+
+        const value = (invisible ? 1 : 0);
+
+        for(const category of [ RoomObjectCategory.FLOOR, RoomObjectCategory.WALL ])
+        {
+            for(const roomObject of this.getRoomObjects(roomId, category))
+            {
+                (roomObject as IRoomObjectController)?.model?.setValue(RoomObjectVariable.FURNITURE_INVISIBLE_LAYER, value);
+            }
+        }
+    }
+
+    private applyInvisibleFurniState(roomId: number, roomObject: IRoomObjectController): void
+    {
+        if(!roomObject?.model) return;
+
+        roomObject.model.setValue(RoomObjectVariable.FURNITURE_INVISIBLE_LAYER, (this.isRoomVariableActive(roomId, RoomVariableEnum.INVISIBLE_FURNI) ? 1 : 0));
+    }
+
+    private setRoomVariableFlag(roomId: number, key: string, active: boolean): boolean
+    {
+        const roomInstance = this.getRoomInstance(roomId);
+
+        if(!roomInstance) return false;
+
+        roomInstance.model.setValue(key, (active ? 1 : 0));
+
+        return true;
+    }
+
+    /** AIR `isRoomVariableActive`. */
+    public isRoomVariableActive(roomId: number, key: string): boolean
+    {
+        const roomInstance = this.getRoomInstance(roomId);
+
+        if(!roomInstance) return false;
+
+        return (roomInstance.model.getValue<number>(key) > 0);
+    }
+
     public update(ticker: Ticker): void
     {
         if(!this._roomManager) return;
@@ -852,6 +973,8 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         RoomEnterEffect.turnVisualizationOn();
 
         this.processPendingFurniture();
+
+        GetTexturePool().flushReleased();
 
         this._roomManager.update(time, update);
 
@@ -1754,7 +1877,11 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
     public createRoomObjectFloor(roomId: number, id: number, type: string): IRoomObjectController
     {
-        return this.createRoomObjectAndInitialize(roomId, id, type, RoomObjectCategory.FLOOR);
+        const roomObject = this.createRoomObjectAndInitialize(roomId, id, type, RoomObjectCategory.FLOOR);
+
+        this.applyInvisibleFurniState(roomId, roomObject);
+
+        return roomObject;
     }
 
     public removeRoomObjectFloor(roomId: number, objectId: number, userId: number = -1, refreshTileMap: boolean = false): void
@@ -1763,7 +1890,7 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
         if(roomInstanceData) roomInstanceData.removePendingFunitureFloor(objectId);
 
-        if((this._sessionDataManager.userId === userId) && !FurniId.isBuilderClubId(objectId))
+        if((this._sessionDataManager.userId === userId) && FurniId.isNormalId(objectId))
         {
             const roomObject = this.getRoomObject(roomId, objectId, RoomObjectCategory.FLOOR);
 
@@ -1813,7 +1940,7 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
     public removeRoomObjectWall(roomId: number, objectId: number, userId: number = -1): void
     {
-        if((this._sessionDataManager.userId === userId) && !FurniId.isBuilderClubId(objectId))
+        if((this._sessionDataManager.userId === userId) && FurniId.isNormalId(objectId))
         {
             const roomObject = this.getRoomObject(roomId, objectId, RoomObjectCategory.WALL);
 
@@ -1854,7 +1981,11 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
     public createRoomObjectWall(roomId: number, id: number, type: string): IRoomObjectController
     {
-        return this.createRoomObjectAndInitialize(roomId, id, type, RoomObjectCategory.WALL);
+        const roomObject = this.createRoomObjectAndInitialize(roomId, id, type, RoomObjectCategory.WALL);
+
+        this.applyInvisibleFurniState(roomId, roomObject);
+
+        return roomObject;
     }
 
     private removeRoomObject(roomId: number, objectId: number, category: number): void
@@ -1864,6 +1995,7 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         if(!instance) return null;
 
         instance.removeRoomObject(objectId, category);
+        this.pruneBadgeImageListeners();
 
         if(GetEventDispatcher()) GetEventDispatcher().dispatchEvent(new RoomEngineObjectEvent(RoomEngineObjectEvent.REMOVED, roomId, objectId, category));
     }
@@ -2361,6 +2493,29 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         if(roomObject.logic) roomObject.logic.processUpdateMessage(new ObjectDataUpdateMessage(stateIndex, objectData));
     }
 
+    private removeIdleBadgeImageListener(): void
+    {
+        if(this._badgeListenerObjects.size || !this._badgeImageReadyCallback) return;
+
+        GetEventDispatcher()?.removeEventListener(BadgeImageReadyEvent.IMAGE_READY, this._badgeImageReadyCallback);
+        this._badgeImageReadyCallback = null;
+    }
+
+    private pruneBadgeImageListeners(): void
+    {
+        if(!this._badgeListenerObjects) return;
+
+        for(const [ badgeId, listeners ] of this._badgeListenerObjects)
+        {
+            const live = listeners.filter(listener => !!listener?.object?.logic);
+
+            if(live.length) this._badgeListenerObjects.set(badgeId, live);
+            else this._badgeListenerObjects.delete(badgeId);
+        }
+
+        this.removeIdleBadgeImageListener();
+    }
+
     public loadRoomObjectBadgeImage(roomId: number, objectId: number, objectCategory: number, badgeId: string, groupBadge: boolean = true): void
     {
         let roomObject: IRoomObjectController = null;
@@ -2378,6 +2533,9 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
         if(!roomObject || !roomObject.logic) return;
 
+        // Temporary image objects can be disposed by their room instance directly.
+        this.pruneBadgeImageListeners();
+
         let badgeName = (groupBadge) ? this._sessionDataManager.loadGroupBadgeImage(badgeId) : this._sessionDataManager.loadBadgeImage(badgeId);
 
         if(!badgeName)
@@ -2386,9 +2544,9 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
             if(!this._badgeListenerObjects) this._badgeListenerObjects = new Map();
 
-            if(!this._badgeListenerObjects.size)
+            if(!this._badgeImageReadyCallback)
             {
-                const onBadgeImageReadyEvent = (event: BadgeImageReadyEvent) =>
+                this._badgeImageReadyCallback = (event: BadgeImageReadyEvent) =>
                 {
                     const listeners = this._badgeListenerObjects && this._badgeListenerObjects.get(event.badgeId);
 
@@ -2396,7 +2554,7 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
                     for(const listener of listeners)
                     {
-                        if(!listener) continue;
+                        if(!listener?.object?.logic) continue;
 
                         this.putBadgeInObjectAssets(listener.object, event.badgeId, listener.groupBadge);
 
@@ -2407,13 +2565,10 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
                     this._badgeListenerObjects.delete(event.badgeId);
 
-                    if(!this._badgeListenerObjects.size)
-                    {
-                        GetEventDispatcher().removeEventListener(BadgeImageReadyEvent.IMAGE_READY, onBadgeImageReadyEvent);
-                    }
+                    this.removeIdleBadgeImageListener();
                 };
 
-                GetEventDispatcher().addEventListener(BadgeImageReadyEvent.IMAGE_READY, onBadgeImageReadyEvent);
+                GetEventDispatcher().addEventListener(BadgeImageReadyEvent.IMAGE_READY, this._badgeImageReadyCallback);
             }
 
             let listeners = this._badgeListenerObjects.get(badgeId);
@@ -3567,6 +3722,81 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         }
 
         return texture;
+    }
+
+    /**
+     * Behaviour from the AIR client (RoomEngine.getRenderRoomMessage): the room scene inside `rect` (canvas pixels,
+     * the viewfinder frame) as the AIR render room packet, for the server to draw. Call it when the photo is taken;
+     * the camera adds the effects and zoom later and calls compressData before sending. A thumbnail is packed at once.
+     * Returns null without a canvas, or when the canvas is flipped (AIR's camera refuses a flipped room).
+     */
+    public getRenderRoomMessage(rect: Rectangle, backgroundColor: number, isThumbnail: boolean = false, includeOwnAvatar: boolean = true, skipSpriteVisibilityChecking: boolean = false, canvasId: number = -1): RenderRoomMessageComposer
+    {
+        const canvas = (canvasId > -1) ? this.getRoomInstanceRenderingCanvas(this._activeRoomId, canvasId) : this.getActiveRoomInstanceRenderingCanvas();
+
+        if(!canvas || !rect || canvas.isFlipped) return null;
+
+        // The scene is in unscaled room pixels: map a zoomed canvas's frame back around the screen offset.
+        const scale = ((canvas.scale > 0) ? canvas.scale : 1);
+        const sceneRect = (scale === 1) ? rect : new Rectangle(
+            (canvas.screenOffsetX + ((rect.x - canvas.screenOffsetX) / scale)),
+            (canvas.screenOffsetY + ((rect.y - canvas.screenOffsetY) / scale)),
+            (rect.width / scale),
+            (rect.height / scale));
+
+        if(skipSpriteVisibilityChecking) canvas.skipSpriteVisibilityChecking();
+
+        let excludedObjectId = -1;
+
+        if(!includeOwnAvatar)
+        {
+            const session = GetRoomSessionManager().getSession(this._activeRoomId);
+
+            if(session) excludedObjectId = session.ownRoomIndex;
+        }
+
+        const scene = new RoomRenderScene(this, {
+            imageLibraryUrl: GetConfiguration().getValue<string>('image.library.url', ''),
+            groupBadgeUrl: GetConfiguration().getValue<string>('group.badge.url', '%imagerdata%'),
+            getPaletteSource: (objectType: string, paletteName: string) =>
+            {
+                const palettes = GetAssetManager().getCollection(objectType)?.data?.palettes;
+
+                if(!palettes) return null;
+
+                for(const key in palettes)
+                {
+                    const palette = palettes[key];
+
+                    if(palette && ((key === paletteName) || (String(palette.id) === paletteName))) return (palette.source ?? null);
+                }
+
+                return null;
+            }
+        });
+
+        let sprites: string = null;
+        let modifiers: string = null;
+        let planes: IPlaneDrawingData[] = null;
+
+        try
+        {
+            sprites = scene.getFurniData(sceneRect, canvas, excludedObjectId);
+            modifiers = scene.getRoomRenderingModifiers();
+            planes = scene.getRoomPlanes(sceneRect, canvas, backgroundColor);
+        }
+        finally
+        {
+            if(skipSpriteVisibilityChecking) canvas.resumeSpriteVisibilityChecking();
+        }
+
+        const composer = isThumbnail ? new RenderRoomThumbnailMessageComposer() : new RenderRoomMessageComposer();
+
+        composer.assignRenderData(planes, sprites, modifiers, this._activeRoomId, (GetSessionDataManager().securityLevel || 0));
+
+        if(isThumbnail) composer.compressData();
+
+        return composer;
     }
 
     public async saveTextureAsScreenshot(texture: RenderTexture, saveAsThumbnail: boolean = false): Promise<void>

@@ -17,9 +17,13 @@ export interface IWiredVariableData
     canWriteValue: boolean;
     canInterceptChanges: boolean;
     isInvisible: boolean;
+    /** True for a pointer: it only exists while a stack runs. */
+    requiresExecutionContext: boolean;
     canReadCreationTime: boolean;
     canReadLastUpdateTime: boolean;
     textConnector: { key: number; value: string }[] | null;
+    /** What a value the text connector does not name reads as, or null. */
+    textConnectorFallback: string | null;
 }
 
 /** Reads the official `WiredVariable` block from the wrapper. */
@@ -36,10 +40,12 @@ export function parseWiredVariableData(wrapper: IMessageDataWrapper): IWiredVari
     const canWriteValue = wrapper.readBoolean();
     const canInterceptChanges = wrapper.readBoolean();
     const isInvisible = wrapper.readBoolean();
+    const requiresExecutionContext = wrapper.readBoolean();
     const canReadCreationTime = wrapper.readBoolean();
     const canReadLastUpdateTime = wrapper.readBoolean();
 
     let textConnector: { key: number; value: string }[] = null;
+    let textConnectorFallback: string = null;
 
     if(wrapper.readBoolean())
     {
@@ -54,6 +60,8 @@ export function parseWiredVariableData(wrapper: IMessageDataWrapper): IWiredVari
 
             textConnector.push({ key, value });
         }
+
+        if(wrapper.readBoolean()) textConnectorFallback = wrapper.readString();
     }
 
     return {
@@ -68,9 +76,11 @@ export function parseWiredVariableData(wrapper: IMessageDataWrapper): IWiredVari
         canWriteValue,
         canInterceptChanges,
         isInvisible,
+        requiresExecutionContext,
         canReadCreationTime,
         canReadLastUpdateTime,
-        textConnector
+        textConnector,
+        textConnectorFallback
     };
 }
 

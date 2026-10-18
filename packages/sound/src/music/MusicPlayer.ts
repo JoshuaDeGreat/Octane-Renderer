@@ -18,6 +18,7 @@ export class MusicPlayer
     private _sampleUrl: string;
 
     private _tickerInterval: number | undefined;
+    private _playGeneration: number = 0;
     private _sequence: ISequenceEntry[][];
     private _auditionHowl: Howl | null = null;
     private _auditionPlayId: number = -1;
@@ -44,8 +45,17 @@ export class MusicPlayer
         this._playLength = playLength;
         this._currentPos = this._startPos;
         this._currentSongId = currentSongId;
+
+        // A stop or a newer play while the samples load must win.
+        const generation = this._playGeneration;
+
         await this.preload();
+
+        if(generation !== this._playGeneration) return;
+
         await this.unlockAudio();
+
+        if(generation !== this._playGeneration) return;
 
         if(this._tickerInterval !== undefined) window.clearInterval(this._tickerInterval);
         this._isPlaying = true;
@@ -55,6 +65,7 @@ export class MusicPlayer
 
     private reset(keepSampleIds: ReadonlySet<number> = new Set()): void
     {
+        this._playGeneration++;
         this._isPlaying = false;
         window.clearInterval(this._tickerInterval);
 

@@ -6,15 +6,27 @@ export class ConfigurationManager implements IConfigurationManager
     private _definitions: Map<string, unknown> = new Map();
     private _config: any = {};
     private _missingKeys: string[] = [];
+    private _initialLoad: Promise<void> = null;
 
     constructor()
     {
         OctaneVersion.sayHello();
     }
 
-    public async init(): Promise<void>
+    /** Loads the configuration once; later calls share that load. A failed load is retried on the next call. */
+    public init(): Promise<void>
     {
-        await this.reloadConfiguration();
+        if(!this._initialLoad)
+        {
+            this._initialLoad = this.reloadConfiguration().catch(error =>
+            {
+                this._initialLoad = null;
+
+                throw error;
+            });
+        }
+
+        return this._initialLoad;
     }
 
     public async reloadConfiguration(): Promise<void>
@@ -31,12 +43,12 @@ export class ConfigurationManager implements IConfigurationManager
 
             if(!configurationUrls || !configurationUrls.length) throw new Error('No config.urls defined in OctaneConfig — expected an array like ["/renderer-config.json", "/ui-config.json"]');
 
-            const documents: any[] = [];
+            const firstEmptyUrl = configurationUrls.findIndex(url => !url || !url.length);
+            const urls = (firstEmptyUrl >= 0) ? configurationUrls.slice(0, firstEmptyUrl) : configurationUrls;
 
-            for(const url of configurationUrls)
+            // Fetched together; later documents still override earlier ones below.
+            const documents: any[] = await Promise.all(urls.map(async url =>
             {
-                if(!url || !url.length) break;
-
                 let response: Response;
 
                 try
@@ -61,8 +73,8 @@ export class ConfigurationManager implements IConfigurationManager
                     throw new Error(`Invalid config "${ url }" — JSON/JSONC parse failed. JSONC allows comments and trailing commas (${ parseError.message })`);
                 }
 
-                documents.push(json);
-            }
+                return json;
+            }));
 
             this.resetConfiguration();
             this.parseConfiguration(defaultConfig, true);

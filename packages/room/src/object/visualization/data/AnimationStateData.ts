@@ -111,9 +111,14 @@ export class AnimationStateData
 
                 if(frame)
                 {
+                    // Habbo keeps the active sequence across an animation change, so a transition
+                    // (wf_antenna2 100 <-> 101 on fast 0/1 flips) continues instead of restarting.
+                    const activeSequence = frame.activeSequence;
+                    const activeSequenceOffset = frame.activeSequenceOffset;
+
                     frame.recycle();
 
-                    this._frames[layerId] = AnimationFrame.allocate(frame.id, frame.x, frame.y, frame.repeats, 0, frame.isLastFrame);
+                    this._frames[layerId] = AnimationFrame.allocate(frame.id, frame.x, frame.y, frame.repeats, 0, frame.isLastFrame, activeSequence, activeSequenceOffset);
                 }
             }
 

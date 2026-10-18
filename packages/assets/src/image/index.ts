@@ -8,5 +8,6 @@ export * from './ImageFormatDetector';
 export * from './ImageLimits';
 export * from './ImageLoader';
 export * from './ImageResource';
+export * from './ImmutableTextureSource';
 export * from './StaticImageDecoder';
 export * from './WebPImageDecoder';

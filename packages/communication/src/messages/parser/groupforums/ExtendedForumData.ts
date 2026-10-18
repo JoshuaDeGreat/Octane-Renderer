@@ -56,9 +56,16 @@ export class ExtendedForumData extends ForumData
         return this._moderatePermissions;
     }
 
-    public get hasReadPermissionError(): boolean
+    /** AIR canRead: the forum may be read when the server gave no read permission error. */
+    public get canRead(): boolean
     {
         return (this._readPermissionError.length === 0);
+    }
+
+    /** @deprecated Old name of canRead (true when reading is allowed). */
+    public get hasReadPermissionError(): boolean
+    {
+        return this.canRead;
     }
 
     public get canReport(): boolean
@@ -66,19 +73,40 @@ export class ExtendedForumData extends ForumData
         return true;
     }
 
-    public get hasPostMessagePermissionError(): boolean
+    /** AIR canPostMessage: no post message permission error. */
+    public get canPostMessage(): boolean
     {
         return (this._postMessagePermissionError.length === 0);
     }
 
-    public get hasPostThreadPermissionError(): boolean
+    /** @deprecated Old name of canPostMessage (true when posting is allowed). */
+    public get hasPostMessagePermissionError(): boolean
+    {
+        return this.canPostMessage;
+    }
+
+    /** AIR canPostThread: no post thread permission error. */
+    public get canPostThread(): boolean
     {
         return (this._postThreadPermissionError.length === 0);
     }
 
-    public get hasModeratePermissionError(): boolean
+    /** @deprecated Old name of canPostThread (true when starting a thread is allowed). */
+    public get hasPostThreadPermissionError(): boolean
+    {
+        return this.canPostThread;
+    }
+
+    /** AIR canModerate: no moderate permission error. */
+    public get canModerate(): boolean
     {
         return (this._moderatePermissionError.length === 0);
+    }
+
+    /** @deprecated Old name of canModerate (true when moderating is allowed). */
+    public get hasModeratePermissionError(): boolean
+    {
+        return this.canModerate;
     }
 
     public get canChangeSettings(): boolean
@@ -86,6 +114,12 @@ export class ExtendedForumData extends ForumData
         return this._canChangeSettings;
     }
 
+    public get isStaff(): boolean
+    {
+        return this._isStaff;
+    }
+
+    /** @deprecated Misspelt old name of isStaff. */
     public get isStaf(): boolean
     {
         return this._isStaff;

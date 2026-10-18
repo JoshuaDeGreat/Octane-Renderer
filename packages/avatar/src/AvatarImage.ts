@@ -1,4 +1,4 @@
-import { AvatarAction, AvatarDirectionAngle, AvatarScaleType, AvatarSetType, IActiveActionData, IAnimationLayerData, IAvatarDataContainer, IAvatarEffectListener, IAvatarFigureContainer, IAvatarImage, IGraphicAsset, IPartColor, ISpriteDataContainer } from '@octane/api';
+import { AvatarAction, AvatarScaleType, AvatarSetType, IActiveActionData, IAnimationLayerData, IAvatarDataContainer, IAvatarEffectListener, IAvatarFigureContainer, IAvatarImage, IGraphicAsset, IPartColor, ISpriteDataContainer, RoomObjectSpriteData } from '@octane/api';
 import { GetRenderer, GetTexturePool, GetTickerTime, PaletteMapFilter, TextureUtils } from '@octane/utils';
 import { ColorMatrixFilter, Container, Filter, ICanvas, RenderTexture, Sprite, Texture } from 'pixi.js';
 import { AvatarFigureContainer } from './AvatarFigureContainer';
@@ -8,7 +8,10 @@ import { EffectAssetDownloadManager } from './EffectAssetDownloadManager';
 import { ActiveActionData } from './actions';
 import { AssetAliasCollection } from './alias';
 import { AvatarImageCache } from './cache';
+import { AvatarFrameTexture, AvatarFrameTextureCache } from './cache/AvatarFrameTextureCache';
 import { AvatarCanvas } from './structure';
+
+type PreparedAvatarPart = { image: Container; x: number; y: number };
 
 export class AvatarImage implements IAvatarImage, IAvatarEffectListener
 {
@@ -35,6 +38,12 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
     private _defaultAction: IActiveActionData = null;
     private _frameCounter: number = 0;
     private _directionOffset: number = 0;
+    // The direction without the animation offset, so a per-frame offset can be re-applied as the frame counter moves.
+    private _baseMainDirection: number = 0;
+    private _baseHeadDirection: number = 0;
+    private _directionAnimationId: string = null;
+    private _directionAnimationStartFrame: number = 0;
+    private _directionAnimationActionName: string = null;
     private _changes: boolean = true;
     private _sprites: ISpriteDataContainer[];
     private _isAnimating: boolean = false;
@@ -57,6 +66,11 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
     private _paletteMapFilter: PaletteMapFilter = null;
     private _paletteMapFilterSource: IAvatarDataContainer = null;
     private _transientBodyParts: AvatarImageBodyPartContainer[] = [];
+    private _sharedFrame: AvatarFrameTexture = null;
+    private _activeSetType: string = null;
+    // At most eight non-owning hints per image; only the active frame borrows GPU storage.
+    private _compositions: Map<string, WeakRef<AvatarFrameTexture>> = new Map();
+    private _compositionRevision: number = -1;
 
     constructor(
         private _structure: AvatarStructure,
@@ -64,7 +78,8 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
         private _figure: AvatarFigureContainer,
         private _scale: string,
         private _effectManager: EffectAssetDownloadManager,
-        private _effectListener: IAvatarEffectListener = null)
+        private _effectListener: IAvatarEffectListener = null,
+        private _frameTextures: AvatarFrameTextureCache = null)
     {
         if(!this._figure) this._figure = new AvatarFigureContainer('hr-893-45.hd-180-2.ch-210-66.lg-270-82.sh-300-91.wa-2007-.ri-1-');
         if(!this._scale) this._scale = AvatarScaleType.LARGE;
@@ -86,19 +101,21 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
     {
         if(this._disposed) return;
 
+        // The shared geometry keeps effect-added parts keyed by this image.
+        this._structure?.removeDynamicItems(this);
         this._structure = null;
+        this._effectListener = null;
+        this._effectManager = null;
+        this._sortedActions = null;
         this._assets = null;
         this._mainAction = null;
         this._figure = null;
         this._avatarSpriteData = null;
         this._actions = null;
 
-        if(this._activeTexture)
-        {
-            GetTexturePool().putTexture(this._activeTexture);
-
-            this._activeTexture = null;
-        }
+        this.releaseActiveTexture();
+        this._compositions.clear();
+        this._frameTextures = null;
 
         if(this._cache)
         {
@@ -111,6 +128,12 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
 
         this._canvasOffsets = null;
         this._disposed = true;
+    }
+
+    // The effect's avatar data (palette, ink), read by the camera scene like AIR's avatarSpriteData.
+    public get avatarSpriteData(): IAvatarDataContainer
+    {
+        return this._avatarSpriteData;
     }
 
     public get disposed(): boolean
@@ -135,16 +158,16 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
 
     public setDirection(avatarPart: string, direction: number): void
     {
-        direction += this._directionOffset;
+        if(this._structure.isMainAvatarSet(avatarPart)) this._baseMainDirection = direction;
 
-        if(direction < AvatarDirectionAngle.MIN_DIRECTION)
-        {
-            direction = AvatarDirectionAngle.MAX_DIRECTION + (direction + 1);
-        }
-        else if(direction > AvatarDirectionAngle.MAX_DIRECTION)
-        {
-            direction -= (AvatarDirectionAngle.MAX_DIRECTION + 1);
-        }
+        if(avatarPart === AvatarSetType.HEAD || avatarPart === AvatarSetType.FULL) this._baseHeadDirection = direction;
+
+        this.setDirectionWithOffset(avatarPart, direction);
+    }
+
+    private setDirectionWithOffset(avatarPart: string, direction: number): void
+    {
+        direction = (((direction + this._directionOffset) % 8) + 8) % 8;
 
         if(this._structure.isMainAvatarSet(avatarPart)) this._mainDirection = direction;
 
@@ -197,14 +220,66 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
     public updateAnimationByFrames(frameCount: number = 1): void
     {
         this._frameCounter += frameCount;
+        this.updateDirectionOffset();
         this._changes = true;
     }
 
     public resetAnimationFrameCounter(): void
     {
         this._frameCounter = 0;
+
+        if(this._directionAnimationId === this._effectAnimationId) this._directionAnimationStartFrame = 0;
+
         this._effectAnimationStartFrame = 0;
+        this.updateDirectionOffset();
         this._changes = true;
+    }
+
+    private setDirectionOffset(offset: number): void
+    {
+        if(this._directionOffset === offset) return;
+
+        this._directionOffset = offset;
+
+        this.setDirectionWithOffset(AvatarSetType.FULL, this._baseMainDirection);
+
+        if(this._baseHeadDirection !== this._baseMainDirection) this.setDirectionWithOffset(AvatarSetType.HEAD, this._baseHeadDirection);
+    }
+
+    /** Official AvatarImage.updateDirectionOffset: the running direction animation's offset for the current frame. */
+    private updateDirectionOffset(): void
+    {
+        let offset = 0;
+
+        if(this._directionAnimationId)
+        {
+            const animation = this._structure.getAnimation(this._directionAnimationId);
+
+            if(animation) offset = animation.getDirectionOffset((this._frameCounter - this._directionAnimationStartFrame), this._directionAnimationActionName);
+        }
+
+        this.setDirectionOffset(offset);
+    }
+
+    /**
+     * Behaviour from the AIR client (AvatarImage.getServerRenderData / getAvatarPartsForCamera): every part of the
+     * full figure, body parts walked back to front, as the camera scene sends it to the server.
+     */
+    public getServerRenderData(): RoomObjectSpriteData[]
+    {
+        const data: RoomObjectSpriteData[] = [];
+
+        if(this._disposed || !this._mainAction || !this._mainAction.definition || !this._cache) return data;
+
+        const geometryType = this._mainAction.definition.geometryType;
+
+        if(!this._structure.getCanvas(this._scale, geometryType)) return data;
+
+        const bodyParts = this.getBodyParts(AvatarSetType.FULL, geometryType, this._mainDirection) || [];
+
+        for(let index = (bodyParts.length - 1); index >= 0; index--) this._cache.collectServerRenderData(bodyParts[index], this._frameCounter, data);
+
+        return data;
     }
 
     private getBodyParts(avatarSet: string, geometryType: string, direction: number): string[]
@@ -223,48 +298,44 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
         return this._cachedBodyParts;
     }
 
-    private buildAvatarContainer(avatarCanvas: AvatarCanvas, setType: string): Container
+    private prepareBodyParts(avatarCanvas: AvatarCanvas, setType: string): PreparedAvatarPart[]
     {
         const bodyParts = this.getBodyParts(setType, this._mainAction.definition.geometryType, this._mainDirection);
-        const container = new Container();
+        const parts: PreparedAvatarPart[] = [];
 
         this._transientBodyParts.length = 0;
 
-        let partCount = (bodyParts.length - 1);
-
-        while(partCount >= 0)
+        for(let index = (bodyParts.length - 1); index >= 0; index--)
         {
-            const set = bodyParts[partCount];
-            const part = this._cache.getImageContainer(set, this._frameCounter);
+            const part = this._cache.getImageContainer(bodyParts[index], this._frameCounter);
 
-            if(part)
-            {
-                const partCacheContainer = part.image;
+            if(!part || !part.image) continue;
 
-                if(partCacheContainer)
-                {
-                    const partContainer = new Container();
+            if(!part.isCacheable) this._transientBodyParts.push(part);
 
-                    partContainer.addChild(partCacheContainer);
+            const point = part.regPoint;
 
-                    const point = part.regPoint.clone();
+            parts.push({
+                image: part.image,
+                x: Math.floor(point.x + avatarCanvas.offset.x + avatarCanvas.regPoint.x),
+                y: Math.floor(point.y + avatarCanvas.offset.y + avatarCanvas.regPoint.y)
+            });
+        }
 
-                    point.x += avatarCanvas.offset.x;
-                    point.y += avatarCanvas.offset.y;
+        return parts;
+    }
 
-                    point.x += avatarCanvas.regPoint.x;
-                    point.y += avatarCanvas.regPoint.y;
+    private buildAvatarContainer(avatarCanvas: AvatarCanvas, setType: string, parts: PreparedAvatarPart[] = this.prepareBodyParts(avatarCanvas, setType)): Container
+    {
+        const container = new Container();
 
-                    partContainer.x = Math.floor(point.x);
-                    partContainer.y = Math.floor(point.y);
+        for(const part of parts)
+        {
+            const partContainer = new Container();
 
-                    container.addChild(partContainer);
-
-                    if(!part.isCacheable) this._transientBodyParts.push(part);
-                }
-            }
-
-            partCount--;
+            partContainer.addChild(part.image);
+            partContainer.position.set(part.x, part.y);
+            container.addChild(partContainer);
         }
 
         if(this._avatarSpriteData)
@@ -288,7 +359,17 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
 
     public processAsTexture(setType: string, hightlight: boolean): Texture
     {
-        if(!this._changes) return this._activeTexture;
+        const revision = AvatarFrameTextureCache.revision;
+
+        // An asset, UV or sampling change anywhere invalidates every composition hint.
+        if(this._compositionRevision !== revision)
+        {
+            this._compositions.clear();
+            this._compositionRevision = revision;
+            this._changes = true;
+        }
+
+        if(!this._changes && (this._activeSetType === setType) && (!this._sharedFrame || this._sharedFrame.cached)) return this._activeTexture;
 
         if(!this._mainAction) return null;
 
@@ -298,50 +379,91 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
 
         if(!avatarCanvas) return null;
 
-        const container = this.buildAvatarContainer(avatarCanvas, setType);
+        const parts = this.prepareBodyParts(avatarCanvas, setType);
 
-        if(!container) return null;
+        // Cached body-part trees do not change until they are disposed or replaced, so the parts and
+        // their placement name the finished frame. Filters and transient parts take the private path.
+        let key: string = null;
 
-        let previousTexture: Texture = null;
-
-        if(this._activeTexture && ((this._activeTexture.width !== avatarCanvas.width) || (this._activeTexture.height !== avatarCanvas.height)))
+        if(this._frameTextures && !this._avatarSpriteData && !this._transientBodyParts.length)
         {
-            previousTexture = this._activeTexture;
+            key = `${ avatarCanvas.width },${ avatarCanvas.height }`;
 
-            this._activeTexture = null;
+            for(const part of parts) key += `|${ part.image.uid },${ part.x },${ part.y }`;
+
+            const hint = this._compositions.get(key);
+            const cached = this._frameTextures.acquireCached(hint?.deref());
+
+            if(cached)
+            {
+                this._compositions.delete(key);
+                this._compositions.set(key, hint);
+                this.releaseActiveTexture();
+                this._sharedFrame = cached;
+                this._activeTexture = cached.texture;
+                this._changes = false;
+                this._activeSetType = setType;
+
+                return this._activeTexture;
+            }
         }
 
-        if(!this._activeTexture) this._activeTexture = GetTexturePool().getTexture(avatarCanvas.width, avatarCanvas.height);
+        const container = this.buildAvatarContainer(avatarCanvas, setType, parts);
 
-        if(!this._activeTexture)
+        try
         {
-            this._activeTexture = previousTexture;
+            const sharedFrame = !this._transientBodyParts.length ? this._frameTextures?.acquire(container, avatarCanvas.width, avatarCanvas.height) : null;
 
-            return null;
+            if(sharedFrame)
+            {
+                this.releaseActiveTexture();
+                this._sharedFrame = sharedFrame;
+                this._activeTexture = sharedFrame.texture;
+
+                if(key !== null)
+                {
+                    this._compositions.delete(key);
+                    this._compositions.set(key, new WeakRef(sharedFrame));
+
+                    if(this._compositions.size > 8) this._compositions.delete(this._compositions.keys().next().value);
+                }
+            }
+            else
+            {
+                const reuse = (this._activeTexture && !this._sharedFrame && (this._activeTexture.width === avatarCanvas.width) && (this._activeTexture.height === avatarCanvas.height));
+                const texture = reuse ? this._activeTexture : GetTexturePool().getTexture(avatarCanvas.width, avatarCanvas.height);
+
+                if(!texture) return null;
+
+                try
+                {
+                    GetRenderer().render({ target: texture, container, clear: true });
+                }
+                catch (error)
+                {
+                    if(!reuse) GetTexturePool().putTexture(texture);
+
+                    throw error;
+                }
+
+                if(!reuse) this.releaseActiveTexture();
+
+                this._activeTexture = texture;
+                texture.source.hitMapDirty = true;
+            }
+
+            this._changes = false;
+            this._activeSetType = setType;
+
+            return this._activeTexture;
         }
-
-        GetRenderer().render({
-            target: this._activeTexture,
-            container: container,
-            clear: true
-        });
-
-        if(previousTexture) GetTexturePool().putTexture(previousTexture);
-
-        for(const child of container.children)
+        finally
         {
-            child.removeChildren();
+            for(const child of container.children) child.removeChildren();
+
+            container.destroy({ children: true });
+            this.disposeTransientBodyParts();
         }
-
-        container.destroy({ children: true });
-
-        this.disposeTransientBodyParts();
-
-        this._activeTexture.source.hitMapDirty = true;
-
-        this._changes = false;
-
-        return this._activeTexture;
     }
 
     public processAsImageUrl(setType: string, scale: number = 1): string
@@ -593,6 +715,15 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
                             }
                         }
 
+                        // The SnowWar uniform only draws the fall in even directions and aliases each odd one onto
+                        // the next (1 -> 2, 3 -> 4, 5 -> 6, 7 -> 0). The head has no fall art and is hidden by
+                        // per-direction offsets that exist only for even directions, so at odd directions the
+                        // upright head floated above the lying body: the whole figure takes the aliased direction.
+                        if(((actionParameter === AvatarAction.SNOWWAR_DIE_FRONT) || (actionParameter === AvatarAction.SNOWWAR_DIE_BACK)) && (this._mainDirection % 2))
+                        {
+                            this.setDirection(AvatarSetType.FULL, ((this._mainDirection + 1) % 8));
+                        }
+
                         this.addActionData(actionParameter);
                         break;
                 }
@@ -674,7 +805,10 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
         this._isAnimating = false;
         this._sprites = [];
         this._avatarSpriteData = null;
-        this._directionOffset = 0;
+        this._directionAnimationId = null;
+        this._directionAnimationStartFrame = 0;
+        this._directionAnimationActionName = null;
+        this.setDirectionOffset(0);
         this._effectAnimationId = null;
         this._effectAnimationStartFrame = 0;
         this._structure.removeDynamicItems(this);
@@ -817,7 +951,12 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
 
                         this._sprites = [...this._sprites, ...animation.spriteData];
 
-                        if(animation.hasDirectionData()) this._directionOffset = animation.directionData.offset;
+                        if(animation.hasDirectionData())
+                        {
+                            this._directionAnimationId = animation.id;
+                            this._directionAnimationStartFrame = action.startFrame;
+                            this._directionAnimationActionName = action.overridingAction;
+                        }
 
                         if(animation.hasAvatarData()) this._avatarSpriteData = animation.avatarData;
 
@@ -829,6 +968,8 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
                 }
             }
         }
+
+        this.updateDirectionOffset();
     }
 
     private setActionToParts(action: IActiveActionData, currentTime: number): void
@@ -859,6 +1000,15 @@ export class AvatarImage implements IAvatarImage, IAvatarEffectListener
         this._cache.resetBodyPartCache(action);
 
         this._changes = true;
+    }
+
+    private releaseActiveTexture(): void
+    {
+        if(this._sharedFrame) this._frameTextures?.release(this._sharedFrame);
+        else if(this._activeTexture) GetTexturePool().putTexture(this._activeTexture);
+
+        this._sharedFrame = null;
+        this._activeTexture = null;
     }
 
     private disposeTransientBodyParts(): void

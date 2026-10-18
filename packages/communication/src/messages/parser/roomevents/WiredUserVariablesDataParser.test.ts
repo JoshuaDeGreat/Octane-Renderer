@@ -110,11 +110,24 @@ describe('WiredUserVariablesDataParser', () =>
         expect(parser.definitions[0].arrayFormat).toBeUndefined();
     });
 
+    it('marks a pointer as requiring an execution context without touching the value shape', () =>
+    {
+        const writer = basePacket();
+        writer.writeString(JSON.stringify([ { itemId: 42, variableType: 2, requiresExecutionContext: true } ]));
+        const parser = new WiredUserVariablesDataParser();
+
+        expect(parser.parse(wrapper(writer))).toBe(true);
+        expect(parser.definitions[0].requiresExecutionContext).toBe(true);
+        expect(parser.definitions[0].hasValue).toBe(false);
+        expect(parser.definitions[0].valueShape).toBeUndefined();
+    });
+
     it('keeps the legacy packet valid when optional metadata is absent or malformed', () =>
     {
         const legacy = new WiredUserVariablesDataParser();
         expect(legacy.parse(wrapper(basePacket()))).toBe(true);
         expect(legacy.definitions[0].valueShape).toBeUndefined();
+        expect(legacy.definitions[0].requiresExecutionContext).toBeUndefined();
 
         const malformedWriter = basePacket();
         malformedWriter.writeString('{');

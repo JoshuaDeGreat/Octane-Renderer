@@ -1,30 +1,17 @@
 import { IMessageComposer } from '@octane/api';
 
 /**
- * Saves a wired chest's settings.
- * [itemId, name, description, accessOpen, accessDonate, appearanceState, previewMode,
- * previewAmount].
- *
- * The preview is part of how the chest looks, so it saves with the rest of the appearance.
- *
- * The lock, the auto-lock and the capacity ceiling are not here -- they live on the chest window
- * itself and save through {@link ChestSaveOptionsComposer} as soon as they are touched.
+ * Save a chest's preferences: [chestId, name, description, everyoneCanOpen, everyoneCanDonate, stateMode,
+ * previewMode, previewAmount, wiredEnabled]. AIR WIN63-202610131318 (package_95/class_3094, ChestSettingsUI).
+ * The Wired upgrade is this save with wiredEnabled = true; once upgraded every later save keeps sending true.
  */
 export class ChestSaveSettingsComposer implements IMessageComposer<ConstructorParameters<typeof ChestSaveSettingsComposer>>
 {
     private _data: ConstructorParameters<typeof ChestSaveSettingsComposer>;
 
-    constructor(
-        itemId: number,
-        name: string,
-        description: string,
-        accessOpen: boolean,
-        accessDonate: boolean,
-        appearanceState: number,
-        previewMode: number = 0,
-        previewAmount: number = 1)
+    constructor(chestId: number, name: string, description: string, everyoneCanOpen: boolean, everyoneCanDonate: boolean, stateMode: number, previewMode: number, previewAmount: number, wiredEnabled: boolean)
     {
-        this._data = [itemId, name, description, accessOpen, accessDonate, appearanceState, previewMode, previewAmount];
+        this._data = [chestId, name, description, everyoneCanOpen, everyoneCanDonate, stateMode, previewMode, previewAmount, wiredEnabled];
     }
 
     public getMessageArray()

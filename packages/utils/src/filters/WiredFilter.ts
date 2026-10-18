@@ -71,6 +71,8 @@ export class WiredFilter extends Filter
                 } else if(currentColor.a > 0.0) {
                     vec3 blendedOverlay = mix(currentColor.rgb, colorOverlay, 0.28);
                     finalColor = vec4(blendedOverlay.r, blendedOverlay.g, blendedOverlay.b, currentColor.a);
+                } else {
+                    finalColor = vec4(0.0);
                 }
             }
             `,

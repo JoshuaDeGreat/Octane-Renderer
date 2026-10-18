@@ -1,11 +1,15 @@
-import { IAssetPlaneVisualizationAnimatedLayer, IAssetPlaneVisualizationLayer, IAssetRoomVisualizationData, IRoomGeometry, IRoomPlane, IVector3D } from '@octane/api';
+import { IAssetPlane, IAssetPlaneMaterialCellColumn, IAssetPlaneMaterialCellMatrix, IAssetPlaneVisualization, IAssetPlaneVisualizationAnimatedLayer, IAssetPlaneVisualizationData, IAssetPlaneVisualizationLayer, IAssetRoomVisualizationData, IPlaneDrawingData, IRoomGeometry, IRoomPlane, IVector3D } from '@octane/api';
 import { GetAssetManager } from '@octane/assets';
-import { GetRenderer, GetTexturePool, OctaneLogger, PlaneMaskFilter, Vector3d } from '@octane/utils';
-import { Container, Filter, Graphics, Matrix, Point, RenderTexture, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { BumpTextureContentVersion, GetRenderer, GetTexturePool, OctaneLogger, PlaneMaskFilter, Vector3d } from '@octane/utils';
+import { Container, Filter, Graphics, Matrix, Point, Rectangle, RenderTexture, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { MAX_ROOM_PLANE_PATCHES } from '../../../renderer/utils/RoomPlaneDisplay';
+import { IsRoomPlaneTileOpaque } from '../../../renderer/utils/RoomPlaneHitTest';
 import { RoomGeometry } from '../../../utils';
 import { IWindowReflectionAvatarState, IWindowReflectionUnitState, RoomWindowReflectionState } from '../RoomWindowReflectionState';
 import { PlaneVisualizationAnimationLayer } from './animated';
+import { PlaneDrawingData } from './PlaneDrawingData';
 import { RoomPlaneBitmapMask } from './RoomPlaneBitmapMask';
+import { RoomPlaneDrawData } from './RoomPlaneDrawData';
 import { RoomPlaneRectangleMask } from './RoomPlaneRectangleMask';
 import { PlaneMaskManager } from './mask';
 import { Randomizer } from './utils';
@@ -26,6 +30,13 @@ export class RoomPlane implements IRoomPlane
         '64': new RoomGeometry(64, new Vector3d(RoomPlane.HORIZONTAL_ANGLE_DEFAULT, RoomPlane.VERTICAL_ANGLE_DEFAULT), new Vector3d(-10, 0, 0))
     };
     private static ANIMATION_UPDATE_INTERVAL: number = 500;
+    // room.planes.direct (RoomEngine.setPlaneRenderMode, WebGL2 only): the canvas draws planes straight
+    // from their tile (RoomPlaneDisplay) instead of a render texture the size of the plane's bounding box.
+    // Only the area around door/window masks, and the landscape behind them, is still baked, as small
+    // patches. False is the full-plane bake.
+    public static DIRECT_DRAW: boolean = false;
+    // Mask art drawn through the skew bleeds into the next pixel with linear filtering.
+    private static PATCH_PADDING: number = 2;
     private static EMPTY_CLEAR_CONTAINER: Container = new Container();
     private static LANDSCAPE_DEFAULT_BACKGROUND_COLOR: number = 0x84C6DF;
 
@@ -114,6 +125,22 @@ export class RoomPlane implements IRoomPlane
     private _roomId: string = null;
     private _animationCanvas: RenderTexture = null;
 
+    // Direct drawing only.
+    private _drawData: RoomPlaneDrawData = null;
+    private _planeMatrix: Matrix = null;
+    // Per patch: the plane pixels it covers and their baked texels.
+    private _patchRects: Rectangle[] = [];
+    private _patchSources: RenderTexture[] = [];
+    private _patchLayoutId: number = 0;
+    // A landscape is only seen through the holes of the wall in front of it, so it bakes just those areas.
+    private _occluder: RoomPlane = null;
+    private _occluderUsable: boolean = true;
+    private _occluderLayoutId: number = -1;
+
+    // Where renderPlaneBase draws: the plane texture (bake) or one patch (direct).
+    private _renderTarget: Texture = null;
+    private _renderTransform: Matrix = null;
+
     constructor(origin: IVector3D, location: IVector3D, leftSide: IVector3D, rightSide: IVector3D, type: number, usesMask: boolean, secondaryNormals: IVector3D[], randomSeed: number, textureOffsetX: number = 0, textureOffsetY: number = 0, textureMaxX: number = 0, textureMaxY: number = 0)
     {
         this._randomSeed = randomSeed;
@@ -176,6 +203,11 @@ export class RoomPlane implements IRoomPlane
             this._planeBaseTexture = null;
         }
 
+        this.setPatchRects([]);
+        this._drawData = null;
+        this._renderTarget = null;
+        this._renderTransform = null;
+
         if(this._animationLayers)
         {
             for(const layer of this._animationLayers)
@@ -217,6 +249,14 @@ export class RoomPlane implements IRoomPlane
             this._geometryUpdateId = geometry.updateId;
 
             needsUpdate = true;
+        }
+
+        // Direct drawing lets go of the patches of a plane that cannot be seen; canBeVisible rebuilds it.
+        if(RoomPlane.DIRECT_DRAW && !this._canBeVisible)
+        {
+            this.releasePlaneTexture();
+
+            return false;
         }
 
         const needsAnimationUpdate = this._isAnimated && this._type === RoomPlane.TYPE_LANDSCAPE &&
@@ -502,6 +542,9 @@ export class RoomPlane implements IRoomPlane
 
             const planeTileScale = ((planeData.visualizationSize > 0) ? (planeGeometry.scale / planeData.visualizationSize) : 1);
 
+            // Direct drawing replaces the tiling sprite and its mask children here instead of leaving them behind.
+            if(RoomPlane.DIRECT_DRAW && this._planeSprite) this._planeSprite.destroy({ children: true });
+
             switch(this._type)
             {
                 case RoomPlane.TYPE_FLOOR: {
@@ -660,6 +703,8 @@ export class RoomPlane implements IRoomPlane
             needsUpdate = true;
         }
 
+        if(RoomPlane.DIRECT_DRAW) return this.updatePatches(needsUpdate, timeSinceStartMs, geometry);
+
         if(this._planeTexture)
         {
             if(this._planeTexture.width !== this._width || this._planeTexture.height !== this._height)
@@ -674,30 +719,7 @@ export class RoomPlane implements IRoomPlane
 
         this._planeTexture.source.label = `room_plane_${ this._uniqueId.toString() }`;
 
-        let reflectionUpdate = false;
-
-        if(this._type === RoomPlane.TYPE_LANDSCAPE && this._windowMasks.length)
-        {
-            if(!this._reflectionZoneRegistered)
-            {
-                RoomWindowReflectionState.registerZone(this, this._location, this._normal, this._roomId);
-
-                this._reflectionZoneRegistered = true;
-            }
-
-            const reflectionUpdateId = RoomWindowReflectionState.updateId;
-
-            if(reflectionUpdateId !== this._lastWindowReflectionUpdateId)
-            {
-                this._lastWindowReflectionUpdateId = reflectionUpdateId;
-
-                reflectionUpdate = this.hasWindowReflectionWork();
-            }
-
-            if(!reflectionUpdate && this._reflectionFadeAnimating) reflectionUpdate = true;
-
-            if(!reflectionUpdate && this._windowReflectionLastVisible.size && this.hasDriftedReflection()) reflectionUpdate = true;
-        }
+        const reflectionUpdate = this.checkReflectionUpdate();
 
         let animationUpdate = false;
         if(this._isAnimated && this._type === RoomPlane.TYPE_LANDSCAPE)
@@ -733,8 +755,306 @@ export class RoomPlane implements IRoomPlane
         return needsUpdate || animationUpdate || reflectionUpdate;
     }
 
-    private renderPlaneBase(geometry: IRoomGeometry, timeSinceStartMs: number): void
+    private checkReflectionUpdate(): boolean
     {
+        let reflectionUpdate = false;
+
+        if(this._type === RoomPlane.TYPE_LANDSCAPE && this._windowMasks.length)
+        {
+            if(!this._reflectionZoneRegistered)
+            {
+                RoomWindowReflectionState.registerZone(this, this._location, this._normal, this._roomId);
+
+                this._reflectionZoneRegistered = true;
+            }
+
+            const reflectionUpdateId = RoomWindowReflectionState.updateId;
+
+            if(reflectionUpdateId !== this._lastWindowReflectionUpdateId)
+            {
+                this._lastWindowReflectionUpdateId = reflectionUpdateId;
+
+                reflectionUpdate = this.hasWindowReflectionWork();
+            }
+
+            if(!reflectionUpdate && this._reflectionFadeAnimating) reflectionUpdate = true;
+
+            if(!reflectionUpdate && this._windowReflectionLastVisible.size && this.hasDriftedReflection()) reflectionUpdate = true;
+        }
+
+        return reflectionUpdate;
+    }
+
+    // Direct drawing: no plane texture, only the patches (mask areas, landscapes) are baked. Animation and
+    // reflection frames redraw the patches in place; the canvas already shows them.
+    private updatePatches(needsUpdate: boolean, timeSinceStartMs: number, geometry: IRoomGeometry): boolean
+    {
+        if(!this._planeSprite) return false;
+
+        let layoutChanged = false;
+
+        if(needsUpdate || (this._occluder && (this._occluder.patchLayoutId !== this._occluderLayoutId)))
+        {
+            layoutChanged = this.updateDrawData();
+            needsUpdate = true;
+        }
+
+        const isLandscape = (this._type === RoomPlane.TYPE_LANDSCAPE);
+        const hasReflections = (isLandscape && (this._windowMasks.length > 0));
+        const reflectionUpdate = this.checkReflectionUpdate();
+
+        let animationUpdate = false;
+
+        if(this._isAnimated && isLandscape && this._patchSources.length)
+        {
+            if(((timeSinceStartMs - this._lastAnimationUpdate) >= RoomPlane.ANIMATION_UPDATE_INTERVAL) || (this._animationRenderTime < 0))
+            {
+                animationUpdate = true;
+                this._lastAnimationUpdate = timeSinceStartMs;
+                this._animationRenderTime = timeSinceStartMs;
+            }
+            else if(needsUpdate || reflectionUpdate)
+            {
+                animationUpdate = true;
+            }
+        }
+
+        if((needsUpdate || animationUpdate || reflectionUpdate) && this._patchSources.length)
+        {
+            for(let i = 0; i < this._patchSources.length; i++)
+            {
+                const rect = this._patchRects[i];
+                const transform = this._planeMatrix.clone().translate(-(rect.x), -(rect.y));
+
+                this.renderPlaneBase(geometry, timeSinceStartMs, this._patchSources[i], transform);
+            }
+
+            if(hasReflections) this.renderWindowReflections();
+
+            // Hit testing caches patch pixels by this version.
+            for(const source of this._patchSources) BumpTextureContentVersion(source);
+        }
+
+        return (needsUpdate || layoutChanged);
+    }
+
+    private updateDrawData(): boolean
+    {
+        const width = this._width;
+        const height = this._height;
+        const sprite = this._planeSprite;
+        const isLandscape = (this._type === RoomPlane.TYPE_LANDSCAPE);
+
+        this._planeMatrix = this.getPlaneMatrix();
+
+        if(!this._drawData) this._drawData = new RoomPlaneDrawData();
+
+        const data = this._drawData;
+
+        let direct = (!isLandscape && (width > 0) && (height > 0));
+        let rects: Rectangle[] = [];
+
+        if((width > 0) && (height > 0))
+        {
+            if(isLandscape)
+            {
+                rects = this.getLandscapePatchRects(width, height);
+            }
+            else if(sprite.children.length)
+            {
+                rects = this.getMaskPatchRects(width, height);
+
+                if(!rects)
+                {
+                    direct = false;
+                    rects = [ new Rectangle(0, 0, width, height) ];
+                }
+            }
+        }
+
+        data.width = width;
+        data.height = height;
+        data.direct = direct;
+        // updateMask put PlaneMaskFilter on the sprite: the bake turned every pure black pixel transparent.
+        data.blackIsTransparent = !!(sprite.filters && sprite.filters.length);
+
+        if(direct) data.setTiling(sprite, this._planeMatrix);
+
+        const layoutChanged = this.setPatchRects(rects);
+
+        data.patches = this._patchRects.map((rect, index) => ({ x: rect.x, y: rect.y, width: rect.width, height: rect.height, texture: this._patchSources[index] }));
+        data.version++;
+
+        return layoutChanged;
+    }
+
+    // The bake's pixels differ from the plain tiling only under the mask sprites; each one's bounds, through
+    // the plane matrix, become a patch. Null when there are too many to cut out: the whole plane is baked.
+    private getMaskPatchRects(width: number, height: number): Rectangle[]
+    {
+        const matrix = new Matrix();
+        const point = new Point();
+        const rects: Rectangle[] = [];
+        const padding = RoomPlane.PATCH_PADDING;
+
+        for(const child of this._planeSprite.children)
+        {
+            if(!(child instanceof Sprite) || !child.texture) continue;
+
+            child.updateLocalTransform();
+
+            matrix.copyFrom(this._planeMatrix).append(child.localTransform);
+
+            const orig = child.texture.orig;
+
+            let minX = Infinity;
+            let minY = Infinity;
+            let maxX = -Infinity;
+            let maxY = -Infinity;
+
+            for(const [ x, y ] of [ [ 0, 0 ], [ orig.width, 0 ], [ orig.width, orig.height ], [ 0, orig.height ] ])
+            {
+                matrix.apply(point.set(x, y), point);
+
+                minX = Math.min(minX, point.x);
+                minY = Math.min(minY, point.y);
+                maxX = Math.max(maxX, point.x);
+                maxY = Math.max(maxY, point.y);
+            }
+
+            const left = Math.max(0, (Math.floor(minX) - padding));
+            const top = Math.max(0, (Math.floor(minY) - padding));
+            const right = Math.min(width, (Math.ceil(maxX) + padding));
+            const bottom = Math.min(height, (Math.ceil(maxY) + padding));
+
+            if((right <= left) || (bottom <= top)) continue;
+
+            rects.push(new Rectangle(left, top, (right - left), (bottom - top)));
+        }
+
+        return RoomPlane.mergePatchRects(rects);
+    }
+
+    // Overlapping or touching patches become one: the shader reads at most MAX_ROOM_PLANE_PATCHES. Null past that.
+    public static mergePatchRects(rects: Rectangle[]): Rectangle[]
+    {
+        let merged = true;
+
+        while(merged)
+        {
+            merged = false;
+
+            for(let i = 0; (i < rects.length) && !merged; i++)
+            {
+                for(let j = (i + 1); j < rects.length; j++)
+                {
+                    const a = rects[i];
+                    const b = rects[j];
+
+                    if((a.x > b.right) || (b.x > a.right) || (a.y > b.bottom) || (b.y > a.bottom)) continue;
+
+                    const left = Math.min(a.x, b.x);
+                    const top = Math.min(a.y, b.y);
+
+                    rects[i] = new Rectangle(left, top, (Math.max(a.right, b.right) - left), (Math.max(a.bottom, b.bottom) - top));
+                    rects.splice(j, 1);
+
+                    merged = true;
+
+                    break;
+                }
+            }
+        }
+
+        if(rects.length > MAX_ROOM_PLANE_PATCHES) return null;
+
+        return rects;
+    }
+
+    // Behind an opaque wall only the wall's own patches can show the landscape. Anything else (walls
+    // hidden, a see-through wall tile, a wall baked whole) bakes the landscape whole.
+    private getLandscapePatchRects(width: number, height: number): Rectangle[]
+    {
+        const occluder = this._occluder;
+
+        this._occluderLayoutId = (occluder ? occluder.patchLayoutId : -1);
+
+        if(occluder && this._occluderUsable && occluder.coversLandscape(width, height)) return occluder.patchRects.map(rect => rect.clone());
+
+        return [ new Rectangle(0, 0, width, height) ];
+    }
+
+    private coversLandscape(width: number, height: number): boolean
+    {
+        const data = this._drawData;
+
+        if(!this.visible || !data || !data.direct) return false;
+
+        if((this._width !== width) || (this._height !== height)) return false;
+
+        return IsRoomPlaneTileOpaque(data);
+    }
+
+    // Returns true when the patch layout changed (textures were replaced).
+    private setPatchRects(rects: Rectangle[]): boolean
+    {
+        const sameRect = (a: Rectangle, b: Rectangle) => ((a.x === b.x) && (a.y === b.y) && (a.width === b.width) && (a.height === b.height));
+
+        if((rects.length === this._patchRects.length) && rects.every((rect, index) => sameRect(rect, this._patchRects[index]))) return false;
+
+        // Deferred a frame: a canvas display may still read them until it picks up the new draw data.
+        for(const source of this._patchSources) GetTexturePool().releaseTexture(source, true);
+
+        this._patchRects = rects;
+        this._patchSources = rects.map((rect, index) =>
+        {
+            const source = RenderTexture.create({ width: rect.width, height: rect.height });
+
+            source.source.label = `room_plane_${ this._uniqueId }_${ index }`;
+
+            return source;
+        });
+
+        this._patchLayoutId++;
+
+        return true;
+    }
+
+    private getPlaneMatrix(): Matrix
+    {
+        if(this._type === RoomPlane.TYPE_LANDSCAPE) return this.getMatrixForDimensions(this._landscapeRenderWidth, this._landscapeRenderHeight);
+
+        return this.getMatrixForDimensions(this._planeSprite.width, this._planeSprite.height);
+    }
+
+    private releasePlaneTexture(): void
+    {
+        if(this._planeTexture)
+        {
+            GetTexturePool().putTexture(this._planeTexture);
+
+            this._planeTexture = null;
+        }
+
+        if(this._patchRects.length)
+        {
+            this.setPatchRects([]);
+
+            if(this._drawData)
+            {
+                this._drawData.patches = [];
+                this._drawData.version++;
+            }
+        }
+    }
+
+    // Bake: into the plane texture through the plane's skew. Direct: into one patch, through the plane's
+    // skew moved to that patch's corner.
+    private renderPlaneBase(geometry: IRoomGeometry, timeSinceStartMs: number, target: Texture = this._planeTexture, transform: Matrix = null): void
+    {
+        this._renderTarget = target;
+        this._renderTransform = transform;
+
         const isLandscape = (this._type === RoomPlane.TYPE_LANDSCAPE);
         const hasLandscapeLayeredRendering = (isLandscape && (this._landscapeBackgroundTexture !== null || this._landscapeForegroundTexture !== null || this._animationLayers.length > 0 || this._landscapeBackgroundColor !== null));
 
@@ -752,9 +1072,9 @@ export class RoomPlane implements IRoomPlane
         else
         {
             GetRenderer().render({
-                target: this._planeTexture,
+                target: this._renderTarget,
                 container: this._planeSprite,
-                transform: this.getMatrixForDimensions(this._planeSprite.width, this._planeSprite.height),
+                transform: (this._renderTransform ?? this.getMatrixForDimensions(this._planeSprite.width, this._planeSprite.height)),
                 clear: true
             });
         }
@@ -820,7 +1140,7 @@ export class RoomPlane implements IRoomPlane
 
     private renderAnimationLayers(timeSinceStartMs: number, geometry: IRoomGeometry): void
     {
-        if(!this._planeTexture || this._animationCanvasWidth <= 0 || this._animationCanvasHeight <= 0) return;
+        if(!this._renderTarget || this._animationCanvasWidth <= 0 || this._animationCanvasHeight <= 0) return;
 
         const canvasWidth = this._landscapeRenderWidth;
         const canvasHeight = this._landscapeRenderHeight;
@@ -883,10 +1203,10 @@ export class RoomPlane implements IRoomPlane
             }
         }
 
-        const transform = this.getMatrixForDimensions(canvasWidth, canvasHeight);
+        const transform = (this._renderTransform ?? this.getMatrixForDimensions(canvasWidth, canvasHeight));
 
         GetRenderer().render({
-            target: this._planeTexture,
+            target: this._renderTarget,
             container: animContainer,
             transform,
             clear: false
@@ -897,7 +1217,7 @@ export class RoomPlane implements IRoomPlane
 
     private renderLandscapeLayer(texture: Texture, tint: number, alignBottom: boolean): void
     {
-        if(!this._planeTexture || !texture) return;
+        if(!this._renderTarget || !texture) return;
 
         const canvasWidth = this._landscapeRenderWidth;
         const canvasHeight = this._landscapeRenderHeight;
@@ -944,10 +1264,10 @@ export class RoomPlane implements IRoomPlane
             }
         }
 
-        const transform = this.getMatrixForDimensions(canvasWidth, canvasHeight);
+        const transform = (this._renderTransform ?? this.getMatrixForDimensions(canvasWidth, canvasHeight));
 
         GetRenderer().render({
-            target: this._planeTexture,
+            target: this._renderTarget,
             container: layerContainer,
             transform,
             clear: false
@@ -976,7 +1296,7 @@ export class RoomPlane implements IRoomPlane
 
     private renderBackgroundColor(): void
     {
-        if(!this._planeTexture || this._landscapeBackgroundColor === null) return;
+        if(!this._renderTarget || this._landscapeBackgroundColor === null) return;
 
         const canvasWidth = this._landscapeRenderWidth;
         const canvasHeight = this._landscapeRenderHeight;
@@ -992,10 +1312,10 @@ export class RoomPlane implements IRoomPlane
 
         this.applyPlaneSpriteMasksTo(colorContainer);
 
-        const transform = this.getMatrixForDimensions(canvasWidth, canvasHeight);
+        const transform = (this._renderTransform ?? this.getMatrixForDimensions(canvasWidth, canvasHeight));
 
         GetRenderer().render({
-            target: this._planeTexture,
+            target: this._renderTarget,
             container: colorContainer,
             transform,
             clear: true
@@ -1006,7 +1326,7 @@ export class RoomPlane implements IRoomPlane
 
     private clearPlaneTexture(): void
     {
-        if(!this._planeTexture) return;
+        if(!this._renderTarget) return;
 
         const canvasWidth = this._landscapeRenderWidth;
         const canvasHeight = this._landscapeRenderHeight;
@@ -1016,7 +1336,7 @@ export class RoomPlane implements IRoomPlane
             const emptyContainer = new Container();
 
             GetRenderer().render({
-                target: this._planeTexture,
+                target: this._renderTarget,
                 container: emptyContainer,
                 clear: true
             });
@@ -1035,10 +1355,10 @@ export class RoomPlane implements IRoomPlane
 
         this.applyPlaneSpriteMasksTo(colorContainer);
 
-        const transform = this.getMatrixForDimensions(canvasWidth, canvasHeight);
+        const transform = (this._renderTransform ?? this.getMatrixForDimensions(canvasWidth, canvasHeight));
 
         GetRenderer().render({
-            target: this._planeTexture,
+            target: this._renderTarget,
             container: colorContainer,
             transform,
             clear: true
@@ -1082,7 +1402,9 @@ export class RoomPlane implements IRoomPlane
     {
         this._reflectionFadeAnimating = false;
 
-        if(!this._planeTexture || !this._leftSide || !this._rightSide || !this._normal) return;
+        const direct = RoomPlane.DIRECT_DRAW;
+
+        if((direct ? !this._patchSources.length : !this._planeTexture) || !this._leftSide || !this._rightSide || !this._normal) return;
 
         if(this._leftSide.length <= 0 || this._rightSide.length <= 0) return;
 
@@ -1434,14 +1756,271 @@ export class RoomPlane implements IRoomPlane
             return;
         }
 
-        GetRenderer().render({
-            target: this._planeTexture,
-            container,
-            transform: projection,
-            clear: false
-        });
+        if(direct)
+        {
+            for(let i = 0; i < this._patchSources.length; i++)
+            {
+                const rect = this._patchRects[i];
+
+                GetRenderer().render({
+                    target: this._patchSources[i],
+                    container,
+                    transform: projection.clone().translate(-(rect.x), -(rect.y)),
+                    clear: false
+                });
+            }
+        }
+        else
+        {
+            GetRenderer().render({
+                target: this._planeTexture,
+                container,
+                transform: projection,
+                clear: false
+            });
+        }
 
         container.destroy({ children: true });
+    }
+
+    // AIR RoomPlane.blend: Canvas.colorize(layerColor, planeColor | 0xFF000000) & 0xFFFFFF.
+    public static blendColor(planeColor: number, layerColor: number): number
+    {
+        const multiplier = ((planeColor | 0xFF000000) >>> 0);
+
+        if(multiplier === 0xFFFFFFFF) return ((layerColor >>> 0) & 0xFFFFFF);
+
+        const red = Math.trunc((((layerColor >> 16) & 0xFF) * ((multiplier >> 16) & 0xFF)) / 255);
+        const green = Math.trunc((((layerColor >> 8) & 0xFF) * ((multiplier >> 8) & 0xFF)) / 255);
+        const blue = Math.trunc(((layerColor & 0xFF) * (multiplier & 0xFF)) / 255);
+
+        return (((red << 16) | (green << 8) | blue) & 0xFFFFFF);
+    }
+
+    private static matchesNormal(item: { normalMinX?: number, normalMaxX?: number, normalMinY?: number, normalMaxY?: number }, normal: IVector3D): boolean
+    {
+        const minX = (item.normalMinX !== undefined) ? item.normalMinX : -1;
+        const maxX = (item.normalMaxX !== undefined) ? item.normalMaxX : 1;
+        const minY = (item.normalMinY !== undefined) ? item.normalMinY : -1;
+        const maxY = (item.normalMaxY !== undefined) ? item.normalMaxY : 1;
+
+        return ((normal.x >= minX) && (normal.x <= maxX) && (normal.y >= minY) && (normal.y <= maxY));
+    }
+
+    // The plane visualization the rasterizer draws for this plane id and scale; AIR PlaneRasterizer.getLayers falls back to "default".
+    private getDrawingVisualization(scale: number): { data: IAssetPlaneVisualizationData, visualization: IAssetPlaneVisualization }
+    {
+        const dataType: keyof IAssetRoomVisualizationData = (this._type === RoomPlane.TYPE_FLOOR) ? 'floorData' : (this._type === RoomPlane.TYPE_WALL) ? 'wallData' : 'landscapeData';
+        const candidates: IAssetPlaneVisualizationData[] = [];
+        const roomData = GetAssetManager().getCollection('room')?.data?.roomVisualization?.[dataType] as IAssetPlaneVisualizationData;
+
+        if(roomData) candidates.push(roomData);
+
+        if(this._type === RoomPlane.TYPE_LANDSCAPE)
+        {
+            const landscapeData = GetAssetManager().getCollection('landscape')?.data?.roomVisualization?.landscapeData as IAssetPlaneVisualizationData;
+
+            if(landscapeData) candidates.push(landscapeData);
+        }
+
+        let data: IAssetPlaneVisualizationData = null;
+        let plane: IAssetPlane = null;
+
+        for(const candidate of candidates)
+        {
+            plane = candidate.planes?.find(entry => (entry.id === this._id)) ?? null;
+
+            if(plane)
+            {
+                data = candidate;
+                break;
+            }
+        }
+
+        if(!plane && roomData)
+        {
+            data = roomData;
+            plane = roomData.planes?.find(entry => (entry.id === 'default')) ?? null;
+        }
+
+        if(!plane) return { data, visualization: null };
+
+        const pick = (list: IAssetPlaneVisualization[]): IAssetPlaneVisualization =>
+        {
+            if(!list || !list.length) return null;
+
+            const sizeOf = (entry: IAssetPlaneVisualization) => (entry.size ?? scale);
+
+            let nearest = list[0];
+
+            for(const entry of list)
+            {
+                if(sizeOf(entry) === scale) return entry;
+
+                if(Math.abs(sizeOf(entry) - scale) < Math.abs(sizeOf(nearest) - scale)) nearest = entry;
+            }
+
+            return nearest;
+        };
+
+        const visualization = (this._type === RoomPlane.TYPE_LANDSCAPE) ? (pick(plane.animatedVisualization) ?? pick(plane.visualizations)) : pick(plane.visualizations);
+
+        return { data, visualization };
+    }
+
+    // AIR PlaneMaterialCellMatrix.getColumns: a random matrix picks columns until the plane is covered, the others give all of them.
+    private static getMatrixColumns(matrix: IAssetPlaneMaterialCellMatrix, width: number): IAssetPlaneMaterialCellColumn[]
+    {
+        const columns = matrix.columns ?? [];
+
+        if(matrix.repeatMode !== 'random') return columns;
+
+        const picked: IAssetPlaneMaterialCellColumn[] = [];
+
+        if(!columns.length) return picked;
+
+        let covered = 0;
+
+        while(covered < width)
+        {
+            const column = columns[Randomizer.getValues(1, 0, (columns.length * 17631))[0] % columns.length];
+
+            if(!column) break;
+
+            picked.push(column);
+
+            const columnWidth = Math.max(1, Math.trunc(column.width ?? 1));
+
+            if(columnWidth <= 1) break;
+
+            covered += columnWidth;
+        }
+
+        return picked;
+    }
+
+    private getScreenWidth(geometry: IRoomGeometry): number
+    {
+        const origin = geometry.getScreenPoint(new Vector3d(0, 0, 0));
+        const unit = geometry.getScreenPoint(new Vector3d(0, 1, 0));
+
+        if(!origin || !unit) return 0;
+
+        return Math.round(this._leftSide.length * Math.abs(origin.x - unit.x));
+    }
+
+    // AIR RoomPlane.resolveMasks: the bitmap masks (doors, windows) as asset names placed on the plane texture.
+    private resolveDrawingMasks(geometry: IRoomGeometry): PlaneDrawingData
+    {
+        if(!this._useMask) return null;
+
+        const drawingData = new PlaneDrawingData();
+
+        if(!this._maskManager) return drawingData;
+
+        for(const bitmapMask of this._bitmapMasks)
+        {
+            if(!bitmapMask) continue;
+
+            const mask = this._maskManager.getMask(bitmapMask.type);
+
+            if(!mask) continue;
+
+            const assetName = mask.getAssetName(geometry.scale);
+
+            if(!assetName) continue;
+
+            const normal = geometry.getCoordinatePosition(this._normal);
+            const asset = mask.getGraphicAsset(geometry.scale, normal);
+
+            if(!asset) continue;
+
+            const x = Math.trunc(this._width * (1 - (bitmapMask.leftSideLoc / this._leftSide.length)));
+            const y = Math.trunc(this._height * (1 - (bitmapMask.rightSideLoc / this._rightSide.length)));
+
+            drawingData.addMask(assetName, new Point((x + asset.offsetX), (y + asset.offsetY)), asset.flipH, asset.flipV);
+        }
+
+        return drawingData;
+    }
+
+    /**
+     * Behaviour from the AIR client (RoomPlane.getDrawingDatas): what the server needs to draw this plane for a photo,
+     * one entry per visualization layer with its colour, its texture columns as asset names and the plane's masks.
+     * The camera scene builder sets the corner points and the depth.
+     */
+    public getDrawingDatas(geometry: IRoomGeometry): IPlaneDrawingData[]
+    {
+        const drawingDatas: IPlaneDrawingData[] = [];
+
+        if(!this._isVisible || !geometry) return drawingDatas;
+
+        let maskData: PlaneDrawingData = null;
+
+        try
+        {
+            maskData = this.resolveDrawingMasks(geometry);
+
+            const { data, visualization } = this.getDrawingVisualization(geometry.scale);
+
+            for(const entry of (visualization?.allLayers ?? []))
+            {
+                // Animated landscape layers are not PlaneVisualizationLayers in AIR, so they are not drawn here.
+                if(!entry || (entry as IAssetPlaneVisualizationAnimatedLayer).items) continue;
+
+                const layer = entry as IAssetPlaneVisualizationLayer;
+                const layerColor = ((layer.color !== undefined) && (layer.color !== null)) ? layer.color : 0xFFFFFF;
+                const material = layer.materialId ? (data?.materials?.find(item => (item.id === layer.materialId)) ?? null) : null;
+
+                if(this._hasTexture && material)
+                {
+                    const normal = geometry.getCoordinatePosition(this._normal);
+                    const matrix = (material.matrices ?? []).find(item => RoomPlane.matchesNormal(item, normal));
+
+                    // AIR reads the missing matrix and stops on the error, keeping the layers it already has.
+                    if(!matrix) break;
+
+                    const drawingData = new PlaneDrawingData(maskData, RoomPlane.blendColor(this._color, layerColor), (matrix.align === 'bottom'));
+
+                    Randomizer.setSeed(this._randomSeed);
+
+                    for(const column of RoomPlane.getMatrixColumns(matrix, this.getScreenWidth(geometry)))
+                    {
+                        const assetNames: string[] = [];
+
+                        for(const cell of (column.cells ?? []))
+                        {
+                            const texture = cell?.textureId ? data?.textures?.find(item => (item.id === cell.textureId)) : null;
+                            const bitmap = texture ? (texture.bitmaps ?? []).find(item => RoomPlane.matchesNormal(item, normal)) : null;
+                            const assetName = bitmap?.assetName;
+
+                            if((assetName !== undefined) && (assetName !== null)) assetNames.push(assetName);
+                        }
+
+                        if(assetNames.length > 0)
+                        {
+                            if(column.repeatMode === 'none') assetNames.push('');
+
+                            drawingData.addAssetColumn(assetNames);
+                        }
+                    }
+
+                    if(drawingData.assetNameColumns.length > 0) drawingDatas.push(drawingData);
+                }
+                else
+                {
+                    drawingDatas.push(new PlaneDrawingData(maskData, RoomPlane.blendColor(this._color, layerColor)));
+                }
+            }
+        }
+        catch (error)
+        {
+            OctaneLogger.error('Error in getting RoomPlane drawing data.', error);
+        }
+
+        if(!drawingDatas.length) drawingDatas.push(new PlaneDrawingData(maskData, this._color));
+
+        return drawingDatas;
     }
 
     private updateCorners(geometry: IRoomGeometry): void
@@ -1667,7 +2246,12 @@ export class RoomPlane implements IRoomPlane
 
     public set canBeVisible(flag: boolean)
     {
-        if(flag !== this._canBeVisible) this._canBeVisible = flag;
+        if(flag === this._canBeVisible) return;
+
+        this._canBeVisible = flag;
+
+        // Direct drawing dropped the patches of a plane that could not be seen: build them again.
+        if(RoomPlane.DIRECT_DRAW) this._geometryUpdateId = -1;
     }
 
     public get visible(): boolean
@@ -1750,6 +2334,32 @@ export class RoomPlane implements IRoomPlane
     public get planeTexture(): Texture
     {
         return this._planeTexture;
+    }
+
+    // What the canvas draws when DIRECT_DRAW is on; null for the full-plane bake (planeTexture).
+    public get drawData(): RoomPlaneDrawData
+    {
+        return (RoomPlane.DIRECT_DRAW ? this._drawData : null);
+    }
+
+    public get patchLayoutId(): number
+    {
+        return this._patchLayoutId;
+    }
+
+    public get patchRects(): Rectangle[]
+    {
+        return this._patchRects;
+    }
+
+    public set occluder(plane: RoomPlane)
+    {
+        this._occluder = plane;
+    }
+
+    public set occluderUsable(flag: boolean)
+    {
+        this._occluderUsable = flag;
     }
 
     public set hasTexture(flag: boolean)

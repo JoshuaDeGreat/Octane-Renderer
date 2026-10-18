@@ -1,4 +1,5 @@
 import { CanvasSource, Texture } from 'pixi.js';
+import { markImmutableTextureSource } from './ImmutableTextureSource';
 
 /**
  * Habbo's .hab furniture and clothes have no small size (furni size 32, avatar "sh"). Zoomed out, the renderer
@@ -196,6 +197,8 @@ function createHalfSizeTexture(texture: Texture, padX: number, padY: number): Te
         const source = new CanvasSource({ resource: output, scaleMode: 'nearest' }) as unknown as PixelArtSource;
 
         source.octaneFixedScaleMode = true;
+
+        markImmutableTextureSource(source);
 
         return new Texture({ source });
     }

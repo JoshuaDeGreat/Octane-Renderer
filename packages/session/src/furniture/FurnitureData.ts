@@ -35,8 +35,9 @@ export class FurnitureData implements IFurnitureData
     private _canPutStuffOn?: boolean;
     private _height?: number;
     private _tradeable?: boolean;
+    private _bcOfferId: number;
 
-    constructor(type: FurnitureType, id: number, fullName: string, className: string, category: string, localizedName: string, description: string, revision: number, tileSizeX: number, tileSizeY: number, tileSizeZ: number, colors: number[], hadIndexedColor: boolean, colorIndex: number, adUrl: string, purchaseOfferId: number, purchaseCouldBeUsedForBuyout: boolean, rentOfferId: number, rentCouldBeUsedForBuyout: boolean, availableForBuildersClub: boolean, customParams: string, specialType: number, allowStack: boolean, canStandOn: boolean, canSitOn: boolean, canLayOn: boolean, excludedfromDynamic: boolean, furniLine: string, environment: string, rare: boolean, canPutStuffOn?: boolean, height?: number, tradeable?: boolean)
+    constructor(type: FurnitureType, id: number, fullName: string, className: string, category: string, localizedName: string, description: string, revision: number, tileSizeX: number, tileSizeY: number, tileSizeZ: number, colors: number[], hadIndexedColor: boolean, colorIndex: number, adUrl: string, purchaseOfferId: number, purchaseCouldBeUsedForBuyout: boolean, rentOfferId: number, rentCouldBeUsedForBuyout: boolean, availableForBuildersClub: boolean, customParams: string, specialType: number, allowStack: boolean, canStandOn: boolean, canSitOn: boolean, canLayOn: boolean, excludedfromDynamic: boolean, furniLine: string, environment: string, rare: boolean, canPutStuffOn?: boolean, height?: number, tradeable?: boolean, bcOfferId: number = -1)
     {
         this._type = type;
         this._id = id;
@@ -71,6 +72,12 @@ export class FurnitureData implements IFurnitureData
         this._canPutStuffOn = canPutStuffOn;
         this._height = height;
         this._tradeable = tradeable;
+        this._bcOfferId = bcOfferId;
+    }
+
+    public get bcOfferId(): number
+    {
+        return this._bcOfferId;
     }
 
     public get canPutStuffOn(): boolean | undefined

@@ -1,6 +1,7 @@
 import { Texture } from 'pixi.js';
 import { ImageFormat } from './ImageFormat';
 import { assertSafeImage } from './ImageLimits';
+import { markImmutableTextureSource } from './ImmutableTextureSource';
 import { DecodedRgbaImage, LoadedImageResource } from './ImageResource';
 
 type NativeImageSource = ImageBitmap | HTMLImageElement | HTMLCanvasElement;
@@ -60,6 +61,9 @@ export const decodeStaticImage = async (
     if(!texture) throw new Error(`Decoded image "${ source }" did not create a Pixi texture`);
     if(texture.source) texture.source.scaleMode = 'linear';
     if(texture.source) (texture.source as any).octaneFixedScaleMode = true;
+
+    // Decoded once (an image, a bitmap or a canvas made from decoded pixels) and never drawn into again.
+    markImmutableTextureSource(texture.source);
 
     return {
         texture,

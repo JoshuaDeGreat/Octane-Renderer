@@ -1,4 +1,4 @@
-import { AvatarDirectionAngle, AvatarFigurePartType, AvatarScaleType, GeometryType, IActiveActionData, IAvatarImage, IGraphicAsset } from '@octane/api';
+import { AvatarDirectionAngle, AvatarFigurePartType, AvatarScaleType, GeometryType, IActiveActionData, IAvatarImage, IGraphicAsset, RoomObjectSpriteData } from '@octane/api';
 import { getHalfSizeTexture, GraphicAsset, halfSizePadding } from '@octane/assets';
 import { GetRenderer, GetTexturePool, GetTickerTime } from '@octane/utils';
 import { Container, Matrix, Point, Rectangle, RenderTexture, Sprite, Texture } from 'pixi.js';
@@ -290,6 +290,192 @@ export class AvatarImageCache
         imageContainer.offset = positionOffset;
 
         return imageContainer;
+    }
+
+    /**
+     * Behaviour from the AIR client (AvatarImageCache.getImageContainer with server render data, renderBodyPart):
+     * the parts of one body part as camera scene sprites, named after the figure library asset each part draws
+     * (e.g. h_std_hd_1_2_0), with AIR's placement, flip and colour. Nothing is drawn and no cache is touched.
+     */
+    public collectServerRenderData(key: string, frameNumber: number, target: RoomObjectSpriteData[]): void
+    {
+        const bodyPartCache = this.getBodyPartCache(key);
+
+        let direction = bodyPartCache.getDirection();
+        let action = bodyPartCache.getAction();
+
+        if(!action || !action.definition) return;
+
+        let adjustedFrameCount = frameNumber;
+
+        if(action.definition.startFromFrameZero) adjustedFrameCount -= action.startFrame;
+
+        let adjustedAction = action;
+        let removeData: string[] = AvatarImageCache.EMPTY_REMOVE_DATA;
+        let items: Map<string, string> = AvatarImageCache.EMPTY_ITEMS;
+
+        const positionOffset = new Point();
+
+        if(action.definition.isAnimation)
+        {
+            const animation = this._structure.getAnimation(((action.definition.state + '.') + action.actionParameter));
+
+            if(animation)
+            {
+                const layerData = animation.getLayerData((frameNumber - action.startFrame), key, action.overridingAction);
+
+                if(layerData)
+                {
+                    const adjustedDirection = (direction + layerData.dd + 8) % 8;
+
+                    positionOffset.x = this._scale === AvatarScaleType.LARGE ? layerData.dx : layerData.dx / 2;
+                    positionOffset.y = this._scale === AvatarScaleType.LARGE ? layerData.dy : layerData.dy / 2;
+
+                    adjustedFrameCount = layerData.animationFrame;
+
+                    if(layerData.action) action = layerData.action;
+
+                    if(layerData.type === AvatarAnimationLayerData.BODYPART)
+                    {
+                        if(layerData.action) adjustedAction = layerData.action;
+
+                        direction = adjustedDirection;
+                    }
+                    else if(layerData.type === AvatarAnimationLayerData.FX) direction = adjustedDirection;
+
+                    items = layerData.items;
+                }
+
+                removeData = animation.removeData;
+            }
+        }
+
+        const directionCache = bodyPartCache.getActionCache(adjustedAction)?.getDirectionCache(direction);
+        const partList = directionCache ? directionCache.getPartList() : this._structure.getParts(key, this._avatar.getFigure(), adjustedAction, this._geometryType, direction, removeData, this._avatar, items);
+
+        if(!partList || !partList.length) return;
+
+        const firstIndex = target.length;
+
+        this.collectBodyPartData(direction, partList, adjustedFrameCount, action, target);
+
+        const offset = this._structure.getFrameBodyPartOffset(adjustedAction, direction, adjustedFrameCount, key);
+
+        positionOffset.x += offset.x;
+        positionOffset.y += offset.y;
+
+        for(let index = firstIndex; index < target.length; index++)
+        {
+            target[index].x = Math.trunc(target[index].x + positionOffset.x);
+            target[index].y = Math.trunc(target[index].y + positionOffset.y);
+        }
+    }
+
+    private collectBodyPartData(direction: number, containers: AvatarImagePartContainer[], frameCount: number, action: IActiveActionData, target: RoomObjectSpriteData[]): void
+    {
+        const isFlipped = AvatarDirectionAngle.DIRECTION_IS_FLIPPED[direction] || false;
+        const isLarge = (this._scale === AvatarScaleType.LARGE);
+        let assetPartDefinition = action.definition.assetPartDefinition;
+        let containerIndex = (containers.length - 1);
+
+        while(containerIndex >= 0)
+        {
+            const container = containers[containerIndex];
+
+            containerIndex--;
+
+            if((direction == 7) && ((container.partType === 'fc') || (container.partType === 'ey'))) continue;
+
+            if((container.partType === 'ri') && !container.partId) continue;
+
+            const partId = container.partId;
+            const animationFrame = container.getFrameDefinition(frameCount);
+
+            let partType = container.partType;
+            let frameNumber = 0;
+
+            if(animationFrame)
+            {
+                frameNumber = animationFrame.number;
+
+                if((animationFrame.assetPartDefinition) && (animationFrame.assetPartDefinition !== '')) assetPartDefinition = animationFrame.assetPartDefinition;
+            }
+            else frameNumber = container.getFrameIndex(frameCount);
+
+            let assetDirection = direction;
+            let flipH = false;
+
+            if(isFlipped)
+            {
+                if(((assetPartDefinition === 'wav') && (((partType === AvatarFigurePartType.LEFT_HAND) || (partType === AvatarFigurePartType.LEFT_SLEEVE)) || (partType === AvatarFigurePartType.LEFT_COAT_SLEEVE))) || ((assetPartDefinition === 'drk') && (((partType === AvatarFigurePartType.RIGHT_HAND) || (partType === AvatarFigurePartType.RIGHT_SLEEVE)) || (partType === AvatarFigurePartType.RIGHT_COAT_SLEEVE))) || ((assetPartDefinition === 'blw') && (partType === AvatarFigurePartType.RIGHT_HAND)) || ((assetPartDefinition === 'sig') && (partType === AvatarFigurePartType.LEFT_HAND)) || ((assetPartDefinition === 'respect') && (partType === AvatarFigurePartType.LEFT_HAND)) || (partType === AvatarFigurePartType.RIGHT_HAND_ITEM) || (partType === AvatarFigurePartType.LEFT_HAND_ITEM) || (partType === AvatarFigurePartType.CHEST_PRINT))
+                {
+                    flipH = true;
+                }
+                else
+                {
+                    if(direction === 4) assetDirection = 2;
+                    else if(direction === 5) assetDirection = 1;
+                    else if(direction === 6) assetDirection = 0;
+
+                    if(container.flippedPartType !== partType) partType = container.flippedPartType;
+                }
+            }
+
+            const candidates = [
+                (this._scale + '_' + assetPartDefinition + '_' + partType + '_' + partId + '_' + assetDirection + '_' + frameNumber),
+                (this._scale + '_' + assetPartDefinition + '_' + partType + '_' + partId + '_' + assetDirection + '_0'),
+                (this._scale + '_' + this._defaultAction + '_' + partType + '_' + partId + '_' + assetDirection + '_' + frameNumber),
+                (this._scale + '_' + this._defaultAction + '_' + partType + '_' + partId + '_' + assetDirection + '_0')
+            ];
+
+            let assetName: string = null;
+            let asset: IGraphicAsset = null;
+
+            for(const candidate of candidates)
+            {
+                asset = this._assets.getAsset(candidate);
+
+                if(asset)
+                {
+                    assetName = candidate;
+                    break;
+                }
+            }
+
+            if(!asset) continue;
+
+            const offset = new Point(-(asset.x), -(asset.y));
+
+            if(flipH) offset.x = (offset.x + (isLarge ? 65 : 31));
+
+            const data = new RoomObjectSpriteData();
+
+            data.name = this._assets.getAssetName(assetName);
+            data.x = Math.trunc(-(offset.x) - 33);
+            data.y = Math.trunc(-(offset.y));
+            data.z = (target.length * -0.0001);
+            data.width = Math.trunc(asset.rectangle.width);
+            data.height = Math.trunc(asset.rectangle.height);
+            data.flipH = flipH;
+
+            if(assetPartDefinition === 'lay') data.x += 53;
+
+            if(isFlipped)
+            {
+                data.flipH = !data.flipH;
+
+                if(data.flipH) data.x = Math.trunc(-(data.x) - asset.width);
+                else data.x += 65;
+            }
+
+            if(container.isColorable && container.color)
+            {
+                // AIR: "0x" + two lowercase hex digits per channel of the part's colour transform.
+                data.color = '0x' + (container.color.rgb & 0xFFFFFF).toString(16).padStart(6, '0');
+            }
+
+            target.push(data);
+        }
     }
 
     public get hasAnimatedContent(): boolean

@@ -50,12 +50,15 @@ implements
             roomName,
             roomDescription,
             lockState,
-            password,
+            password ?? '',
             userCount,
             categoryId
         );
 
-        this._data.push(tags.length, ...tags);
+        // AIR ?_-D2e?/?_-K1U?: empty tags are left out of the count and the list, a null password goes as "".
+        const savedTags = (tags ?? []).filter(tag => !!tag);
+
+        this._data.push(savedTags.length, ...savedTags);
 
         this._data.push(
             tradeState,

@@ -4,6 +4,7 @@ import { Rectangle, Texture } from 'pixi.js';
 export class GraphicAsset implements IGraphicAsset
 {
     private static GRAPHIC_POOL: GraphicAsset[] = [];
+    private static MAX_POOL_SIZE: number = 2000;
 
     private _name: string;
     private _source: string;
@@ -50,7 +51,7 @@ export class GraphicAsset implements IGraphicAsset
     {
         this._texture = null;
 
-        GraphicAsset.GRAPHIC_POOL.push(this);
+        if(GraphicAsset.GRAPHIC_POOL.length < GraphicAsset.MAX_POOL_SIZE) GraphicAsset.GRAPHIC_POOL.push(this);
     }
 
     private initialize(): void

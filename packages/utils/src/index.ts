@@ -28,6 +28,7 @@ export * from './Node3D';
 export * from './NumberBank';
 export * from './PointMath';
 export * from './RoomId';
+export * from './TextureContentVersion';
 export * from './TexturePool';
 export * from './TextureUtils';
 export * from './Vector3d';

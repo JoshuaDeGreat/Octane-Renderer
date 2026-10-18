@@ -6,6 +6,7 @@ import { RoomObjectSpriteVisualization } from '../RoomObjectSpriteVisualization'
 import { IWindowReflectionUnitLayer, RoomWindowReflectionState } from '../RoomWindowReflectionState';
 import { ColorData, LayerData } from '../data';
 import { FurnitureVisualizationData } from './FurnitureVisualizationData';
+import { WiredHighlightFilterCache } from '../WiredHighlightFilters';
 import { composeFurnitureAlphaMultiplier, furnitureAlphaTolerance } from './WiredOpacityVisualizationPolicy';
 
 export class FurnitureVisualization extends RoomObjectSpriteVisualization
@@ -52,6 +53,10 @@ export class FurnitureVisualization extends RoomObjectSpriteVisualization
     private _needsLookThroughUpdate: boolean;
     private _wiredClickThrough: boolean;
     private _hideInvisibleLayers: boolean;
+    private _wiredHighlight: WiredHighlightFilterCache = new WiredHighlightFilterCache();
+    private _highlightBaseSource: Filter[] = null;
+    private _highlightSource: Filter[] = null;
+    private _highlightCombined: Filter[] = null;
 
     constructor()
     {
@@ -453,13 +458,15 @@ export class FurnitureVisualization extends RoomObjectSpriteVisualization
 
         let alphaMultiplier = model.getValue<number>(RoomObjectVariable.FURNITURE_ALPHA_MULTIPLIER);
         const wiredOpacity = model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_OPACITY);
+        const wiredTransparency = model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_TRANSPARENCY);
+        const wiredVisibility = isNaN(wiredTransparency) ? 1 : (1 - (Math.max(0, Math.min(100, wiredTransparency)) / 100));
         const wiredClickThrough = (model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_CLICK_THROUGH) === 1);
         const hiddenByConfInvisControl = (model.getValue<number>(RoomObjectVariable.FURNITURE_CONF_INVIS_HIDDEN) === 1);
         const hiddenByAreaHideControl = (model.getValue<number>(RoomObjectVariable.FURNITURE_AREA_HIDE_HIDDEN) === 1);
         const hideInvisibleLayers = (model.getValue<number>(RoomObjectVariable.FURNITURE_INVISIBLE_LAYER) > 0);
 
         if(isNaN(alphaMultiplier)) alphaMultiplier = 1;
-        alphaMultiplier = composeFurnitureAlphaMultiplier(alphaMultiplier, wiredOpacity, hiddenByConfInvisControl || hiddenByAreaHideControl);
+        alphaMultiplier = composeFurnitureAlphaMultiplier(alphaMultiplier, (isNaN(wiredOpacity) ? 1 : wiredOpacity) * wiredVisibility, hiddenByConfInvisControl || hiddenByAreaHideControl);
 
         if((this._alphaMultiplier !== alphaMultiplier) || (this._wiredClickThrough !== wiredClickThrough))
         {
@@ -474,6 +481,13 @@ export class FurnitureVisualization extends RoomObjectSpriteVisualization
             this._hideInvisibleLayers = hideInvisibleLayers;
             this._alphaChanged = true;
         }
+
+        const highlightType = model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_HIGHLIGHT_TYPE);
+        const highlightStrength = model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_HIGHLIGHT_STRENGTH);
+        const highlightColor = model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_HIGHLIGHT_COLOR);
+
+        // A changed highlight redraws the layers, like a changed alpha does.
+        if(this._wiredHighlight.update(isNaN(highlightType) ? 0 : highlightType, highlightStrength, isNaN(highlightColor) ? 0xFFFFFF : highlightColor)) this._alphaChanged = true;
 
         this.updateModelCounter = model.updateCounter;
 
@@ -605,12 +619,18 @@ export class FurnitureVisualization extends RoomObjectSpriteVisualization
                     // A filter draws the layer offscreen and composites it normally, which loses the additive glow.
                     if(currentFilters && currentFilters.length) sprite.filters = [];
                 }
-                else if((currentFilters && currentFilters.length) || this._filters.length)
+                else
                 {
-                    // Highlights put on from outside (the furni chooser, the wired editor's picks) survive a redraw.
-                    const overlayFilters = (currentFilters || []).filter(f => (f instanceof ChooserSelectionFilter) || (f instanceof WiredFilter));
+                    // The wired highlight goes on every layer but the shadow.
+                    const baseFilters = this.getBaseFilters(layerId !== this._shadowLayerIndex);
 
-                    sprite.filters = overlayFilters.length > 0 ? [...this._filters, ...overlayFilters] : this._filters;
+                    if((currentFilters && currentFilters.length) || baseFilters.length)
+                    {
+                        // Highlights put on from outside (the furni chooser, the wired editor's picks) survive a redraw.
+                        const overlayFilters = (currentFilters || []).filter(f => (f instanceof ChooserSelectionFilter) || (f instanceof WiredFilter));
+
+                        sprite.filters = overlayFilters.length > 0 ? [...baseFilters, ...overlayFilters] : baseFilters;
+                    }
                 }
             }
             else
@@ -622,6 +642,23 @@ export class FurnitureVisualization extends RoomObjectSpriteVisualization
         {
             if(sprite) this.resetSprite(sprite);
         }
+    }
+
+    // The furni's own filters with the wired highlight after them, kept as one array while neither changes.
+    private getBaseFilters(withHighlight: boolean): Filter[]
+    {
+        const highlightFilters = withHighlight ? this._wiredHighlight.filters : null;
+
+        if(!highlightFilters) return this._filters;
+
+        if((this._highlightBaseSource !== this._filters) || (this._highlightSource !== highlightFilters))
+        {
+            this._highlightBaseSource = this._filters;
+            this._highlightSource = highlightFilters;
+            this._highlightCombined = [...this._filters, ...highlightFilters];
+        }
+
+        return this._highlightCombined;
     }
 
     protected shouldHideInvisibleLayer(tag: string): boolean

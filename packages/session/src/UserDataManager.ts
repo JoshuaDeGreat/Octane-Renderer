@@ -88,7 +88,13 @@ export class UserDataManager implements IUserDataManager
     {
         if(!data) return;
 
+        // A refresh of the same user keeps the badges a leave would drop.
+        const sameSlot = this.getUserDataByIndex(data.roomIndex);
+        const keptBadges = (sameSlot && (sameSlot.type === data.type) && (sameSlot.webID === data.webID)) ? this._userBadges.get(data.webID) : undefined;
+
         this.removeUserData(data.roomIndex);
+
+        if(keptBadges) this._userBadges.set(data.webID, keptBadges);
 
         let existingType = this._userDataByType.get(data.type);
 
@@ -121,6 +127,7 @@ export class UserDataManager implements IUserDataManager
         const existingType = this._userDataByType.get(existing.type);
 
         if(existingType) existingType.delete(existing.webID);
+        if(existing.type === UserDataManager.TYPE_USER) this._userBadges.delete(existing.webID);
 
         this.invalidateRoomUserListSnapshot();
     }

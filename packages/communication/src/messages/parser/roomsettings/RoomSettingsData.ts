@@ -44,6 +44,7 @@ export class RoomSettingsData
     private _idleSleepTimeoutSeconds: number = 0;
     private _idleAutokickEnabled: boolean = false;
     private _idleAutokickTimeoutSeconds: number = 0;
+    private _hiddenByBc: boolean = false;
 
     public static from(settings: RoomSettingsData)
     {
@@ -79,6 +80,7 @@ export class RoomSettingsData
         instance._idleSleepTimeoutSeconds = settings._idleSleepTimeoutSeconds;
         instance._idleAutokickEnabled = settings._idleAutokickEnabled;
         instance._idleAutokickTimeoutSeconds = settings._idleAutokickTimeoutSeconds;
+        instance._hiddenByBc = settings._hiddenByBc;
 
         return instance;
     }
@@ -412,5 +414,16 @@ export class RoomSettingsData
     public set idleAutokickTimeoutSeconds(value: number)
     {
         this._idleAutokickTimeoutSeconds = value;
+    }
+
+    /** The room is hidden because it holds Builders Club furni while its owner has no membership. */
+    public get hiddenByBc(): boolean
+    {
+        return this._hiddenByBc;
+    }
+
+    public set hiddenByBc(value: boolean)
+    {
+        this._hiddenByBc = value;
     }
 }

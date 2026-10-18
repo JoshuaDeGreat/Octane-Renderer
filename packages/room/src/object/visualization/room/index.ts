@@ -1,6 +1,7 @@
 export * from './animated';
 export * from './PlaneDrawingData';
 export * from './RoomPlane';
+export * from './RoomPlaneDrawData';
 export * from './RoomPlaneBitmapMask';
 export * from './RoomPlaneRectangleMask';
 export * from './RoomVisualization';

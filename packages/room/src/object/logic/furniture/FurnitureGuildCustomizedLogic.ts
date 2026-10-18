@@ -86,7 +86,8 @@ export class FurnitureGuildCustomizedLogic extends FurnitureMultiStateLogic
         super.mouseEvent(event, geometry);
     }
 
-    private openContextMenu(): void
+    /** A click asks for the group furni context menu (GetGuildFurniContextMenuInfo). */
+    protected openContextMenu(): void
     {
         this.eventDispatcher.dispatchEvent(new RoomObjectWidgetRequestEvent(RoomObjectWidgetRequestEvent.GUILD_FURNI_CONTEXT_MENU, this.object));
     }

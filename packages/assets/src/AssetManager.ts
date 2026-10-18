@@ -33,7 +33,12 @@ export class AssetManager implements IAssetManager
 {
     private _textures: Map<string, Texture> = new Map();
     private _collections: Map<string, IGraphicAssetCollection> = new Map();
-    private _missingAssetNames: Set<string> = new Set();
+    // Asset name -> the collections holding it. getAsset used to scan every loaded
+    // collection (hundreds of furni libraries) on each lookup; registration order
+    // still decides which collection wins, as the Map iteration did.
+    private _assetIndex: Map<string, Set<GraphicAssetCollection>> = new Map();
+    private _collectionOrder: WeakMap<GraphicAssetCollection, number> = new WeakMap();
+    private _nextCollectionOrder: number = 0;
     private _imageResources: Map<string, LoadedImageResource> = new Map();
     private _downloads: Map<string, Promise<boolean>> = new Map();
 
@@ -61,22 +66,44 @@ export class AssetManager implements IAssetManager
     {
         if(!name) return null;
 
-        if(this._missingAssetNames.has(name)) return null;
+        const candidates = this._assetIndex.get(name);
 
-        for(const collection of this._collections.values())
+        if(!candidates) return null;
+
+        let first: GraphicAssetCollection = null;
+        let firstOrder = Infinity;
+
+        for(const collection of candidates)
         {
-            if(!collection) continue;
+            if(this._collections.get(collection.name) !== collection) continue;
 
-            const existing = collection.getAsset(name);
+            const order = this._collectionOrder.get(collection);
 
-            if(!existing) continue;
+            if(order >= firstOrder) continue;
 
-            return existing;
+            first = collection;
+            firstOrder = order;
         }
 
-        this._missingAssetNames.add(name);
+        return first?.getAsset(name) ?? null;
+    }
 
-        return null;
+    private assetChanged(collection: GraphicAssetCollection, name: string, added: boolean): void
+    {
+        let candidates = this._assetIndex.get(name);
+
+        if(added)
+        {
+            if(!candidates) this._assetIndex.set(name, candidates = new Set());
+
+            candidates.add(collection);
+        }
+        else if(candidates)
+        {
+            candidates.delete(collection);
+
+            if(!candidates.size) this._assetIndex.delete(name);
+        }
     }
 
     public addAssetToCollection(collectionName: string, assetName: string, texture: Texture, override: boolean = true): boolean
@@ -103,9 +130,23 @@ export class AssetManager implements IAssetManager
 
         for(const [name, texture] of collection.textures.entries()) this.setTexture(name, texture);
 
+        // A collection replacing one of the same name keeps its place in the order, like a Map key.
+        const replaced = this._collections.get(collection.name) as GraphicAssetCollection;
+
+        this._collectionOrder.set(collection, replaced ? this._collectionOrder.get(replaced) : this._nextCollectionOrder++);
+
+        if(replaced)
+        {
+            replaced.onAssetChanged = null;
+
+            for(const name of replaced.assetNames) this.assetChanged(replaced, name, false);
+        }
+
         this._collections.set(collection.name, collection);
 
-        if(this._missingAssetNames.size > 0) this._missingAssetNames.clear();
+        for(const name of collection.assetNames) this.assetChanged(collection, name, true);
+
+        collection.onAssetChanged = (name, added) => this.assetChanged(collection, name, added);
 
         return collection;
     }
@@ -307,7 +348,7 @@ export class AssetManager implements IAssetManager
         const roomImagesSub = import.meta.glob('./assets/room/images/*.{png,jpg,jpeg,gif,webp,avif,svg,bmp}', { eager: true });
         const merged = { ...roomImages, ...roomImagesSub };
 
-        for(const path in merged)
+        await Promise.all(Object.keys(merged).map(async path =>
         {
             const mod = merged[path];
             const imageUrl = ((mod as { default?: string }).default ?? mod) as string;
@@ -318,7 +359,7 @@ export class AssetManager implements IAssetManager
             if(!texture)
             {
                 resource.dispose();
-                continue;
+                return;
             }
 
             this.setImageResource(imageUrl, resource);
@@ -331,7 +372,7 @@ export class AssetManager implements IAssetManager
                 this.setTexture(normalizedName, texture);
                 collection.textures.set(normalizedName, texture);
             }
-        }
+        }));
 
         collection.define(roomData);
     }
@@ -377,10 +418,8 @@ export class AssetManager implements IAssetManager
         const allImages = import.meta.glob('./assets/*/images/*.{png,jpg,jpeg,gif,webp,avif,svg,bmp}', { eager: true });
         const prefix = `./assets/${ name }/images/`;
 
-        for(const path in allImages)
+        await Promise.all(Object.keys(allImages).filter(path => path.startsWith(prefix)).map(async path =>
         {
-            if(!path.startsWith(prefix)) continue;
-
             const mod = allImages[path];
             const imageUrl = ((mod as { default?: string }).default ?? mod) as string;
             const rawName = imageNameFromPath(path);
@@ -390,14 +429,14 @@ export class AssetManager implements IAssetManager
             if(!texture)
             {
                 resource.dispose();
-                continue;
+                return;
             }
 
             this.setImageResource(imageUrl, resource);
             this.setTexture(rawName, texture);
             collection.textures.set(name + '_' + rawName, texture);
             collection.textures.set(rawName, texture);
-        }
+        }));
 
         collection.define(data);
     }

@@ -66,3 +66,71 @@ describe('ConfigurationManager.reloadConfiguration', () =>
         expect(manager.getValue('login.endpoint', 'MISSING')).toBe('http://127.0.0.1:2096/api/auth/login');
     });
 });
+
+describe('ConfigurationManager.init', () =>
+{
+    afterEach(() =>
+    {
+        vi.unstubAllGlobals();
+        delete (window as any).OctaneConfig;
+    });
+
+    it('loads the configuration once; later calls share that load', async () =>
+    {
+        (window as any).OctaneConfig = { 'config.urls': [ '/a.json' ] };
+
+        const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ 'x': 1 })));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const manager = new ConfigurationManager();
+
+        await Promise.all([ manager.init(), manager.init() ]);
+        await manager.init();
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(manager.getValue<number>('x')).toBe(1);
+    });
+
+    it('fetches the documents together and still applies them in config.urls order', async () =>
+    {
+        (window as any).OctaneConfig = { 'config.urls': [ '/a.json', '/b.json' ] };
+
+        const a = deferred<Response>();
+        const b = deferred<Response>();
+        const fetchMock = vi.fn((url: string) => (url === '/a.json' ? a.promise : b.promise));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const manager = new ConfigurationManager();
+        const loading = manager.init();
+
+        // Both requests are out before either answers.
+        await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+        // The second file answers first; the result must not depend on that.
+        b.resolve(jsonResponse({ 'key': 'second', 'only.b': true }));
+        a.resolve(jsonResponse({ 'key': 'first', 'only.a': true }));
+        await loading;
+
+        // Same as the sequential load: the documents apply in config.urls order.
+        expect(manager.getValue<string>('key')).toBe('first');
+        expect(manager.getValue<boolean>('only.a')).toBe(true);
+        expect(manager.getValue<boolean>('only.b')).toBe(true);
+    });
+
+    it('retries a failed initial load on the next call', async () =>
+    {
+        (window as any).OctaneConfig = { 'config.urls': [ '/a.json' ] };
+
+        const fetchMock = vi.fn()
+            .mockReturnValueOnce(Promise.resolve(jsonResponse({}, 500)))
+            .mockReturnValueOnce(Promise.resolve(jsonResponse({ 'x': 2 })));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const manager = new ConfigurationManager();
+
+        await expect(manager.init()).rejects.toThrow();
+        await manager.init();
+
+        expect(manager.getValue<number>('x')).toBe(2);
+    });
+});

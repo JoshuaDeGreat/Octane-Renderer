@@ -1,9 +1,10 @@
-import { AlphaTolerance, AvatarAction, AvatarGuideStatus, AvatarSetType, IAdvancedMap, IAvatarEffectListener, IAvatarImage, IAvatarImageListener, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObject, IRoomObjectModel, RoomObjectSpriteType, RoomObjectVariable } from '@octane/api';
+import { AlphaTolerance, AvatarAction, AvatarGuideStatus, AvatarSetType, IAdvancedMap, IAvatarEffectListener, IAvatarImage, IAvatarImageListener, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObject, IRoomObjectModel, IRoomObjectSprite, RoomObjectSpriteData, RoomObjectSpriteType, RoomObjectVariable } from '@octane/api';
 import { GetAssetManager, getHalfSizeTexture, halfSizeOffset, halfSizePadding, isPixelArtTexture } from '@octane/assets';
 import { AdvancedMap, GetRenderer, Vector3d } from '@octane/utils';
 import { Container, RenderTexture, Sprite, Texture } from 'pixi.js';
 import { RoomObjectSpriteVisualization } from '../RoomObjectSpriteVisualization';
 import { RoomWindowReflectionState } from '../RoomWindowReflectionState';
+import { WiredHighlightFilterCache } from '../WiredHighlightFilters';
 import { AvatarVisualizationData } from './AvatarVisualizationData';
 import { ExpressionAdditionFactory, FloatingIdleZAddition, GameClickTargetAddition, GuideStatusBubbleAddition, HabbiconBubbleAddition, IAvatarAddition, MutedBubbleAddition, NumberBubbleAddition, TypingBubbleAddition } from './additions';
 
@@ -33,7 +34,8 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
     private static BASE_Y_SCALE: number = 1000;
     private static AVATAR_SPRITE_DEFAULT_DEPTH: number = -0.01;
     private static AVATAR_OWN_DEPTH_ADJUST: number = 0.001;
-    private static AVATAR_SPRITE_LAYING_DEPTH: number = 0.002;
+    private static AVATAR_SPRITE_LAYING_DEPTH: number = -0.409;
+    private static AVATAR_SPRITE_LAYING_INSIDE_DEPTH: number = -0.5;
 
     protected _data: AvatarVisualizationData;
 
@@ -66,6 +68,9 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
     private _sign: number;
     private _highlightEnabled: boolean;
     private _highlight: boolean;
+    private _wiredVisibility: number;
+    private _wiredClickThrough: boolean;
+    private _wiredHighlight: WiredHighlightFilterCache;
     private _dance: number;
     private _effect: number;
     private _carryObject: number;
@@ -76,9 +81,6 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
 
     private _isLaying: boolean;
     private _layInside: boolean;
-    private _layDepthOffset: number;
-    private _layXOffset: number;
-    private _layYOffset: number;
     private _isAnimating: boolean;
     private _extraSpritesStartIndex: number;
     private _forcedAnimFrames: number;
@@ -132,6 +134,9 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
         this._sign = -1;
         this._highlightEnabled = false;
         this._highlight = false;
+        this._wiredVisibility = 1;
+        this._wiredClickThrough = false;
+        this._wiredHighlight = new WiredHighlightFilterCache();
         this._dance = 0;
         this._effect = 0;
         this._carryObject = 0;
@@ -142,7 +147,6 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
 
         this._isLaying = false;
         this._layInside = false;
-        this._layDepthOffset = 0;
         this._isAnimating = false;
         this._extraSpritesStartIndex = AvatarVisualization.INITIAL_RESERVED_SPRITES;
         this._forcedAnimFrames = 0;
@@ -365,20 +369,17 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
 
                 if(sprite.texture)
                 {
+                    this.applyWiredEffects(sprite, this._avatarImage.isPlaceholder());
+
                     sprite.offsetX = ((((-1 * scale) / 2) + canvasOffsets[0]) - ((sprite.texture.width - scale) / 2));
                     sprite.offsetY = (((-(sprite.texture.height) + (scale / 4)) + canvasOffsets[1]) + this._postureOffset);
-
-                    if(this._isLaying)
-                    {
-                        sprite.offsetX += (this._layXOffset - this._layYOffset);
-                        sprite.offsetY += Math.floor((this._layXOffset + this._layYOffset) / 2);
-                    }
                 }
 
                 if(this._isLaying)
                 {
-                    const laySign = this._layInside ? AvatarVisualization.AVATAR_SPRITE_LAYING_DEPTH : -AvatarVisualization.AVATAR_SPRITE_LAYING_DEPTH;
-                    sprite.relativeDepth = (laySign - this._layDepthOffset + canvasOffsets[2]);
+                    sprite.relativeDepth = this._layInside
+                        ? AvatarVisualization.AVATAR_SPRITE_LAYING_INSIDE_DEPTH
+                        : (AvatarVisualization.AVATAR_SPRITE_LAYING_DEPTH + canvasOffsets[2]);
                 }
                 else
                 {
@@ -406,8 +407,7 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
                 }
                 else
                 {
-                    const laySign = this._layInside ? AvatarVisualization.AVATAR_SPRITE_LAYING_DEPTH : -AvatarVisualization.AVATAR_SPRITE_LAYING_DEPTH;
-                    typingBubble.relativeDepth = ((laySign - this._layDepthOffset - 0.01) + canvasOffsets[2]);
+                    typingBubble.relativeDepth = ((AvatarVisualization.AVATAR_SPRITE_LAYING_DEPTH - 0.01) + canvasOffsets[2]);
                 }
             }
 
@@ -450,7 +450,7 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
                 }
                 else
                 {
-                    const sprite = this.getSprite(spriteIndex);
+                    const sprite = this.getSprite(spriteIndex++);
 
                     if(sprite)
                     {
@@ -494,7 +494,14 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
                         const largeAsset = ((!asset && (scale < 48)) ? GetAssetManager().getAsset(('h_' + spriteData.member + '_' + dd + '_' + frameNumber)) : null);
                         const halfTexture = (isPixelArtTexture(largeAsset?.texture) ? getHalfSizeTexture(largeAsset.texture, halfSizePadding(largeAsset.offsetX), halfSizePadding(largeAsset.offsetY)) : null);
 
-                        if(!asset && !halfTexture) continue;
+                        if(!asset && !halfTexture)
+                        {
+                            // Official: an effect sprite without art for this frame is cleared, not left showing the previous effect.
+                            sprite.texture = Texture.EMPTY;
+                            sprite.visible = false;
+
+                            continue;
+                        }
 
                         if(asset)
                         {
@@ -522,8 +529,7 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
 
                         if(this._isLaying)
                         {
-                            const laySign = this._layInside ? AvatarVisualization.AVATAR_SPRITE_LAYING_DEPTH : -AvatarVisualization.AVATAR_SPRITE_LAYING_DEPTH;
-                            sprite.relativeDepth = (laySign - this._layDepthOffset - ((0.001 * this.totalSprites) * offsetZ));
+                            sprite.relativeDepth = (AvatarVisualization.AVATAR_SPRITE_LAYING_DEPTH - ((0.001 * this.totalSprites) * offsetZ));
                         }
                         else
                         {
@@ -533,8 +539,6 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
                         if(spriteData.ink === 33) sprite.blendMode = 'add';
                         else sprite.blendMode = 'normal';
                     }
-
-                    spriteIndex++;
                 }
             }
 
@@ -1038,6 +1042,24 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
             }
         }
 
+        const wiredTransparency = model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_TRANSPARENCY);
+        const wiredVisibility = isNaN(wiredTransparency) ? 1 : (1 - (Math.max(0, Math.min(100, wiredTransparency)) / 100));
+        const wiredClickThrough = (model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_CLICK_THROUGH) > 0);
+
+        if((wiredVisibility !== this._wiredVisibility) || (wiredClickThrough !== this._wiredClickThrough))
+        {
+            this._wiredVisibility = wiredVisibility;
+            this._wiredClickThrough = wiredClickThrough;
+
+            needsUpdate = true;
+        }
+
+        const highlightType = model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_HIGHLIGHT_TYPE);
+        const highlightStrength = model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_HIGHLIGHT_STRENGTH);
+        const highlightColor = model.getValue<number>(RoomObjectVariable.FURNITURE_WIRED_HIGHLIGHT_COLOR);
+
+        if(this._wiredHighlight.update(isNaN(highlightType) ? 0 : highlightType, highlightStrength, isNaN(highlightColor) ? 0xFFFFFF : highlightColor)) needsUpdate = true;
+
         const ownUser = (model.getValue<number>(RoomObjectVariable.OWN_USER) > 0);
 
         if(ownUser !== this._ownUser)
@@ -1052,6 +1074,17 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
         return needsUpdate;
     }
 
+    // Wired transparency, click-through and highlight apply to the avatar body sprite (AIR AvatarVisualization L530-545, L1546-1600).
+    private applyWiredEffects(sprite: IRoomObjectSprite, placeholder: boolean): void
+    {
+        sprite.alpha = (placeholder ? 150 : 255) * this._wiredVisibility;
+        sprite.alphaTolerance = this._wiredClickThrough ? AlphaTolerance.MATCH_NOTHING : AlphaTolerance.MATCH_OPAQUE_PIXELS;
+
+        const highlightFilters = this._wiredHighlight.filters;
+
+        if((sprite.filters || null) !== highlightFilters) sprite.filters = highlightFilters;
+    }
+
     protected setDirection(direction: number): void
     {
         if(this._direction === direction) return;
@@ -1059,6 +1092,13 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
         this._direction = direction;
 
         this._needsUpdate = true;
+    }
+
+    public static isLayInside(postureParameter: string): boolean
+    {
+        const height = Math.trunc(parseFloat(postureParameter));
+
+        return (!isNaN(height) && (height < 0));
     }
 
     private updateScale(scale: number): void
@@ -1076,27 +1116,13 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
 
         this._layInside = false;
         this._isLaying = false;
-        this._layDepthOffset = 0;
-        this._layXOffset = 0;
-        this._layYOffset = 0;
 
         if(this._posture === 'lay')
         {
             this._isLaying = true;
 
-            const parts = this._postureParameter ? this._postureParameter.split(';') : [];
-            const height = parts.length > 0 ? parseFloat(parts[0]) : 0;
-
-            if(height < 0) this._layInside = true;
-
-            const avatarZ = this.object ? this.object.getLocation().z : 0;
-            this._layDepthOffset = avatarZ * Math.sqrt(0.5);
-
-            if(parts.length >= 3)
-            {
-                this._layXOffset = parseFloat(parts[1]) || 0;
-                this._layYOffset = parseFloat(parts[2]) || 0;
-            }
+            // AIR: int(postureParameter) < 0 lays the avatar inside the furni (validateActions).
+            if(AvatarVisualization.isLayInside(this._postureParameter)) this._layInside = true;
         }
     }
 
@@ -1399,6 +1425,101 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
         this._additions.delete(addition.id);
 
         addition.dispose();
+    }
+
+    /**
+     * Behaviour from the AIR client (AvatarVisualization.getSpriteList): the figure as camera scene sprites, the
+     * figure parts from the avatar image, then the effect sprites, then the shadow. Positions are relative to the
+     * avatar's screen location; the scene builder moves them into place.
+     */
+    public getSpriteList(): RoomObjectSpriteData[]
+    {
+        if(!this._avatarImage) return null;
+
+        let shadowData: RoomObjectSpriteData = null;
+        const shadowSprite = this.getSprite(AvatarVisualization.SHADOW_LAYER_ID);
+
+        // AIR always adds the shadow sprite; we leave it out while it is hidden (sitting, laying).
+        if(shadowSprite && shadowSprite.visible && shadowSprite.libraryAssetName)
+        {
+            shadowData = new RoomObjectSpriteData();
+            shadowData.alpha = shadowSprite.alpha;
+            shadowData.x = Math.trunc(shadowSprite.offsetX);
+            shadowData.y = Math.trunc(shadowSprite.offsetY);
+            shadowData.name = shadowSprite.libraryAssetName;
+            shadowData.width = Math.trunc(shadowSprite.width);
+            shadowData.height = Math.trunc(shadowSprite.height);
+        }
+
+        const spriteList = this._avatarImage.getServerRenderData() || [];
+        const direction = this._avatarImage.getDirection();
+        // AIR always places the effect sprites for the 64 scale.
+        const scale = 64;
+
+        for(const spriteData of (this._avatarImage.getSprites() || []))
+        {
+            if(spriteData.id === AvatarVisualization.AVATAR) continue;
+
+            const layerData = this._avatarImage.getLayerData(spriteData);
+
+            let frameNumber = 0;
+            let offsetX = spriteData.getDirectionOffsetX(direction);
+            let offsetY = spriteData.getDirectionOffsetY(direction);
+            const offsetZ = spriteData.getDirectionOffsetZ(direction);
+            let dd = (spriteData.hasDirections ? direction : 0);
+
+            if(layerData)
+            {
+                frameNumber = layerData.animationFrame;
+                offsetX += layerData.dx;
+                offsetY += layerData.dy;
+                dd += layerData.dd;
+            }
+
+            if(dd < 0) dd += 8;
+            else if(dd > 7) dd -= 8;
+
+            const assetName = (this._avatarImage.getScale() + '_' + spriteData.member + '_' + dd + '_' + frameNumber);
+            const asset = GetAssetManager().getAsset(assetName);
+
+            if(!asset) continue;
+
+            const data = new RoomObjectSpriteData();
+
+            data.x = Math.trunc((asset.offsetX - (scale / 2)) + offsetX);
+            data.y = Math.trunc(asset.offsetY + offsetY);
+
+            if(spriteData.hasStaticY) data.y = Math.trunc(data.y + ((this._verticalOffset * scale) / (2 * AvatarVisualization.BASE_Y_SCALE)));
+
+            if(spriteData.ink === 33) data.blendMode = 'add';
+
+            data.name = assetName;
+            data.z = (this._isLaying ? (-0.409 - ((0.001 * this.spriteCount) * offsetZ)) : ((-0.001 * this.spriteCount) * offsetZ));
+
+            const rectangle = asset.rectangle;
+
+            data.width = (rectangle ? Math.trunc(rectangle.width) : 60);
+            data.height = (rectangle ? Math.trunc(rectangle.height) : 60);
+
+            spriteList.push(data);
+        }
+
+        // A grayscale effect palette tints every part but the effect and shadow sprites with its first red.
+        const avatarData = (this._avatarImage as unknown as { avatarSpriteData?: { paletteIsGrayscale: boolean, reds: number[] } }).avatarSpriteData;
+
+        if(avatarData && avatarData.paletteIsGrayscale && avatarData.reds && avatarData.reds.length)
+        {
+            const color = avatarData.reds[0].toString();
+
+            for(const data of spriteList)
+            {
+                if((data.name.indexOf('h_std_fx') === -1) && (data.name.indexOf('h_std_sd') === -1)) data.color = color;
+            }
+        }
+
+        if(shadowData) spriteList.push(shadowData);
+
+        return spriteList;
     }
 
     private updateShadow(scale: number): void
