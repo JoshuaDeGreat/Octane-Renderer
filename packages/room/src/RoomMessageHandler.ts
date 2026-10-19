@@ -979,7 +979,7 @@ export class RoomMessageHandler
         {
             this._activeConfInvisHiddenItemIds.delete(itemId);
             this._activeAreaHideControllers.delete(itemId);
-            this._roomEngine.removeRoomObjectFloor(this._currentRoomId, itemId, parser.pickerId, true);
+            this._roomEngine.removeRoomObjectFloor(this._currentRoomId, itemId, parser.pickerId, false);
         }
 
         this._roomEngine.refreshTileObjectMap(this._currentRoomId, 'RoomMessageHandler.onObjectRemoveMultipleEvent()');
