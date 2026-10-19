@@ -353,6 +353,9 @@ export class OutgoingHeader
     public static WIRED_LINK_RENAME_NETWORK = 2794;
     public static WIRED_LINK_DELETE_NETWORK = 2731;
     public static WIRED_LINK_GET_CONNECTIONS = 9494;
+    // Official AIR Variable Add-on Share synchronize. AIR's id is 2144, which is our ITEM_COLOR_WHEEL_CLICK, so it
+    // uses 9495.
+    public static WIRED_ADDON_SHARE_SYNCHRONIZE = 9495;
     // Official AIR furniture label (wf_label) text and settings saves.
     public static WIRED_LABEL_SAVE_TEXT = 2638;
     public static WIRED_LABEL_SAVE_SETTINGS = 2970;
