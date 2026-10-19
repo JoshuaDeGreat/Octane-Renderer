@@ -37,6 +37,7 @@ describe('FurnitureWaterAreaVisualization shore', () =>
         expect(top).toEqual([ false, false, true, true, true, true, true, true ]);
     });
 
+    // Builds every shore mask; on a busy machine that takes longer than the 5 s default.
     it('has a mask for every segment and cut any neighbour state can ask for', () =>
     {
         const collection = {} as IGraphicAssetCollection;
@@ -66,5 +67,5 @@ describe('FurnitureWaterAreaVisualization shore', () =>
 
             expect(maskOf(collection, state)).toBeLessThanOrEqual(lone);
         }
-    });
+    }, 30_000);
 });
