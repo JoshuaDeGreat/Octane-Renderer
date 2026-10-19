@@ -312,6 +312,8 @@ export class IncomingHeader
     public static WIRED_ERROR = 156;
     public static WIRED_MONITOR_DATA = 5101;
     public static WIRED_ROOM_SETTINGS_DATA = 5102;
+    // AIR wired menu monitor room stats (WiredRoomStatsData).
+    public static WIRED_ROOM_STATS = 1891;
     public static WIRED_USER_VARIABLES_DATA = 5103;
     public static CONF_INVIS_STATE = 5104;
     public static HANDITEM_BLOCK_STATE = 5105;

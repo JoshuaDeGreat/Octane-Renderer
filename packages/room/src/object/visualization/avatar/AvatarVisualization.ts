@@ -1,4 +1,4 @@
-import { AlphaTolerance, AvatarAction, AvatarGuideStatus, AvatarSetType, IAdvancedMap, IAvatarEffectListener, IAvatarImage, IAvatarImageListener, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObject, IRoomObjectModel, IRoomObjectSprite, RoomObjectSpriteData, RoomObjectSpriteType, RoomObjectVariable } from '@octane/api';
+import { AlphaTolerance, AvatarAction, AvatarGuideStatus, AvatarSetType, IAdvancedMap, IAvatarEffectListener, IAvatarImage, IAvatarImageListener, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObject, IRoomObjectModel, IRoomObjectSprite, IRoomObjectVariableFxEntry, RoomObjectSpriteData, RoomObjectSpriteType, RoomObjectVariable } from '@octane/api';
 import { GetAssetManager, getHalfSizeTexture, halfSizeOffset, halfSizePadding, isPixelArtTexture } from '@octane/assets';
 import { AdvancedMap, GetRenderer, Vector3d } from '@octane/utils';
 import { Container, RenderTexture, Sprite, Texture } from 'pixi.js';
@@ -6,7 +6,7 @@ import { RoomObjectSpriteVisualization } from '../RoomObjectSpriteVisualization'
 import { RoomWindowReflectionState } from '../RoomWindowReflectionState';
 import { WiredHighlightFilterCache } from '../WiredHighlightFilters';
 import { AvatarVisualizationData } from './AvatarVisualizationData';
-import { ExpressionAdditionFactory, FloatingIdleZAddition, GameClickTargetAddition, GuideStatusBubbleAddition, HabbiconBubbleAddition, IAvatarAddition, MutedBubbleAddition, NumberBubbleAddition, TypingBubbleAddition } from './additions';
+import { ExpressionAdditionFactory, FloatingIdleZAddition, GameClickTargetAddition, GuideStatusBubbleAddition, HabbiconBubbleAddition, IAvatarAddition, MutedBubbleAddition, NumberBubbleAddition, TypingBubbleAddition, VariableFxStackAddition } from './additions';
 
 export class AvatarVisualization extends RoomObjectSpriteVisualization implements IAvatarImageListener, IAvatarEffectListener
 {
@@ -19,6 +19,7 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
     private static MUTED_BUBBLE_ID: number = 6;
     private static GUIDE_BUBBLE_ID: number = 7;
     private static HABBICON_BUBBLE_ID: number = 8;
+    private static VARIABLE_FX_STACK_ID: number = 9;
     private static OWN_USER_ID: number = 4;
     private static UPDATE_TIME_INCREASER: number = 41;
     // Like Habbo: purge cached actions unused for 60 s every 500 updates; the first purge is staggered.
@@ -971,6 +972,26 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
             needsUpdate = true;
         }
 
+        // The wired variable fx the client set; the addition fades out what is no longer sent.
+        const variableFx = model.getValue<IRoomObjectVariableFxEntry[]>(RoomObjectVariable.VARIABLE_FX_STACK);
+        let variableFxAddition = this.getAddition(AvatarVisualization.VARIABLE_FX_STACK_ID) as VariableFxStackAddition;
+
+        if(variableFx)
+        {
+            if(!variableFxAddition)
+            {
+                variableFxAddition = this.addAddition(new VariableFxStackAddition(AvatarVisualization.VARIABLE_FX_STACK_ID, this)) as VariableFxStackAddition;
+                needsUpdate = true;
+            }
+
+            if(variableFxAddition?.setEntries(variableFx)) needsUpdate = true;
+        }
+        else if(variableFxAddition)
+        {
+            this.removeAddition(AvatarVisualization.VARIABLE_FX_STACK_ID);
+            needsUpdate = true;
+        }
+
         let expressionAddition = this.getAddition(AvatarVisualization.EXPRESSION_ID);
 
         if(this._expression > 0)
@@ -1592,6 +1613,15 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
     public get posture(): string
     {
         return this._posture;
+    }
+
+    /** How far a habbicon is lifted to sit above the variable fx stack (AIR stacks it on top). */
+    public get variableFxStackLift(): number
+    {
+        const addition = this.getAddition(AvatarVisualization.VARIABLE_FX_STACK_ID) as VariableFxStackAddition;
+        const height = (addition ? addition.stack.visibleHeight : 0);
+
+        return ((height > 0) ? (height + 4) : 0);
     }
 
     public get habbiconFacingDirection(): number

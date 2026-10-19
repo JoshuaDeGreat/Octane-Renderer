@@ -8,3 +8,4 @@ export * from './pet';
 export * from './room';
 export * from './room/mask';
 export * from './room/utils';
+export * from './variablefx';

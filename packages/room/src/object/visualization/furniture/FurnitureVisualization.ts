@@ -1,17 +1,21 @@
 import { getHalfSizeTexture, halfSizeOffset, halfSizePadding, isPixelArtTexture } from '@octane/assets';
-import { AlphaTolerance, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObjectSprite, IVector3D, RoomObjectVariable, RoomObjectVisualizationType } from '@octane/api';
+import { AlphaTolerance, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObjectSprite, IRoomObjectVariableFxEntry, IVector3D, RoomObjectVariable, RoomObjectVisualizationType } from '@octane/api';
 import { ChooserSelectionFilter, OctaneLogger, Vector3d, WiredFilter } from '@octane/utils';
 import { BLEND_MODES, Filter, Texture } from 'pixi.js';
+import { RoomObjectSprite } from '../RoomObjectSprite';
 import { RoomObjectSpriteVisualization } from '../RoomObjectSpriteVisualization';
 import { IWindowReflectionUnitLayer, RoomWindowReflectionState } from '../RoomWindowReflectionState';
 import { ColorData, LayerData } from '../data';
 import { FurnitureVisualizationData } from './FurnitureVisualizationData';
 import { WiredHighlightFilterCache } from '../WiredHighlightFilters';
+import { VariableFxStack } from '../variablefx/VariableFxStack';
 import { composeFurnitureAlphaMultiplier, furnitureAlphaTolerance } from './WiredOpacityVisualizationPolicy';
 
 export class FurnitureVisualization extends RoomObjectSpriteVisualization
 {
     protected static DEPTH_MULTIPLIER: number = Math.sqrt(0.5);
+    /** AIR: the fx stack of a furni starts 4 px above its topmost sprite. */
+    public static VARIABLE_FX_STACK_GAP: number = 4;
 
     public static TYPE: string = RoomObjectVisualizationType.FURNITURE_STATIC;
 
@@ -57,6 +61,9 @@ export class FurnitureVisualization extends RoomObjectSpriteVisualization
     private _highlightBaseSource: Filter[] = null;
     private _highlightSource: Filter[] = null;
     private _highlightCombined: Filter[] = null;
+    private _variableFxStack: VariableFxStack = null;
+    private _variableFxSprite: RoomObjectSprite = null;
+    private _variableFxSource: IRoomObjectVariableFxEntry[] = null;
 
     constructor()
     {
@@ -117,6 +124,8 @@ export class FurnitureVisualization extends RoomObjectSpriteVisualization
 
             this._windowReflectionPushed = false;
         }
+
+        this.disposeVariableFx();
 
         super.dispose();
 
@@ -232,6 +241,121 @@ export class FurnitureVisualization extends RoomObjectSpriteVisualization
                 this.updateWindowReflectionSource();
             }
         }
+
+        if(this.updateVariableFx()) this.updateSpriteCounter++;
+    }
+
+    /** The furni's sprites, then its wired variable fx stack while one shows (AIR's extra fx sprite). */
+    public get sprites(): IRoomObjectSprite[]
+    {
+        const sprites = super.sprites;
+        const fxSprite = this._variableFxSprite;
+
+        if(!sprites || !fxSprite || !fxSprite.visible || !fxSprite.texture) return sprites;
+
+        return [ ...sprites, fxSprite ];
+    }
+
+    /**
+     * Draws the wired variable fx the client set on the model, AIR's way: one sprite in front of the
+     * furni, centred over its drawn layers, its bottom 4 px above the topmost one. True when the fx
+     * sprite changed.
+     */
+    private updateVariableFx(): boolean
+    {
+        const model = this.object?.model;
+        const entries = (model ? model.getValue<IRoomObjectVariableFxEntry[]>(RoomObjectVariable.VARIABLE_FX_STACK) : null);
+
+        if(!this._variableFxStack)
+        {
+            if(!entries || !entries.length) return false;
+
+            this._variableFxStack = new VariableFxStack();
+            this._variableFxSprite = new RoomObjectSprite();
+            this._variableFxSprite.visible = false;
+        }
+
+        const now = Date.now();
+
+        if(entries !== this._variableFxSource)
+        {
+            this._variableFxSource = entries;
+
+            this._variableFxStack.setEntries((entries ?? []), now);
+        }
+
+        const sprite = this._variableFxSprite;
+        const anchor = this.getVariableFxAnchor();
+
+        if(!anchor)
+        {
+            if(!sprite.visible) return false;
+
+            sprite.visible = false;
+
+            return true;
+        }
+
+        const changed = this._variableFxStack.apply(sprite, anchor.x, anchor.y, now);
+
+        // Everything faded out and nothing new arrived: let the stack go.
+        if(this._variableFxStack.isEmpty && (!entries || !entries.length))
+        {
+            this.disposeVariableFx();
+
+            return true;
+        }
+
+        return changed;
+    }
+
+    /** Centre of the drawn layers and the stack bottom, relative to the furni position; null while nothing draws. */
+    private getVariableFxAnchor(): { x: number, y: number }
+    {
+        const totalSprites = this.totalSprites;
+        let found = false;
+        let minX = 0;
+        let maxX = 0;
+        let minY = 0;
+
+        for(let index = 0; index < totalSprites; index++)
+        {
+            const sprite = this.getSprite(index);
+
+            if(!sprite || !sprite.visible || !sprite.texture || (sprite.alpha <= 0) || (sprite.width <= 0) || (sprite.height <= 0)) continue;
+
+            const left = Math.trunc(sprite.flipH ? (sprite.offsetX - sprite.width) : sprite.offsetX);
+            const right = Math.trunc(left + sprite.width);
+            const top = Math.trunc(sprite.flipV ? (sprite.offsetY - sprite.height) : sprite.offsetY);
+
+            if(!found)
+            {
+                minX = left;
+                maxX = right;
+                minY = top;
+                found = true;
+
+                continue;
+            }
+
+            minX = Math.min(minX, left);
+            maxX = Math.max(maxX, right);
+            minY = Math.min(minY, top);
+        }
+
+        if(!found) return null;
+
+        return { x: Math.round((minX + maxX) / 2), y: (minY - FurnitureVisualization.VARIABLE_FX_STACK_GAP) };
+    }
+
+    private disposeVariableFx(): void
+    {
+        this._variableFxStack?.dispose();
+        this._variableFxSprite?.dispose();
+
+        this._variableFxStack = null;
+        this._variableFxSprite = null;
+        this._variableFxSource = null;
     }
 
     protected get pushesWindowReflection(): boolean

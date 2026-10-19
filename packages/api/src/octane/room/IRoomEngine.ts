@@ -6,7 +6,7 @@ import { IGetImageListener } from './IGetImageListener';
 import { IImageResult } from './IImageResult';
 import { IPetColorResult } from './IPetColorResult';
 import { IRoomObjectEventManager } from './IRoomObjectEventManager';
-import { IObjectData, IRoomMapData } from './object';
+import { IObjectData, IRoomMapData, IRoomObjectVariableFxEntry } from './object';
 
 export interface IRoomEngine
 {
@@ -78,6 +78,12 @@ export interface IRoomEngine
     useRoomObject(objectId: number, category: number): boolean;
     objectInitialized(roomId: string, objectId: number, category: number): void;
     changeObjectModelData(roomId: number, objectId: number, category: number, numberKey: string, numberValue: number): boolean;
+    /**
+     * Shows these wired variable fx on an avatar, pet or floor furni, drawn by its visualization as
+     * AIR does (stacked, fading in over 150 ms and out over 350 ms); fx left out fade out and leave.
+     * False when the object is not in the room (yet).
+     */
+    setRoomObjectVariableFx(roomId: number, objectId: number, category: number, entries: IRoomObjectVariableFxEntry[]): boolean;
     changeObjectState(roomId: number, objectId: number, category: number): void;
     processRoomObjectOperation(objectId: number, category: number, operation: string): boolean;
     rotateActiveObjectPreview(positive: boolean): boolean;

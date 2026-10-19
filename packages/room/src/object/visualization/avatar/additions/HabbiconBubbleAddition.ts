@@ -148,7 +148,7 @@ export class HabbiconBubbleAddition implements IAvatarAddition
         else if(this._visualization.posture === AvatarAction.POSTURE_LAY) offsetY += additionScale;
 
         sprite.offsetX = offsetX + this.resolveFrameAnchorCompensationX();
-        sprite.offsetY = offsetY - this._bitmapHeight + this.getIntroOffsetY(elapsed);
+        sprite.offsetY = offsetY - this._bitmapHeight + this.getIntroOffsetY(elapsed) - (this._visualization?.variableFxStackLift ?? 0);
         sprite.relativeDepth = HabbiconBubbleAddition.DEFAULT_RELATIVE_DEPTH;
     }
 
