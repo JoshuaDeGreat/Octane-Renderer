@@ -83,3 +83,40 @@ describe('RoomUnitChatParser bubble width override', () =>
         expect(parser.bubbleWidthOverride).toBe(-1);
     });
 });
+
+describe('RoomUnitChatParser hide username', () =>
+{
+    it('shows the name when the packet ends before the flag', () =>
+    {
+        const writer = chatPacket();
+        writer.writeInt(-1);
+        const parser = new RoomUnitChatParser();
+
+        expect(parser.parse(wrapper(writer))).toBe(true);
+        expect(parser.hideUsername).toBe(false);
+    });
+
+    it('reads the flag after the bubble width override', () =>
+    {
+        const writer = chatPacket();
+        writer.writeInt(1);
+        writer.writeByte(1);
+        const parser = new RoomUnitChatParser();
+
+        expect(parser.parse(wrapper(writer))).toBe(true);
+        expect(parser.bubbleWidthOverride).toBe(1);
+        expect(parser.hideUsername).toBe(true);
+    });
+
+    it('forgets the flag between packets', () =>
+    {
+        const parser = new RoomUnitChatParser();
+        const writer = chatPacket();
+        writer.writeInt(-1);
+        writer.writeByte(1);
+        parser.parse(wrapper(writer));
+        parser.flush();
+
+        expect(parser.hideUsername).toBe(false);
+    });
+});

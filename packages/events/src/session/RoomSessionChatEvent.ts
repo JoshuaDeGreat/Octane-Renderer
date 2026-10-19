@@ -36,8 +36,9 @@ export class RoomSessionChatEvent extends RoomSessionEvent
     private _nickIcon: string;
     private _displayOrder: string;
     private _bubbleWidthOverride: number;
+    private _hideUsername: boolean;
 
-    constructor(type: string, session: IRoomSession, objectId: number, message: string, chatType: number, style: number = 0, chatColours: string = '', links: string[] = null, extraParam: number = -1, prefixText: string = '', prefixColor: string = '', prefixIcon: string = '', prefixEffect: string = '', prefixFont: string = '', nickIcon: string = '', displayOrder: string = 'icon-prefix-name', bubbleWidthOverride: number = -1)
+    constructor(type: string, session: IRoomSession, objectId: number, message: string, chatType: number, style: number = 0, chatColours: string = '', links: string[] = null, extraParam: number = -1, prefixText: string = '', prefixColor: string = '', prefixIcon: string = '', prefixEffect: string = '', prefixFont: string = '', nickIcon: string = '', displayOrder: string = 'icon-prefix-name', bubbleWidthOverride: number = -1, hideUsername: boolean = false)
     {
         super(type, session);
 
@@ -56,6 +57,7 @@ export class RoomSessionChatEvent extends RoomSessionEvent
         this._nickIcon = nickIcon;
         this._displayOrder = displayOrder;
         this._bubbleWidthOverride = bubbleWidthOverride;
+        this._hideUsername = hideUsername;
     }
 
     public get objectId(): number
@@ -132,5 +134,11 @@ export class RoomSessionChatEvent extends RoomSessionEvent
     public get bubbleWidthOverride(): number
     {
         return this._bubbleWidthOverride;
+    }
+
+    /** True when the bubble shows the message without the speaker's name. */
+    public get hideUsername(): boolean
+    {
+        return this._hideUsername;
     }
 }

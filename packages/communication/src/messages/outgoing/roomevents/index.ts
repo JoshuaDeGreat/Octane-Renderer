@@ -31,6 +31,7 @@ export * from './WiredLeaderboardSubscribeComposer';
 export * from './WiredLinkCreateNetworkComposer';
 export * from './WiredLinkDeleteNetworkComposer';
 export * from './WiredLinkGetConnectionsComposer';
+export * from './WiredAddonShareSynchronizeComposer';
 export * from './WiredLinkRenameNetworkComposer';
 export * from './WiredLinkRequestConfigComposer';
 export * from './WiredLinkSaveSelectionComposer';
