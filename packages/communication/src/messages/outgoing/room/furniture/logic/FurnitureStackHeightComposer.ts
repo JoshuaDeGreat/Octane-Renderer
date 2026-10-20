@@ -4,9 +4,10 @@ export class FurnitureStackHeightComposer implements IMessageComposer<Constructo
 {
     private _data: ConstructorParameters<typeof FurnitureStackHeightComposer>;
 
-    constructor(itemId: number, height: number = -100)
+    // The multi-walk state rides on the same composer when the checkbox changes; the slider update omits it.
+    constructor(itemId: number, height: number = -100, multiWalk?: boolean)
     {
-        this._data = [itemId, height];
+        this._data = (multiWalk === undefined) ? [itemId, height] : [itemId, height, multiWalk];
     }
 
     public getMessageArray()
