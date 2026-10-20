@@ -7,6 +7,8 @@ export * from './UpdateTriggerMessageComposer';
 export * from './WiredMonitorRequestComposer';
 export * from './WiredFeatureCapabilitiesComposer';
 export * from './WiredRoomSettingsRequestComposer';
+export * from './WiredErrorLogsClearComposer';
+export * from './WiredErrorLogsRequestComposer';
 export * from './WiredRoomStatsRequestComposer';
 export * from './WiredRoomSettingsSaveComposer';
 export * from './WiredFurniRuntimeStateRequestComposer';

@@ -78,6 +78,8 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
     private _useObject: number;
     private _ownUser: boolean;
     private _habbiconTriggerSequence: number;
+    /** The habbicon bubble last started; kept after it finished so the same trigger is not shown twice. */
+    private _habbicon: HabbiconBubbleAddition = null;
     private _habbiconSpinOffset: number;
 
     private _isLaying: boolean;
@@ -943,27 +945,32 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
 
         const habbiconId = (model.getValue<number>(RoomObjectVariable.FIGURE_HABBICON) || 0);
         const habbiconTriggerSequence = (model.getValue<number>(RoomObjectVariable.FIGURE_HABBICON_TRIGGER_SEQUENCE) || 0);
-        const habbiconAddition = this.getAddition(AvatarVisualization.HABBICON_BUBBLE_ID) as HabbiconBubbleAddition;
         const habbiconSpinOffset = (model.getValue<number>(RoomObjectVariable.FIGURE_HABBICON_SPIN_OFFSET) || 0);
+        const variableFx = model.getValue<IRoomObjectVariableFxEntry[]>(RoomObjectVariable.VARIABLE_FX_STACK);
+        let stackAddition = this.getAddition(AvatarVisualization.VARIABLE_FX_STACK_ID) as VariableFxStackAddition;
 
+        // AIR stacks the habbicon at layer 100 of the same additions stack as the variable fx.
         if(habbiconId > 0)
         {
-            if(!habbiconAddition || (habbiconAddition.habbiconId !== habbiconId) || (habbiconTriggerSequence !== this._habbiconTriggerSequence))
+            if(!this._habbicon || (this._habbicon.habbiconId !== habbiconId) || (habbiconTriggerSequence !== this._habbiconTriggerSequence))
             {
-                this.removeAddition(AvatarVisualization.HABBICON_BUBBLE_ID);
-                this.addAddition(new HabbiconBubbleAddition(AvatarVisualization.HABBICON_BUBBLE_ID, habbiconId, habbiconTriggerSequence, this));
+                if(!stackAddition)
+                {
+                    stackAddition = this.addAddition(new VariableFxStackAddition(AvatarVisualization.VARIABLE_FX_STACK_ID, this)) as VariableFxStackAddition;
+                }
 
+                this._habbicon = new HabbiconBubbleAddition(AvatarVisualization.HABBICON_BUBBLE_ID, habbiconId, habbiconTriggerSequence, this);
                 this._habbiconTriggerSequence = habbiconTriggerSequence;
+
+                stackAddition?.setHabbicon(this._habbicon);
                 needsUpdate = true;
             }
         }
-        else
+        else if(this._habbicon)
         {
-            if(habbiconAddition)
-            {
-                this.removeAddition(AvatarVisualization.HABBICON_BUBBLE_ID);
-                needsUpdate = true;
-            }
+            stackAddition?.setHabbicon(null);
+            this._habbicon = null;
+            needsUpdate = true;
         }
 
         if(habbiconSpinOffset !== this._habbiconSpinOffset)
@@ -972,24 +979,27 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
             needsUpdate = true;
         }
 
-        // The wired variable fx the client set; the addition fades out what is no longer sent.
-        const variableFx = model.getValue<IRoomObjectVariableFxEntry[]>(RoomObjectVariable.VARIABLE_FX_STACK);
-        let variableFxAddition = this.getAddition(AvatarVisualization.VARIABLE_FX_STACK_ID) as VariableFxStackAddition;
-
+        // The wired variable fx the client set; the stack fades out what is no longer sent.
         if(variableFx)
         {
-            if(!variableFxAddition)
+            if(!stackAddition)
             {
-                variableFxAddition = this.addAddition(new VariableFxStackAddition(AvatarVisualization.VARIABLE_FX_STACK_ID, this)) as VariableFxStackAddition;
+                stackAddition = this.addAddition(new VariableFxStackAddition(AvatarVisualization.VARIABLE_FX_STACK_ID, this)) as VariableFxStackAddition;
                 needsUpdate = true;
             }
 
-            if(variableFxAddition?.setEntries(variableFx)) needsUpdate = true;
+            if(stackAddition?.setEntries(variableFx)) needsUpdate = true;
         }
-        else if(variableFxAddition)
+        else if(stackAddition)
         {
-            this.removeAddition(AvatarVisualization.VARIABLE_FX_STACK_ID);
-            needsUpdate = true;
+            if(!this._habbicon || this._habbicon.isFinished)
+            {
+                this.removeAddition(AvatarVisualization.VARIABLE_FX_STACK_ID);
+            }
+            else if(stackAddition.setEntries([]))
+            {
+                needsUpdate = true;
+            }
         }
 
         let expressionAddition = this.getAddition(AvatarVisualization.EXPRESSION_ID);
@@ -1613,15 +1623,6 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
     public get posture(): string
     {
         return this._posture;
-    }
-
-    /** How far a habbicon is lifted to sit above the variable fx stack (AIR stacks it on top). */
-    public get variableFxStackLift(): number
-    {
-        const addition = this.getAddition(AvatarVisualization.VARIABLE_FX_STACK_ID) as VariableFxStackAddition;
-        const height = (addition ? addition.stack.visibleHeight : 0);
-
-        return ((height > 0) ? (height + 4) : 0);
     }
 
     public get habbiconFacingDirection(): number

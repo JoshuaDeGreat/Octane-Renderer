@@ -10,5 +10,7 @@ export interface IRoomSessionManager
     removeSession(id: number, openLandingView?: boolean): void;
     tryRestoreSession(): boolean;
     getActiveRoomSessionSnapshot(): Readonly<IRoomSessionSnapshot> | null;
+    setPlayTestMode(enabled: boolean): void;
+    readonly playTestMode: boolean;
     viewerSession: IRoomSession;
 }

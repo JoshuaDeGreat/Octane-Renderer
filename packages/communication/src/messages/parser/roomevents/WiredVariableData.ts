@@ -1,5 +1,33 @@
 import { IMessageDataWrapper } from '@octane/api';
 
+/** Official variable targets (`WiredVariable.variableTarget`). */
+export const WiredVariableTarget = {
+    FURNI: 0,
+    USER: 1,
+    GLOBAL: -10,
+    CONTEXT: -20
+} as const;
+
+/**
+ * Official variable types (`WiredVariable.variableType`): made with a variable box, internal (`@`), a sub-variable
+ * of a box (level-up, quest and Time Utilities parts) and smart (`~`).
+ */
+export const WiredVariableType = {
+    CREATED: 0,
+    INTERNAL: 1,
+    SUB: 2,
+    SMART: 3
+} as const;
+
+/**
+ * A packed built-in value (`@position`, `@occupation`, the recolorable colour) arrives with an empty text connector
+ * table; AIR shows it unpacked as "x: 14, y: 22".
+ */
+export const isPackedWiredVariable = (variable: Pick<IWiredVariableData, 'textConnector' | 'variableType'>): boolean =>
+    variable.textConnector !== null
+    && variable.textConnector.length === 0
+    && (variable.variableType === WiredVariableType.INTERNAL || variable.variableType === WiredVariableType.SMART);
+
 /**
  * One wired variable definition as the official AIR 13 client reads it
  * (`package_215.WiredVariable`).

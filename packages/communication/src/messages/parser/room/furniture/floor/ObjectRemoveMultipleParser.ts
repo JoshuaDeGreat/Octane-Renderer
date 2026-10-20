@@ -2,18 +2,20 @@ import { IMessageDataWrapper, IMessageParser } from '@octane/api';
 
 /**
  * Official `class_2853` (`ObjectRemoveMultiple`, 1451): `int count [ int id ]
- * int pickerId`. `class_1902.onObjectRemoveMultiple` disposes every floor
+ * int pickerId bool byInvisibleFurniManager`. `class_1902.onObjectRemoveMultiple` disposes every floor
  * object and refreshes the tile object map once.
  */
 export class ObjectRemoveMultipleParser implements IMessageParser
 {
     private _ids: number[];
     private _pickerId: number;
+    private _byInvisibleFurniManager: boolean;
 
     public flush(): boolean
     {
         this._ids = [];
         this._pickerId = 0;
+        this._byInvisibleFurniManager = false;
 
         return true;
     }
@@ -34,6 +36,8 @@ export class ObjectRemoveMultipleParser implements IMessageParser
         }
 
         this._pickerId = wrapper.readInt();
+        // Read when it is there, so a server that predates the flag still parses.
+        this._byInvisibleFurniManager = wrapper.bytesAvailable ? wrapper.readBoolean() : false;
 
         return true;
     }
@@ -46,5 +50,11 @@ export class ObjectRemoveMultipleParser implements IMessageParser
     public get pickerId(): number
     {
         return this._pickerId;
+    }
+
+    /** AIR's trailing flag: the furni left because the invisible furni manager (an area hider) hid it, not for good. */
+    public get byInvisibleFurniManager(): boolean
+    {
+        return this._byInvisibleFurniManager;
     }
 }

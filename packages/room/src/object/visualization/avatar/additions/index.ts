@@ -6,6 +6,7 @@ export * from './GameClickTargetAddition';
 export * from './GuideStatusBubbleAddition';
 export * from './HabbiconAssetManager';
 export * from './HabbiconBubbleAddition';
+export * from './HabbiconStackVisualizer';
 export * from './IAvatarAddition';
 export * from './IExpressionAddition';
 export * from './MutedBubbleAddition';

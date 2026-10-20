@@ -36,6 +36,7 @@ export interface IRoomEngineServices
     removeObjectMoverIconSprite(): void;
     getRoomTileObjectMap(roomId: number): ITileObjectMap;
     isPlayingGame(): boolean;
+    readonly activeRoomHasFreeFurniMovementsMode: boolean;
     activeRoomId: number;
     isDecorating: boolean;
     moveBlocked: boolean;

@@ -2,6 +2,15 @@ import { IRoomObjectVariableFxEntry, IRoomObjectVariableFxFrame, IRoomObjectVari
 import { VariableFxStackMotion } from './VariableFxStackMotion';
 
 /**
+ * Another stacked addition in a holder's stack (AIR's StackedAdditions: the habbicon at layer 100):
+ * it draws and fades itself, and says when it is done.
+ */
+export interface IVariableFxStackedAdditionVisualizer extends IRoomObjectVariableFxVisualizer
+{
+    readonly isFinished: boolean;
+}
+
+/**
  * One fx in a holder's stack, as AIR's VariableFxStackAddition keeps it: it fades in over 150 ms
  * when shown, out over 350 ms when hidden or gone, and slides to its place in the pile with the
  * stack motion. A hidden fx stays in the stack at alpha 0; a gone one leaves once it has faded.
@@ -35,6 +44,7 @@ export class VariableFxStackEntry
     private _placed: boolean = false;
     private _inLayout: boolean = false;
     private _placedAt: number = 0;
+    private _addition: boolean = false;
 
     constructor(key: string)
     {
@@ -74,6 +84,38 @@ export class VariableFxStackEntry
         this._shown = true;
 
         return (this.startFade(255, VariableFxStackEntry.FADE_IN_DURATION_MS, now) || changed);
+    }
+
+    /**
+     * Takes a stacked addition of the holder's own (the habbicon): shown at once at full opacity,
+     * since it fades itself, until it reports it is done.
+     */
+    public showAddition(layer: number, createdAt: number, visualizer: IVariableFxStackedAdditionVisualizer): boolean
+    {
+        const same = (this._addition && (this.visualizer === visualizer));
+        const since = (same ? this.createdAt : createdAt);
+        const changed = ((this.layer !== layer) || (this.createdAt !== since) || (this.visualizer !== visualizer) || !this._shown);
+
+        this.layer = layer;
+        this.createdAt = since;
+        this.configId = 0;
+        this.variableId = '';
+        this.visualizer = visualizer;
+        this._addition = true;
+        this._shown = true;
+        this._invisible = false;
+        this._finished = false;
+        this._alpha = 255;
+        this._fadeStartAlpha = 255;
+        this._fadeTargetAlpha = 255;
+
+        return changed;
+    }
+
+    /** One of the holder's own additions rather than an fx the client sent. */
+    public get isAddition(): boolean
+    {
+        return this._addition;
     }
 
     /** The client no longer sends it: fade out, then leave the stack. */
@@ -199,6 +241,8 @@ export class VariableFxStackEntry
 
     public get isFinished(): boolean
     {
+        if(this._addition) return (this._finished || !!(this.visualizer as IVariableFxStackedAdditionVisualizer)?.isFinished);
+
         return this._finished;
     }
 

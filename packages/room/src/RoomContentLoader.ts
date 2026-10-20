@@ -19,9 +19,11 @@ export class RoomContentLoader implements IRoomContentLoader
     private static SELECTION_ARROW: string = 'selection_arrow';
     private static AVATAR_ADDITIONS: string = 'avatar_additions';
     private static FLOOR_EDITOR: string = 'floor_editor';
+    /** AIR's variable fx bars, hearts, badges, numbers and icons (the room visualization library's variablefx assets). */
+    private static VARIABLE_FX: string = 'variablefx';
     private static GROUP_BADGE: string = 'group_badge';
 
-    public static MANDATORY_LIBRARIES: string[] = [RoomContentLoader.PLACE_HOLDER, RoomContentLoader.PLACE_HOLDER_WALL, RoomContentLoader.PLACE_HOLDER_PET, RoomContentLoader.ROOM, RoomContentLoader.LANDSCAPE, RoomContentLoader.TILE_CURSOR, RoomContentLoader.SELECTION_ARROW, RoomContentLoader.AVATAR_ADDITIONS, RoomContentLoader.FLOOR_EDITOR, RoomContentLoader.GROUP_BADGE];
+    public static MANDATORY_LIBRARIES: string[] = [RoomContentLoader.PLACE_HOLDER, RoomContentLoader.PLACE_HOLDER_WALL, RoomContentLoader.PLACE_HOLDER_PET, RoomContentLoader.ROOM, RoomContentLoader.LANDSCAPE, RoomContentLoader.TILE_CURSOR, RoomContentLoader.SELECTION_ARROW, RoomContentLoader.AVATAR_ADDITIONS, RoomContentLoader.FLOOR_EDITOR, RoomContentLoader.GROUP_BADGE, RoomContentLoader.VARIABLE_FX];
 
     private _iconListener: IRoomContentListener;
     private _images: Map<string, HTMLImageElement> = new Map();
@@ -511,6 +513,8 @@ export class RoomContentLoader implements IRoomContentLoader
                 return ['local://floor_editor'];
             case RoomContentLoader.GROUP_BADGE:
                 return ['local://group_badge'];
+            case RoomContentLoader.VARIABLE_FX:
+                return ['local://variablefx'];
             default: {
                 const category = this.getCategoryForType(type);
 

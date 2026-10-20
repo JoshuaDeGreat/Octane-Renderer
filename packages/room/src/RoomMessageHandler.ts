@@ -947,7 +947,7 @@ export class RoomMessageHandler
             setTimeout(() =>
             {
                 this._activeConfInvisHiddenItemIds.delete(parser.itemId);
-                this._activeAreaHideControllers.delete(parser.itemId);
+                this.removeAreaHideController(parser.itemId);
                 this._roomEngine.removeRoomObjectFloor(this._currentRoomId, parser.itemId, (parser.isExpired) ? -1 : parser.userId, true);
                 this.applyAreaHideStateToRoomObjects();
             }, parser.delay);
@@ -955,7 +955,7 @@ export class RoomMessageHandler
         else
         {
             this._activeConfInvisHiddenItemIds.delete(parser.itemId);
-            this._activeAreaHideControllers.delete(parser.itemId);
+            this.removeAreaHideController(parser.itemId);
             this._roomEngine.removeRoomObjectFloor(this._currentRoomId, parser.itemId, (parser.isExpired) ? -1 : parser.userId, true);
             this.applyAreaHideStateToRoomObjects();
         }
@@ -978,7 +978,7 @@ export class RoomMessageHandler
         for(const itemId of parser.ids)
         {
             this._activeConfInvisHiddenItemIds.delete(itemId);
-            this._activeAreaHideControllers.delete(itemId);
+            this.removeAreaHideController(itemId);
             this._roomEngine.removeRoomObjectFloor(this._currentRoomId, itemId, parser.pickerId, true);
         }
 
@@ -1278,6 +1278,17 @@ export class RoomMessageHandler
         }
     }
 
+    /**
+     * A floor item left the room. When it was a switched-on area hider its floor hole goes with it,
+     * so the floor does not stay cut open until the room is reloaded.
+     */
+    private removeAreaHideController(itemId: number): void
+    {
+        if(!this._activeAreaHideControllers.delete(itemId)) return;
+
+        this._roomEngine?.updateAreaHide(this._currentRoomId, itemId, false, 0, 0, 0, 0, false);
+    }
+
     private applyAreaHideStateToRoomObjects(floorItemIds?: number[], wallItemIds?: number[]): void
     {
         this.applyAreaHideStateToFloorObjects(floorItemIds);
@@ -1444,9 +1455,9 @@ export class RoomMessageHandler
             return true;
         }
 
-        const stuffData = roomObject.model.getValue<number[]>(RoomObjectVariable.FURNITURE_DATA);
-
-        return Array.isArray(stuffData) && (stuffData.length >= 8);
+        // Only FurnitureAreaHideLogic (logic furniture_area_hide) writes the area into the model; any
+        // other int-array furni with eight or more values is not an area hider.
+        return (roomObject.model.getValue<number>(RoomObjectVariable.FURNITURE_AREA_HIDE_ROOT_X) !== undefined);
     }
 
     private scheduleAreaHideReapply(roomId: number): void
@@ -1722,6 +1733,8 @@ export class RoomMessageHandler
                             parameter = action.value;
                             break;
                         case 'trd': break;
+                        // AIR's wired status: it carries no posture, so it must not fall through to one.
+                        case 'wf': break;
                         case 'jmp':
                         case 'jmp-in':
                         case 'jmp-out':

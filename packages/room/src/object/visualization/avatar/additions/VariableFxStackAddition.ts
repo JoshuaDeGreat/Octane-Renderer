@@ -1,5 +1,6 @@
 import { AvatarAction, IRoomObjectSprite, IRoomObjectVariableFxEntry } from '@octane/api';
 import { VariableFxStack } from '../../variablefx/VariableFxStack';
+import { HabbiconStackVisualizer, IHabbiconStackSource } from './HabbiconStackVisualizer';
 import { IAvatarAddition } from './IAvatarAddition';
 
 /** What the stack needs of the avatar it sits on. */
@@ -9,17 +10,22 @@ export interface IVariableFxStackHolder
 }
 
 /**
- * The wired variable fx over an avatar (AIR's StackedAdditions, variable fx layer): one sprite that
- * holds the composed stack, its bottom 86 px above the avatar's feet (45 at the small zoom), lower
- * while sitting or lying, in front of the avatar.
+ * The stacked additions over an avatar (AIR's StackedAdditions): the wired variable fx at layer 0
+ * and the habbicon bubble at layer 100 on top of them, composed into one sprite whose bottom is
+ * 86 px above the avatar's feet (45 at the small zoom), lower while sitting or lying, in front of
+ * the avatar.
  */
 export class VariableFxStackAddition implements IAvatarAddition
 {
     public static ROOM_LARGE_STACK_BOTTOM_Y: number = -86;
     public static ROOM_SMALL_STACK_BOTTOM_Y: number = -45;
+    public static LAYER_VARIABLE_FX: number = 0;
+    public static LAYER_HABBICON: number = 100;
+    public static HABBICON_KEY: string = 'habbicon';
 
     private _stack: VariableFxStack = new VariableFxStack();
     private _scale: number = 64;
+    private _habbicon: HabbiconStackVisualizer = null;
 
     constructor(
         private _id: number,
@@ -44,6 +50,22 @@ export class VariableFxStackAddition implements IAvatarAddition
         return this._stack.setEntries(entries, now);
     }
 
+    /** Puts a habbicon bubble on top of the stack, replacing the one there; null takes it off. */
+    public setHabbicon(habbicon: IHabbiconStackSource, now: number = Date.now()): boolean
+    {
+        if(this._habbicon && (this._habbicon.source === habbicon)) return false;
+
+        this._habbicon?.dispose();
+        this._habbicon = (habbicon ? new HabbiconStackVisualizer(habbicon, () => this._scale) : null);
+
+        return this._stack.setAddition(VariableFxStackAddition.HABBICON_KEY, VariableFxStackAddition.LAYER_HABBICON, this._habbicon, now);
+    }
+
+    public get habbicon(): IHabbiconStackSource
+    {
+        return (this._habbicon ? this._habbicon.source : null);
+    }
+
     public update(sprite: IRoomObjectSprite, scale: number): void
     {
         this._scale = scale;
@@ -58,6 +80,8 @@ export class VariableFxStackAddition implements IAvatarAddition
 
     public dispose(): void
     {
+        this._habbicon?.dispose();
+        this._habbicon = null;
         this._stack.dispose();
         this._holder = null;
     }

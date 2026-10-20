@@ -1,6 +1,6 @@
 import { AlphaTolerance, IRoomObjectSprite, IRoomObjectVariableFxEntry } from '@octane/api';
 import { Texture } from 'pixi.js';
-import { VariableFxStackEntry } from './VariableFxStackEntry';
+import { IVariableFxStackedAdditionVisualizer, VariableFxStackEntry } from './VariableFxStackEntry';
 
 /** Where one drawn entry lands in the composed stack bitmap, and how opaque. */
 export interface IVariableFxStackPiece
@@ -164,7 +164,7 @@ export class VariableFxStack
 
         for(const entry of this._entries)
         {
-            if(!seen.has(entry.key) && entry.hide(now)) changed = true;
+            if(!entry.isAddition && !seen.has(entry.key) && entry.hide(now)) changed = true;
         }
 
         if(changed)
@@ -174,6 +174,42 @@ export class VariableFxStack
         }
 
         return changed;
+    }
+
+    /**
+     * Puts one of the holder's own stacked additions in the pile under `key` (AIR's StackedAdditions
+     * keeps the habbicon at layer 100, so it sits above every fx), or takes it out with null. It
+     * leaves on its own once its visualizer reports it is finished.
+     */
+    public setAddition(key: string, layer: number, visualizer: IVariableFxStackedAdditionVisualizer, now: number): boolean
+    {
+        if(this._disposed || !key) return false;
+
+        let entry = this.getEntry(key);
+
+        if(!visualizer)
+        {
+            if(!entry) return false;
+
+            this._entries.splice(this._entries.indexOf(entry), 1);
+            this._dirty = true;
+
+            return true;
+        }
+
+        if(!entry)
+        {
+            entry = new VariableFxStackEntry(key);
+
+            this._entries.push(entry);
+        }
+
+        if(!entry.showAddition(layer, now, visualizer)) return false;
+
+        this._sortNeeded = true;
+        this._dirty = true;
+
+        return true;
     }
 
     /**
@@ -252,7 +288,7 @@ export class VariableFxStack
 
         for(const entry of this._entries)
         {
-            if(entry.isFading || entry.isMoving) return true;
+            if(entry.isFading || entry.isMoving || entry.isAddition) return true;
         }
 
         return false;
@@ -263,10 +299,16 @@ export class VariableFxStack
         return !this._entries.length;
     }
 
-    /** The composed height while something shows; what a habbicon above the stack is lifted by. */
+    /** The composed height while something shows. */
     public get visibleHeight(): number
     {
         return (this._visible ? this._height : 0);
+    }
+
+    /** Whether a client fx (not one of the holder's own additions) is in the stack. */
+    public get hasClientEntries(): boolean
+    {
+        return this._entries.some(entry => !entry.isAddition);
     }
 
     public get entries(): ReadonlyArray<VariableFxStackEntry>

@@ -19,6 +19,7 @@ export class RoomSessionManager implements IRoomSessionManager, IRoomHandlerList
 
     private _sessionStarting: boolean = false;
     private _viewerSession: IRoomSession = null;
+    private _playTestMode: boolean = false;
 
     private _lastRoomId: number = -1;
     private _lastRoomPassword: string = null;
@@ -456,6 +457,9 @@ export class RoomSessionManager implements IRoomSessionManager, IRoomHandlerList
             return false;
         }
 
+        // AIR WiredMenuController onRoomSessionEvent(STARTED): every room entered takes the playtest preference over.
+        session.playTestMode = this._playTestMode;
+
         GetEventDispatcher().dispatchEvent(new RoomSessionEvent(RoomSessionEvent.STARTED, session));
 
         this.setHandlers(session);
@@ -558,6 +562,28 @@ export class RoomSessionManager implements IRoomSessionManager, IRoomHandlerList
     private getRoomId(id: number): string
     {
         return 'hard_coded_room_id';
+    }
+
+    /**
+     * AIR WiredMenuController.setPlayTestMode: the wired menu's playtest preference is put on the
+     * current room session and kept for every session started later.
+     */
+    public setPlayTestMode(enabled: boolean): void
+    {
+        this._playTestMode = !!enabled;
+
+        const session = this._viewerSession;
+
+        if(!session || (session.playTestMode === this._playTestMode)) return;
+
+        session.playTestMode = this._playTestMode;
+
+        this.invalidateRoomSessionSnapshot();
+    }
+
+    public get playTestMode(): boolean
+    {
+        return this._playTestMode;
     }
 
     public get viewerSession(): IRoomSession

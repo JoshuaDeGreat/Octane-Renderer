@@ -14,6 +14,8 @@ export class RoomObjectEventHandler implements IRoomCanvasMouseListener, IRoomOb
     private static readonly CLICK_USER_LOOK_DELAY_MS = 120;
     /** Furni whose ctrl-click pickup the client confirms first (the Variables Web API add-on). */
     public static readonly PICKUP_CONFIRM_TYPES: string[] = [ 'wf_xtra_var_web_api' ];
+    /** AIR RoomWidgetFurniInfoUsagePolicyEnum: 0 nobody, 1 rights holders, 2 everybody. */
+    private static readonly USAGE_POLICY_EVERYBODY = 2;
     private _eventIds: Map<number, Map<string, string>> = new Map();
 
     private _selectedAvatarId: number = -1;
@@ -1589,6 +1591,14 @@ export class RoomObjectEventHandler implements IRoomCanvasMouseListener, IRoomOb
     {
         if(!this._roomEngine || !GetCommunication().connection) return true;
 
+        // AIR useObject: in playtest mode only furni that everybody may use (usage policy 2) can be used.
+        if(this.isPlayTestRestricted(roomId))
+        {
+            const usagePolicy = (this._roomEngine.getRoomObject(roomId, objectId, category)?.model?.getValue<number>(RoomObjectVariable.FURNITURE_USAGE_POLICY) ?? 0);
+
+            if(usagePolicy < RoomObjectEventHandler.USAGE_POLICY_EVERYBODY) return false;
+        }
+
         if(category === RoomObjectCategory.FLOOR)
         {
             // A wired chest is used like any furni: the server answers with ChestOpen and the client then asks for the
@@ -1865,6 +1875,19 @@ export class RoomObjectEventHandler implements IRoomCanvasMouseListener, IRoomOb
         }
     }
 
+    /**
+     * AIR: the session's playtest mode (wired menu preference) makes the room act as for a visitor
+     * without rights, unless the room's free furni movements mode lets anyone move and use furni.
+     */
+    private isPlayTestRestricted(roomId: number): boolean
+    {
+        const session = GetRoomSessionManager()?.getSession(roomId);
+
+        if(!session || !session.playTestMode) return false;
+
+        return !this._roomEngine.activeRoomHasFreeFurniMovementsMode;
+    }
+
     public modifyRoomObject(roomId: number, objectId: number, category: number, operation: string): boolean
     {
         if(!this._roomEngine) return false;
@@ -1872,6 +1895,9 @@ export class RoomObjectEventHandler implements IRoomCanvasMouseListener, IRoomOb
         const roomObject = this._roomEngine.getRoomObject(roomId, objectId, category);
 
         if(!roomObject) return false;
+
+        // AIR modifyRoomObject: playtest mode refuses every move, rotate and pick up.
+        if(this.isPlayTestRestricted(roomId)) return false;
 
         let shouldReset = true;
 
