@@ -2,6 +2,7 @@ export * from './data';
 export * from './data/type';
 export * from './IPetFigureData';
 export * from './IRoomMapData';
+export * from './IRoomObjectVariableFx';
 export * from './RoomObjectCategory';
 export * from './RoomObjectLogicType';
 export * from './RoomObjectOperationType';

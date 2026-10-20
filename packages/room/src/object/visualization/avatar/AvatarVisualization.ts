@@ -1,4 +1,4 @@
-import { AlphaTolerance, AvatarAction, AvatarGuideStatus, AvatarSetType, IAdvancedMap, IAvatarEffectListener, IAvatarImage, IAvatarImageListener, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObject, IRoomObjectModel, IRoomObjectSprite, RoomObjectSpriteData, RoomObjectSpriteType, RoomObjectVariable } from '@octane/api';
+import { AlphaTolerance, AvatarAction, AvatarGuideStatus, AvatarSetType, IAdvancedMap, IAvatarEffectListener, IAvatarImage, IAvatarImageListener, IGraphicAsset, IObjectVisualizationData, IRoomGeometry, IRoomObject, IRoomObjectModel, IRoomObjectSprite, IRoomObjectVariableFxEntry, RoomObjectSpriteData, RoomObjectSpriteType, RoomObjectVariable } from '@octane/api';
 import { GetAssetManager, getHalfSizeTexture, halfSizeOffset, halfSizePadding, isPixelArtTexture } from '@octane/assets';
 import { AdvancedMap, GetRenderer, Vector3d } from '@octane/utils';
 import { Container, RenderTexture, Sprite, Texture } from 'pixi.js';
@@ -6,7 +6,7 @@ import { RoomObjectSpriteVisualization } from '../RoomObjectSpriteVisualization'
 import { RoomWindowReflectionState } from '../RoomWindowReflectionState';
 import { WiredHighlightFilterCache } from '../WiredHighlightFilters';
 import { AvatarVisualizationData } from './AvatarVisualizationData';
-import { ExpressionAdditionFactory, FloatingIdleZAddition, GameClickTargetAddition, GuideStatusBubbleAddition, HabbiconBubbleAddition, IAvatarAddition, MutedBubbleAddition, NumberBubbleAddition, TypingBubbleAddition } from './additions';
+import { ExpressionAdditionFactory, FloatingIdleZAddition, GameClickTargetAddition, GuideStatusBubbleAddition, HabbiconBubbleAddition, IAvatarAddition, MutedBubbleAddition, NumberBubbleAddition, TypingBubbleAddition, VariableFxStackAddition } from './additions';
 
 export class AvatarVisualization extends RoomObjectSpriteVisualization implements IAvatarImageListener, IAvatarEffectListener
 {
@@ -19,6 +19,7 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
     private static MUTED_BUBBLE_ID: number = 6;
     private static GUIDE_BUBBLE_ID: number = 7;
     private static HABBICON_BUBBLE_ID: number = 8;
+    private static VARIABLE_FX_STACK_ID: number = 9;
     private static OWN_USER_ID: number = 4;
     private static UPDATE_TIME_INCREASER: number = 41;
     // Like Habbo: purge cached actions unused for 60 s every 500 updates; the first purge is staggered.
@@ -77,6 +78,8 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
     private _useObject: number;
     private _ownUser: boolean;
     private _habbiconTriggerSequence: number;
+    /** The habbicon bubble last started; kept after it finished so the same trigger is not shown twice. */
+    private _habbicon: HabbiconBubbleAddition = null;
     private _habbiconSpinOffset: number;
 
     private _isLaying: boolean;
@@ -942,33 +945,61 @@ export class AvatarVisualization extends RoomObjectSpriteVisualization implement
 
         const habbiconId = (model.getValue<number>(RoomObjectVariable.FIGURE_HABBICON) || 0);
         const habbiconTriggerSequence = (model.getValue<number>(RoomObjectVariable.FIGURE_HABBICON_TRIGGER_SEQUENCE) || 0);
-        const habbiconAddition = this.getAddition(AvatarVisualization.HABBICON_BUBBLE_ID) as HabbiconBubbleAddition;
         const habbiconSpinOffset = (model.getValue<number>(RoomObjectVariable.FIGURE_HABBICON_SPIN_OFFSET) || 0);
+        const variableFx = model.getValue<IRoomObjectVariableFxEntry[]>(RoomObjectVariable.VARIABLE_FX_STACK);
+        let stackAddition = this.getAddition(AvatarVisualization.VARIABLE_FX_STACK_ID) as VariableFxStackAddition;
 
+        // AIR stacks the habbicon at layer 100 of the same additions stack as the variable fx.
         if(habbiconId > 0)
         {
-            if(!habbiconAddition || (habbiconAddition.habbiconId !== habbiconId) || (habbiconTriggerSequence !== this._habbiconTriggerSequence))
+            if(!this._habbicon || (this._habbicon.habbiconId !== habbiconId) || (habbiconTriggerSequence !== this._habbiconTriggerSequence))
             {
-                this.removeAddition(AvatarVisualization.HABBICON_BUBBLE_ID);
-                this.addAddition(new HabbiconBubbleAddition(AvatarVisualization.HABBICON_BUBBLE_ID, habbiconId, habbiconTriggerSequence, this));
+                if(!stackAddition)
+                {
+                    stackAddition = this.addAddition(new VariableFxStackAddition(AvatarVisualization.VARIABLE_FX_STACK_ID, this)) as VariableFxStackAddition;
+                }
 
+                this._habbicon = new HabbiconBubbleAddition(AvatarVisualization.HABBICON_BUBBLE_ID, habbiconId, habbiconTriggerSequence, this);
                 this._habbiconTriggerSequence = habbiconTriggerSequence;
+
+                stackAddition?.setHabbicon(this._habbicon);
                 needsUpdate = true;
             }
         }
-        else
+        else if(this._habbicon)
         {
-            if(habbiconAddition)
-            {
-                this.removeAddition(AvatarVisualization.HABBICON_BUBBLE_ID);
-                needsUpdate = true;
-            }
+            stackAddition?.setHabbicon(null);
+            this._habbicon = null;
+            needsUpdate = true;
         }
 
         if(habbiconSpinOffset !== this._habbiconSpinOffset)
         {
             this._habbiconSpinOffset = habbiconSpinOffset;
             needsUpdate = true;
+        }
+
+        // The wired variable fx the client set; the stack fades out what is no longer sent.
+        if(variableFx)
+        {
+            if(!stackAddition)
+            {
+                stackAddition = this.addAddition(new VariableFxStackAddition(AvatarVisualization.VARIABLE_FX_STACK_ID, this)) as VariableFxStackAddition;
+                needsUpdate = true;
+            }
+
+            if(stackAddition?.setEntries(variableFx)) needsUpdate = true;
+        }
+        else if(stackAddition)
+        {
+            if(!this._habbicon || this._habbicon.isFinished)
+            {
+                this.removeAddition(AvatarVisualization.VARIABLE_FX_STACK_ID);
+            }
+            else if(stackAddition.setEntries([]))
+            {
+                needsUpdate = true;
+            }
         }
 
         let expressionAddition = this.getAddition(AvatarVisualization.EXPRESSION_ID);

@@ -8,6 +8,8 @@ export * from './WiredFurniTriggerEvent';
 export * from './WiredMonitorDataEvent';
 export * from './WiredOpenEvent';
 export * from './WiredRoomSettingsDataEvent';
+export * from './WiredErrorLogsEvent';
+export * from './WiredRoomStatsEvent';
 export * from './WiredRewardResultMessageEvent';
 export * from './WiredSaveSuccessEvent';
 export * from './WiredUserVariablesDataEvent';

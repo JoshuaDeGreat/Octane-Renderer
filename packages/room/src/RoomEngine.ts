@@ -1,4 +1,4 @@
-import { IFurnitureStackingHeightMap, IGetImageListener, IImageResult, ILegacyWallGeometry, IObjectData, IPetColorResult, IPlaneDrawingData, IPetCustomPart, IRoomAreaSelectionManager, IRoomContentListener, IRoomContentLoader, IRoomCreator, IRoomEngine, IRoomEngineServices, IRoomGeometry, IRoomInstance, IRoomManager, IRoomManagerListener, IRoomObject, IRoomObjectController, IRoomRenderer, IRoomRenderingCanvas, IRoomSessionManager, ISelectedRoomObjectData, ISessionDataManager, ITileObjectMap, IUpdateReceiver, IVector3D, LegacyDataType, MouseEventType, ObjectDataFactory, PetFigureData, RoomControllerLevel, RoomObjectCategory, RoomObjectOperationType, RoomObjectUserType, RoomObjectVariable, ToolbarIconEnum } from '@octane/api';
+import { IFurnitureStackingHeightMap, IGetImageListener, IImageResult, ILegacyWallGeometry, IObjectData, IPetColorResult, IPlaneDrawingData, IPetCustomPart, IRoomAreaSelectionManager, IRoomContentListener, IRoomContentLoader, IRoomCreator, IRoomEngine, IRoomEngineServices, IRoomGeometry, IRoomInstance, IRoomManager, IRoomManagerListener, IRoomObject, IRoomObjectController, IRoomObjectVariableFxEntry, IRoomRenderer, IRoomRenderingCanvas, IRoomSessionManager, ISelectedRoomObjectData, ISessionDataManager, ITileObjectMap, IUpdateReceiver, IVector3D, LegacyDataType, MouseEventType, ObjectDataFactory, PetFigureData, RoomControllerLevel, RoomObjectCategory, RoomObjectOperationType, RoomObjectUserType, RoomObjectVariable, ToolbarIconEnum } from '@octane/api';
 import { GetCommunication, RenderRoomMessageComposer, RenderRoomThumbnailMessageComposer } from '@octane/communication';
 import { GetAssetManager } from '@octane/assets';
 import { GetConfiguration } from '@octane/configuration';
@@ -2468,6 +2468,18 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         const message = new ObjectModelDataUpdateMessage(numberKey, numberValue);
 
         roomObject.processUpdateMessage(message);
+
+        return true;
+    }
+
+    public setRoomObjectVariableFx(roomId: number, objectId: number, category: number, entries: IRoomObjectVariableFxEntry[]): boolean
+    {
+        const roomObject = this.getObject(this.getRoomId(roomId), objectId, category);
+
+        if(!roomObject || !roomObject.model) return false;
+
+        // A new array each time: the visualization reconciles it against what it draws.
+        roomObject.model.setValue<IRoomObjectVariableFxEntry[]>(RoomObjectVariable.VARIABLE_FX_STACK, (entries ? [ ...entries ] : []));
 
         return true;
     }

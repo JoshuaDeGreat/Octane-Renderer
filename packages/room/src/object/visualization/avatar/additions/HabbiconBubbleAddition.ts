@@ -38,6 +38,7 @@ export class HabbiconBubbleAddition implements IAvatarAddition
     private _complete: boolean = false;
     private _mirrorResolved: boolean = false;
     private _mirrored: boolean = false;
+    private _partOfStack: boolean = false;
 
     constructor(
         private _id: number,
@@ -137,19 +138,49 @@ export class HabbiconBubbleAddition implements IAvatarAddition
         return this._triggerSequence;
     }
 
+    /**
+     * In the avatar's stacked additions (AIR's layer 100, above the variable fx) the stack places
+     * the bubble: its offset is then only the intro slide, the stack bottom and posture are the
+     * stack's.
+     */
+    public get isPartOfStack(): boolean
+    {
+        return this._partOfStack;
+    }
+
+    public set isPartOfStack(value: boolean)
+    {
+        this._partOfStack = value;
+    }
+
+    /** Shown and faded out completely. */
+    public get isFinished(): boolean
+    {
+        return this._complete;
+    }
+
     private applyOffsets(sprite: IRoomObjectSprite, elapsed: number): void
     {
         const small = this._scale < 48;
         const additionScale = small ? 32 : 64;
         const offsetX = small ? HabbiconBubbleAddition.ROOM_SMALL_OFFSET_X : HabbiconBubbleAddition.ROOM_LARGE_OFFSET_X;
+
+        sprite.offsetX = offsetX + this.resolveFrameAnchorCompensationX();
+        sprite.relativeDepth = HabbiconBubbleAddition.DEFAULT_RELATIVE_DEPTH;
+
+        if(this._partOfStack)
+        {
+            sprite.offsetY = this.getIntroOffsetY(elapsed);
+
+            return;
+        }
+
         let offsetY = small ? HabbiconBubbleAddition.ROOM_SMALL_STACK_BOTTOM_Y : HabbiconBubbleAddition.ROOM_LARGE_STACK_BOTTOM_Y;
 
         if(this._visualization.posture === AvatarAction.POSTURE_SIT) offsetY += (additionScale / 2);
         else if(this._visualization.posture === AvatarAction.POSTURE_LAY) offsetY += additionScale;
 
-        sprite.offsetX = offsetX + this.resolveFrameAnchorCompensationX();
         sprite.offsetY = offsetY - this._bitmapHeight + this.getIntroOffsetY(elapsed);
-        sprite.relativeDepth = HabbiconBubbleAddition.DEFAULT_RELATIVE_DEPTH;
     }
 
     private applyFrame(sprite: IRoomObjectSprite, texture: Texture): void

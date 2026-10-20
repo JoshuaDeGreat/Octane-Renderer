@@ -1,13 +1,14 @@
 import { IMessageDataWrapper, IMessageParser } from '@octane/api';
 
+/**
+ * The detail behind the latest occurrence of one diagnostic type. Its category, count and latest time are AIR's error
+ * list (WiredErrorLogsParser, 15).
+ */
 export interface IWiredMonitorLogData
 {
-    amount: number;
-    latestOccurrenceSeconds: number;
     latestReason: string;
     latestSourceId: number;
     latestSourceLabel: string;
-    severity: string;
     type: string;
 }
 
@@ -99,9 +100,6 @@ export class WiredMonitorDataParser implements IMessageParser
         {
             this._logs.push({
                 type: wrapper.readString(),
-                severity: wrapper.readString(),
-                amount: wrapper.readInt(),
-                latestOccurrenceSeconds: wrapper.readInt(),
                 latestReason: wrapper.readString(),
                 latestSourceLabel: wrapper.readString(),
                 latestSourceId: wrapper.readInt()

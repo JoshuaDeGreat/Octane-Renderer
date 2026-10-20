@@ -12,6 +12,8 @@ export * from './WiredFurniRuntimeStateParser';
 export * from './WiredFurniTriggerParser';
 export * from './WiredMonitorDataParser';
 export * from './WiredRoomSettingsDataParser';
+export * from './WiredErrorLogsParser';
+export * from './WiredRoomStatsParser';
 export * from './WiredOpenParser';
 export * from './WiredRewardResultMessageParser';
 export * from './WiredSaveSuccessParser';

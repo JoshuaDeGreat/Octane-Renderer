@@ -289,6 +289,7 @@ export class AssetManager implements IAssetManager
             case 'avatar_additions':
             case 'floor_editor':
             case 'group_badge':
+            case 'variablefx':
                 await this.loadLocalAsset(key);
                 return true;
             default:
@@ -406,6 +407,9 @@ export class AssetManager implements IAssetManager
                 break;
             case 'group_badge':
                 dataModule = await import('./assets/group_badge/group_badge.asset.json');
+                break;
+            case 'variablefx':
+                dataModule = await import('./assets/variablefx/variablefx.asset.json');
                 break;
             default:
                 return;

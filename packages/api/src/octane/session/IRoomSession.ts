@@ -58,6 +58,7 @@ export interface IRoomSession
     doorMode: number;
     allowPets: boolean;
     controllerLevel: number;
+    playTestMode: boolean;
     ownRoomIndex: number;
     groupId: number;
     hotelTimeZone: string;

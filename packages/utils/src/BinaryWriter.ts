@@ -2,18 +2,12 @@ import { IBinaryWriter } from '@octane/api';
 
 export class BinaryWriter implements IBinaryWriter
 {
-    private static readonly TEXT_ENCODER = new TextEncoder();
-    private static readonly INITIAL_CAPACITY = 64;
-
-    // `_buffer` is spare capacity; only the first `_length` bytes have been written.
     private _buffer: Uint8Array;
-    private _length: number;
     private _position: number;
 
     constructor()
     {
-        this._buffer = new Uint8Array(BinaryWriter.INITIAL_CAPACITY);
-        this._length = 0;
+        this._buffer = new Uint8Array();
         this._position = 0;
     }
 
@@ -65,7 +59,7 @@ export class BinaryWriter implements IBinaryWriter
 
     public writeString(string: string, includeLength: boolean = true): IBinaryWriter
     {
-        const array = BinaryWriter.TEXT_ENCODER.encode(string);
+        const array = new TextEncoder().encode(string);
 
         if(includeLength)
         {
@@ -84,27 +78,18 @@ export class BinaryWriter implements IBinaryWriter
     {
         if(!array) return;
 
-        const end = this.position + array.length;
+        const mergedArray = new Uint8Array(((this.position + array.length) > this._buffer.length) ? (this.position + array.length) : this._buffer.length);
 
-        if(end > this._buffer.length)
-        {
-            const grown = new Uint8Array(Math.max(end, this._buffer.length * 2));
+        mergedArray.set(this._buffer);
+        mergedArray.set(array, this.position);
 
-            grown.set(this._buffer.subarray(0, this._length));
-
-            this._buffer = grown;
-        }
-
-        this._buffer.set(array, this.position);
-
-        if(end > this._length) this._length = end;
-
-        this.position = end;
+        this._buffer = mergedArray;
+        this.position += array.length;
     }
 
     public getBuffer(): ArrayBuffer
     {
-        return this._buffer.slice(0, this._length).buffer;
+        return this._buffer.buffer as ArrayBuffer;
     }
 
     public get position(): number
@@ -119,6 +104,6 @@ export class BinaryWriter implements IBinaryWriter
 
     public toString(encoding?: string): string
     {
-        return new TextDecoder(encoding).decode(this._buffer.subarray(0, this._length));
+        return new TextDecoder(encoding).decode(this._buffer);
     }
 }

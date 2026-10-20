@@ -325,6 +325,11 @@ export class OutgoingHeader
     public static WIRED_CONDITION_SAVE = 3203;
     public static WIRED_MONITOR_REQUEST = 10021;
     public static WIRED_ROOM_SETTINGS_REQUEST = 10022;
+    // AIR wired menu monitor room stats request; answered by WIRED_ROOM_STATS (1891).
+    public static WIRED_ROOM_STATS_REQUEST = 1957;
+    // AIR wired menu monitor error list request and "Clear all"; both answered by WIRED_ERROR_LOGS (15).
+    public static WIRED_ERROR_LOGS_REQUEST = 1132;
+    public static WIRED_ERROR_LOGS_CLEAR = 1632;
     public static WIRED_ROOM_SETTINGS_SAVE = 10023;
     public static WIRED_USER_VARIABLES_REQUEST = 10024;
     public static WIRED_USER_VARIABLE_UPDATE = 10025;

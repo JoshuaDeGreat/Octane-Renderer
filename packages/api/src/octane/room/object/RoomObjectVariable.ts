@@ -40,6 +40,8 @@ export class RoomObjectVariable
     public static FIGURE_HABBICON_TRIGGER_SEQUENCE: string = 'figure_habbicon_trigger_sequence';
     public static FIGURE_HABBICON_SPIN_OFFSET: string = 'figure_habbicon_spin_offset';
     public static HEAD_DIRECTION: string = 'head_direction';
+    /** The wired variable fx a holder (avatar, pet or floor furni) shows, as IRoomObjectVariableFxEntry[]. */
+    public static VARIABLE_FX_STACK: string = 'variable_fx_stack';
     public static FURNITURE_CUSTOM_VARIABLES: string = 'furniture_custom_variables';
     public static FURNITURE_AUTOMATIC_STATE_INDEX: string = 'furniture_automatic_state_index';
     public static FURNITURE_ALWAYS_STACKABLE: string = 'furniture_always_stackable';

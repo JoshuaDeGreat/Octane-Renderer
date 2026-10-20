@@ -16,6 +16,7 @@ export class RoomSession implements IRoomSession
     private _doorMode: number = 0;
     private _allowPets: boolean = false;
     private _controllerLevel: number = RoomControllerLevel.NONE;
+    private _playTestMode: boolean = false;
     private _ownRoomIndex: number = -1;
     private _groupId: number = 0;
     private _hotelTimeZone: string = 'UTC';
@@ -397,9 +398,28 @@ export class RoomSession implements IRoomSession
         this._allowPets = flag;
     }
 
+    /** AIR `RoomSession.controllerLevel`: playtest mode reports the user as a visitor without rights. */
     public get controllerLevel(): number
     {
+        if(this._playTestMode) return RoomControllerLevel.NONE;
+
         return this._controllerLevel;
+    }
+
+    /**
+     * AIR `RoomSession.playTestMode`, set from the wired menu preference: while it is on the room
+     * behaves as for a visitor without rights (controllerLevel reads NONE, the room engine refuses
+     * furni operations and the use of furni that only rights holders may use). The level the server
+     * gave stays stored and comes back when it is switched off.
+     */
+    public get playTestMode(): boolean
+    {
+        return this._playTestMode;
+    }
+
+    public set playTestMode(flag: boolean)
+    {
+        this._playTestMode = !!flag;
     }
 
     public get ownRoomIndex(): number

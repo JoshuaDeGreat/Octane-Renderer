@@ -1,6 +1,6 @@
 import { BinaryReader, BinaryWriter } from '@octane/utils';
 import { describe, expect, it } from 'vitest';
-import { parseWiredVariableData } from './WiredVariableData';
+import { isPackedWiredVariable, parseWiredVariableData, WiredVariableTarget, WiredVariableType } from './WiredVariableData';
 
 class TestWrapper
 {
@@ -97,5 +97,39 @@ describe('parseWiredVariableData', () =>
         expect(data.textConnector).toEqual([]);
         expect(data.textConnectorFallback).toBeNull();
         expect(reader.readInt()).toBe(12345);
+    });
+
+    it('reads the official negative targets and the built-in ids', () =>
+    {
+        const writer = new BinaryWriter();
+        writer.writeString('-125');
+        writer.writeInt(WiredVariableType.INTERNAL);
+        writer.writeString('@position');
+        writer.writeInt(0);
+        writer.writeInt(WiredVariableTarget.FURNI);
+        for(const flag of [ true, false, true, true, true, false, false, false, false ]) writer.writeByte(flag ? 1 : 0);
+        writer.writeByte(1);
+        writer.writeInt(0);
+        writer.writeByte(0);
+        writer.writeString('room:4');
+        writer.writeInt(WiredVariableType.CREATED);
+        writer.writeString('round');
+        writer.writeInt(10);
+        writer.writeInt(WiredVariableTarget.GLOBAL);
+        for(const flag of [ true, false, true, true, true, false, false, true, true ]) writer.writeByte(flag ? 1 : 0);
+        writer.writeByte(0);
+
+        const reader = wrapper(writer);
+        const position = parseWiredVariableData(reader);
+        const round = parseWiredVariableData(reader);
+
+        expect(position.variableId).toBe('-125');
+        expect(position.variableTarget).toBe(0);
+        expect(position.alwaysAvailable).toBe(true);
+        expect(position.canCreateAndDelete).toBe(false);
+        expect(isPackedWiredVariable(position)).toBe(true);
+        expect(round.variableTarget).toBe(-10);
+        expect(round.canReadCreationTime).toBe(true);
+        expect(isPackedWiredVariable(round)).toBe(false);
     });
 });

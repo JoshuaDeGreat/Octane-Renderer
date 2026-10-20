@@ -979,7 +979,7 @@ export class RoomMessageHandler
         {
             this._activeConfInvisHiddenItemIds.delete(itemId);
             this._activeAreaHideControllers.delete(itemId);
-            this._roomEngine.removeRoomObjectFloor(this._currentRoomId, itemId, parser.pickerId, false);
+            this._roomEngine.removeRoomObjectFloor(this._currentRoomId, itemId, parser.pickerId, true);
         }
 
         this._roomEngine.refreshTileObjectMap(this._currentRoomId, 'RoomMessageHandler.onObjectRemoveMultipleEvent()');
@@ -1722,6 +1722,8 @@ export class RoomMessageHandler
                             parameter = action.value;
                             break;
                         case 'trd': break;
+                        // AIR's wired status: it carries no posture, so it must not fall through to one.
+                        case 'wf': break;
                         case 'jmp':
                         case 'jmp-in':
                         case 'jmp-out':
