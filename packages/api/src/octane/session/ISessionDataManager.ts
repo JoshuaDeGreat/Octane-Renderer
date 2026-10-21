@@ -60,6 +60,7 @@ export interface ISessionDataManager
     isEmailVerified: boolean;
     isSafetyLocked: boolean;
     isNoob: boolean;
+    readonly isFirstLoginOfDay: boolean;
     isRealNoob: boolean;
     isSystemOpen: boolean;
     isSystemShutdown: boolean;
