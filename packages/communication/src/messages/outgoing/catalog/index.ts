@@ -27,6 +27,8 @@ export * from './GetClubGiftInfo';
 export * from './GetClubOffersMessageComposer';
 export * from './GetDirectClubBuyAvailableComposer';
 export * from './GetGiftWrappingConfigurationComposer';
+export * from './GetHasClaimedProductComposer';
+export * from './ClaimFreeProductComposer';
 export * from './GetHabboBasicMembershipExtendOfferComposer';
 export * from './GetHabboClubExtendOfferMessageComposer';
 export * from './GetIsOfferGiftableComposer';

@@ -16,3 +16,7 @@ export * from './RoomSettingsSavedParser';
 export * from './RoomSettingsSaveErrorParser';
 export * from './ShowEnforceRoomCategoryDialogParser';
 export * from './UserUnbannedFromRoomParser';
+export * from './RaidProtectionCapabilityParser';
+export * from './RaidProtectionSaveResultParser';
+export * from './RaidProtectionSettingsParser';
+export * from './RaidProtectionSettingsSnapshot';

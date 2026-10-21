@@ -10,3 +10,6 @@ export * from './RoomSettingsSavedEvent';
 export * from './RoomSettingsSaveErrorEvent';
 export * from './ShowEnforceRoomCategoryDialogEvent';
 export * from './UserUnbannedFromRoomEvent';
+export * from './RaidProtectionCapabilityEvent';
+export * from './RaidProtectionSaveResultEvent';
+export * from './RaidProtectionSettingsEvent';
