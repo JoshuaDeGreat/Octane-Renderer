@@ -1,0 +1,341 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`RoomEngine room instance setup > adds the avatar arrow when the configuration asks for it > arrow 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x 1",
+    "instance.setValue room_max_x 12",
+    "instance.setValue room_min_y 2",
+    "instance.setValue room_max_y 9",
+    "object.setValue room_random_seed 77882",
+    "logic.initialize {"dimensions":{"minX":1,"maxX":12,"minY":2,"maxY":9},"doors":[]}",
+    "create -2 tile_cursor 200",
+    "create -3 selection_arrow 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > creates the room object, the model defaults and the cursor 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x 1",
+    "instance.setValue room_max_x 12",
+    "instance.setValue room_min_y 2",
+    "instance.setValue room_max_y 9",
+    "object.setValue room_random_seed 77882",
+    "logic.initialize {"dimensions":{"minX":1,"maxX":12,"minY":2,"maxY":9},"doors":[]}",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > masks every door and publishes the position of the ones facing 90 or 180 > door 0 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x 1",
+    "instance.setValue room_max_x 12",
+    "instance.setValue room_min_y 2",
+    "instance.setValue room_max_y 9",
+    "object.setValue room_random_seed 77882",
+    "logic.initialize {"dimensions":{"minX":1,"maxX":12,"minY":2,"maxY":9},"doors":[{"x":3,"y":4,"z":1,"dir":0}]}",
+    "logic.process ObjectRoomMaskUpdateMessage {"_location":null,"_direction":null,"_type":"RORMUM_ADD_MASK","_maskId":"door_0","_maskType":"door","_maskLocation":{"_x":3,"_y":4,"_z":1,"_length":null},"_maskCategory":"hole"}",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > masks every door and publishes the position of the ones facing 90 or 180 > door 90 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x 1",
+    "instance.setValue room_max_x 12",
+    "instance.setValue room_min_y 2",
+    "instance.setValue room_max_y 9",
+    "object.setValue room_random_seed 77882",
+    "logic.initialize {"dimensions":{"minX":1,"maxX":12,"minY":2,"maxY":9},"doors":[{"x":3,"y":4,"z":1,"dir":90}]}",
+    "logic.process ObjectRoomMaskUpdateMessage {"_location":null,"_direction":null,"_type":"RORMUM_ADD_MASK","_maskId":"door_0","_maskType":"door","_maskLocation":{"_x":3,"_y":4,"_z":1,"_length":null},"_maskCategory":"hole"}",
+    "instance.setValue room_door_x 2.5",
+    "instance.setValue room_door_y 4",
+    "instance.setValue room_door_z 1",
+    "instance.setValue room_door_dir 90",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > masks every door and publishes the position of the ones facing 90 or 180 > door 180 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x 1",
+    "instance.setValue room_max_x 12",
+    "instance.setValue room_min_y 2",
+    "instance.setValue room_max_y 9",
+    "object.setValue room_random_seed 77882",
+    "logic.initialize {"dimensions":{"minX":1,"maxX":12,"minY":2,"maxY":9},"doors":[{"x":3,"y":4,"z":1,"dir":180}]}",
+    "logic.process ObjectRoomMaskUpdateMessage {"_location":null,"_direction":null,"_type":"RORMUM_ADD_MASK","_maskId":"door_0","_maskType":"door","_maskLocation":{"_x":3,"_y":4,"_z":1,"_length":null},"_maskCategory":"hole"}",
+    "instance.setValue room_door_x 3",
+    "instance.setValue room_door_y 3.5",
+    "instance.setValue room_door_z 1",
+    "instance.setValue room_door_dir 180",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > masks every door and publishes the position of the ones facing 90 or 180 > several doors 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x 1",
+    "instance.setValue room_max_x 12",
+    "instance.setValue room_min_y 2",
+    "instance.setValue room_max_y 9",
+    "object.setValue room_random_seed 77882",
+    "logic.initialize {"dimensions":{"minX":1,"maxX":12,"minY":2,"maxY":9},"doors":[{"x":1,"y":1,"z":0,"dir":90},null,{"x":2,"y":6,"z":2,"dir":180},{"x":5,"y":5,"z":0,"dir":270}]}",
+    "logic.process ObjectRoomMaskUpdateMessage {"_location":null,"_direction":null,"_type":"RORMUM_ADD_MASK","_maskId":"door_0","_maskType":"door","_maskLocation":{"_x":1,"_y":1,"_z":0,"_length":null},"_maskCategory":"hole"}",
+    "instance.setValue room_door_x 0.5",
+    "instance.setValue room_door_y 1",
+    "instance.setValue room_door_z 0",
+    "instance.setValue room_door_dir 90",
+    "logic.process ObjectRoomMaskUpdateMessage {"_location":null,"_direction":null,"_type":"RORMUM_ADD_MASK","_maskId":"door_2","_maskType":"door","_maskLocation":{"_x":2,"_y":6,"_z":2,"_length":null},"_maskCategory":"hole"}",
+    "instance.setValue room_door_x 2",
+    "instance.setValue room_door_y 5.5",
+    "instance.setValue room_door_z 2",
+    "instance.setValue room_door_dir 180",
+    "logic.process ObjectRoomMaskUpdateMessage {"_location":null,"_direction":null,"_type":"RORMUM_ADD_MASK","_maskId":"door_3","_maskType":"door","_maskLocation":{"_x":5,"_y":5,"_z":0,"_length":null},"_maskCategory":"hole"}",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > returns early without a manager or an instance > no instance 1`] = `
+{
+  "log": [],
+  "returned": null,
+}
+`;
+
+exports[`RoomEngine room instance setup > returns early without a manager or an instance > no manager 1`] = `
+{
+  "log": [],
+  "returned": undefined,
+}
+`;
+
+exports[`RoomEngine room instance setup > sends the floor, wall and landscape types it was given, each only when set > all three 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x 1",
+    "instance.setValue room_max_x 12",
+    "instance.setValue room_min_y 2",
+    "instance.setValue room_max_y 9",
+    "object.setValue room_random_seed 77882",
+    "logic.initialize {"dimensions":{"minX":1,"maxX":12,"minY":2,"maxY":9},"doors":[]}",
+    "logic.process ObjectRoomUpdateMessage {"_location":null,"_direction":null,"_type":"RORUM_ROOM_FLOOR_UPDATE","_value":"101"}",
+    "instance.setValue room_floor_type "101"",
+    "logic.process ObjectRoomUpdateMessage {"_location":null,"_direction":null,"_type":"RORUM_ROOM_WALL_UPDATE","_value":"202"}",
+    "instance.setValue room_wall_type "202"",
+    "logic.process ObjectRoomUpdateMessage {"_location":null,"_direction":null,"_type":"RORUM_ROOM_LANDSCAPE_UPDATE","_value":"303"}",
+    "instance.setValue room_landscape_type "303"",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > sends the floor, wall and landscape types it was given, each only when set > floor only 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x 1",
+    "instance.setValue room_max_x 12",
+    "instance.setValue room_min_y 2",
+    "instance.setValue room_max_y 9",
+    "object.setValue room_random_seed 77882",
+    "logic.initialize {"dimensions":{"minX":1,"maxX":12,"minY":2,"maxY":9},"doors":[]}",
+    "logic.process ObjectRoomUpdateMessage {"_location":null,"_direction":null,"_type":"RORUM_ROOM_FLOOR_UPDATE","_value":"101"}",
+    "instance.setValue room_floor_type "101"",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > sends the floor, wall and landscape types it was given, each only when set > landscape only 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x 1",
+    "instance.setValue room_max_x 12",
+    "instance.setValue room_min_y 2",
+    "instance.setValue room_max_y 9",
+    "object.setValue room_random_seed 77882",
+    "logic.initialize {"dimensions":{"minX":1,"maxX":12,"minY":2,"maxY":9},"doors":[]}",
+    "logic.process ObjectRoomUpdateMessage {"_location":null,"_direction":null,"_type":"RORUM_ROOM_LANDSCAPE_UPDATE","_value":"303"}",
+    "instance.setValue room_landscape_type "303"",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > sends the floor, wall and landscape types it was given, each only when set > wall only 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x 1",
+    "instance.setValue room_max_x 12",
+    "instance.setValue room_min_y 2",
+    "instance.setValue room_max_y 9",
+    "object.setValue room_random_seed 77882",
+    "logic.initialize {"dimensions":{"minX":1,"maxX":12,"minY":2,"maxY":9},"doors":[]}",
+    "logic.process ObjectRoomUpdateMessage {"_location":null,"_direction":null,"_type":"RORUM_ROOM_WALL_UPDATE","_value":"202"}",
+    "instance.setValue room_wall_type "202"",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > stores the bounds and a seed made from them > bounds 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x 0",
+    "instance.setValue room_max_x 30",
+    "instance.setValue room_min_y 4",
+    "instance.setValue room_max_y 28",
+    "object.setValue room_random_seed 234034",
+    "logic.initialize {"dimensions":{"minX":0,"maxX":30,"minY":4,"maxY":28},"doors":[]}",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > stores the bounds and a seed made from them > negative bounds 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x -3",
+    "instance.setValue room_max_x 7",
+    "instance.setValue room_min_y -1",
+    "instance.setValue room_max_y 5",
+    "object.setValue room_random_seed 40060",
+    "logic.initialize {"dimensions":{"minX":-3,"maxX":7,"minY":-1,"maxY":5},"doors":[]}",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > stores the bounds and a seed made from them > no dimensions 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "logic.initialize {"dimensions":null,"doors":[]}",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > stores the bounds and a seed made from them > no map 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "logic.initialize null",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > survives a room object without logic when there are no doors > no logic 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x 1",
+    "instance.setValue room_max_x 12",
+    "instance.setValue room_min_y 2",
+    "instance.setValue room_max_y 9",
+    "object.setValue room_random_seed 77882",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
+
+exports[`RoomEngine room instance setup > survives a room object without logic when there are no doors > no room object 1`] = `
+{
+  "log": [
+    "createRoomInstance room_5",
+    "create -1 room 0",
+    "instance.setValue room_is_public 0",
+    "instance.setValue room_z_scale 1",
+    "instance.setValue room_min_x 1",
+    "instance.setValue room_max_x 12",
+    "instance.setValue room_min_y 2",
+    "instance.setValue room_max_y 9",
+    "create -2 tile_cursor 200",
+  ],
+  "returned": "instance",
+}
+`;
