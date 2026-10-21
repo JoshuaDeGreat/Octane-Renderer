@@ -1,5 +1,5 @@
 import { IFurnitureData, IGroupInformationManager, IMessageComposer, IMessageEvent, IProductData, ISessionDataManager, IUserDataSnapshot, NoobnessLevelEnum, SecurityLevel } from '@octane/api';
-import { AccountSafetyLockStatusChangeMessageEvent, AccountSafetyLockStatusChangeParser, AvailabilityStatusMessageEvent, PetRespectFailedEvent, ReplenishRespectComposer, UpdateUIFlagsComposer, ChangeUserNameResultMessageEvent, EmailStatusResultEvent, FigureUpdateEvent, FurnitureDataReloadEvent, GetCommunication, GetUserTagsComposer, InClientLinkEvent, MysteryBoxKeysEvent, NoobnessLevelMessageEvent, PetRespectComposer, PetScratchFailedMessageEvent, RoomReadyMessageEvent, RoomUnitChatComposer, UserInfoEvent, UserNameChangeMessageEvent, UserPermissionsEvent, UserRespectComposer, UserTagsMessageEvent } from '@octane/communication';
+import { AccountSafetyLockStatusChangeMessageEvent, AccountSafetyLockStatusChangeParser, AvailabilityStatusMessageEvent, PetRespectFailedEvent, ReplenishRespectComposer, UpdateUIFlagsComposer, ChangeUserNameResultMessageEvent, EmailStatusResultEvent, FigureUpdateEvent, FurnitureDataReloadEvent, GetCommunication, GetUserTagsComposer, InClientLinkEvent, IsFirstLoginOfDayEvent, MysteryBoxKeysEvent, NoobnessLevelMessageEvent, PetRespectComposer, PetScratchFailedMessageEvent, RoomReadyMessageEvent, RoomUnitChatComposer, UserInfoEvent, UserNameChangeMessageEvent, UserPermissionsEvent, UserRespectComposer, UserTagsMessageEvent } from '@octane/communication';
 import type { FurnidataDeltaEntry } from '@octane/communication';
 import { applyFurnidataDeltaTo } from './furniture/applyFurnidataDelta';
 import { GetConfiguration } from '@octane/configuration';
@@ -45,6 +45,7 @@ export class SessionDataManager implements ISessionDataManager
     private _rankPrefix: string = '';
     private _rankPrefixColor: string = '';
     private _noobnessLevel: number = -1;
+    private _isFirstLoginOfDay: boolean = false;
     private _isEmailVerified: boolean = false;
 
     private _systemOpen: boolean = false;
@@ -180,6 +181,7 @@ export class SessionDataManager implements ISessionDataManager
             GetCommunication().registerMessageEvent(new RoomReadyMessageEvent(this.onRoomModelNameEvent.bind(this))),
             GetCommunication().registerMessageEvent(new InClientLinkEvent(this.onInClientLinkEvent.bind(this))),
             GetCommunication().registerMessageEvent(new MysteryBoxKeysEvent(this.onMysteryBoxKeysEvent.bind(this))),
+            GetCommunication().registerMessageEvent(new IsFirstLoginOfDayEvent(this.onIsFirstLoginOfDayEvent.bind(this))),
             GetCommunication().registerMessageEvent(new NoobnessLevelMessageEvent(this.onNoobnessLevelMessageEvent.bind(this))),
             GetCommunication().registerMessageEvent(new AccountSafetyLockStatusChangeMessageEvent(this.onAccountSafetyLockStatusChangeMessageEvent.bind(this))),
             GetCommunication().registerMessageEvent(new EmailStatusResultEvent(this.onEmailStatus.bind(this))),
@@ -480,6 +482,16 @@ export class SessionDataManager implements ISessionDataManager
         if(!parser) return;
 
         GetEventDispatcher().dispatchEvent(new MysteryBoxKeysUpdateEvent(parser.boxColor, parser.keyColor));
+    }
+
+    /** Sent once in the login burst, before the UI listens; the quest engine reads it later. */
+    private onIsFirstLoginOfDayEvent(event: IsFirstLoginOfDayEvent): void
+    {
+        const parser = event?.getParser();
+
+        if(!parser) return;
+
+        this._isFirstLoginOfDay = parser.isFirstLoginOfDay;
     }
 
     private onNoobnessLevelMessageEvent(event: NoobnessLevelMessageEvent): void
@@ -942,6 +954,11 @@ export class SessionDataManager implements ISessionDataManager
     public get isSafetyLocked(): boolean
     {
         return this._safetyLocked;
+    }
+
+    public get isFirstLoginOfDay(): boolean
+    {
+        return this._isFirstLoginOfDay;
     }
 
     public get isNoob(): boolean

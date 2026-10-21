@@ -10,6 +10,8 @@ export class MarketplaceItemStatsParser implements IMessageParser
     private _soldAmounts: number[];
     private _furniTypeId: number;
     private _furniCategoryId: number;
+    private _lowestCurrentPrice: number;
+    private _suggestedPrice: number;
 
     public flush(): boolean
     {
@@ -21,6 +23,8 @@ export class MarketplaceItemStatsParser implements IMessageParser
         this._soldAmounts = [];
         this._furniTypeId = 0;
         this._furniCategoryId = 0;
+        this._lowestCurrentPrice = 0;
+        this._suggestedPrice = 0;
 
         return true;
     }
@@ -46,6 +50,12 @@ export class MarketplaceItemStatsParser implements IMessageParser
 
         this._furniCategoryId = wrapper.readInt();
         this._furniTypeId = wrapper.readInt();
+
+        // AIR's parser also reads the lowest current price and the suggested price; older servers stop here.
+        if(!wrapper.bytesAvailable) return true;
+
+        this._lowestCurrentPrice = wrapper.readInt();
+        this._suggestedPrice = wrapper.readInt();
 
         return true;
     }
@@ -88,5 +98,15 @@ export class MarketplaceItemStatsParser implements IMessageParser
     public get furniCategoryId(): number
     {
         return this._furniCategoryId;
+    }
+
+    public get lowestCurrentPrice(): number
+    {
+        return this._lowestCurrentPrice;
+    }
+
+    public get suggestedPrice(): number
+    {
+        return this._suggestedPrice;
     }
 }
