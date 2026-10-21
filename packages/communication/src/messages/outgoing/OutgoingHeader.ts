@@ -69,6 +69,9 @@ export class OutgoingHeader
     public static GET_SNOWWAR_GAME_TOKENS_OFFER = 980;
     public static PURCHASE_SNOWWAR_GAME_TOKENS_OFFER = 391;
     public static GET_GIFT_WRAPPING_CONFIG = 418;
+    // Official special items display free claim (has-claimed request, claim).
+    public static HAS_CLAIMED_PRODUCT_REQUEST = 395;
+    public static CLAIM_FREE_PRODUCT = 3935;
     public static GROUP_ADMIN_ADD = 2894;
     public static GROUP_ADMIN_REMOVE = 722;
     public static GROUP_CREATE_OPTIONS = 798;
@@ -246,6 +249,9 @@ export class OutgoingHeader
     public static ROOM_SETTINGS = 3129;
     public static ROOM_SETTINGS_SAVE = 1969;
     public static ROOM_SETTINGS_UPDATE_ROOM_CATEGORY_AND_TRADE = 1265;
+    // AIR raid protection (navigator/raidprotection)
+    public static RAID_PROTECTION_SETTINGS_GET = 2394;
+    public static RAID_PROTECTION_SETTINGS_SAVE = 2170;
     public static ROOM_STAFF_PICK = 1918;
     public static ROOM_FILTER_WORDS = 1911;
     public static ROOM_FILTER_WORDS_MODIFY = 3001;

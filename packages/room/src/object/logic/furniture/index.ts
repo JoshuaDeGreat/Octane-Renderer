@@ -61,4 +61,5 @@ export * from './FurnitureVoteMajorityLogic';
 export * from './FurnitureWelcomeGiftLogic';
 export * from './FurnitureWildWestWantedLogic';
 export * from './FurnitureWindowLogic';
+export * from './FurnitureVimeoLogic';
 export * from './FurnitureYoutubeLogic';

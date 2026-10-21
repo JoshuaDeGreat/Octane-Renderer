@@ -222,6 +222,10 @@ export class IncomingHeader
     public static ROOM_SETTINGS_CHAT = 1191;
     public static ROOM_SETTINGS_SAVE = 948;
     public static ROOM_SETTINGS_SAVE_ERROR = 1555;
+    // AIR raid protection (navigator/raidprotection)
+    public static RAID_PROTECTION_CAPABILITY = 2671;
+    public static RAID_PROTECTION_SETTINGS = 3877;
+    public static RAID_PROTECTION_SAVE_RESULT = 958;
     public static ROOM_INFO_UPDATED = 3297;
     public static ROOM_SPECTATOR = 1033;
     public static ROOM_THICKNESS = 3547;
@@ -370,6 +374,8 @@ export class IncomingHeader
     public static LOVELOCK_FURNI_FRIEND_COMFIRMED = 382;
     public static LOVELOCK_FURNI_FINISHED = 770;
     public static GIFT_RECEIVER_NOT_FOUND = 1517;
+    // Official special items display has-claimed response.
+    public static HAS_CLAIMED_PRODUCT = 266;
     public static GIFT_OPENED = 56;
     public static FLOOD_CONTROL = 566;
     public static REMAINING_MUTE = IncomingHeader.ROOM_MUTE_USER;
