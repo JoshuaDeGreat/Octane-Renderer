@@ -5,6 +5,7 @@ import { RoomFloorHole } from './RoomFloorHole';
 import { RoomMapData } from './RoomMapData';
 import { RoomPlaneData } from './RoomPlaneData';
 import { RoomWallData } from './RoomWallData';
+import { hideOriginallyHiddenWalls, hidePeninsulaWallChains, resolveOriginalWallIndex, updateWallsNextToHoles } from './RoomWallChains';
 import { addTileTypes, expandFloorTiles, findEntranceTile, getFloorHeight, padHeightMap, TILE_BLOCKED, TILE_HOLE, unpadHeightMap } from './RoomHeightMap';
 
 export class RoomPlaneParser
@@ -851,197 +852,11 @@ export class RoomPlaneParser
         return wallData;
     }
 
-    private hidePeninsulaWallChains(wallData: RoomWallData): void
-    {
-        let chainEnd: number;
-        let turnDepth: number;
-        let shouldHide: boolean;
-        let hideIndex: number;
-        let index = 0;
-        const count: number = wallData.count;
-        while(index < count)
-        {
-            const chainStart = index;
-
-            chainEnd = index;
-            turnDepth = 0;
-            shouldHide = false;
-            while(((!(wallData.getBorder(index))) && (index < count)))
-            {
-                if(wallData.getLeftTurn(index))
-                {
-                    turnDepth++;
-                }
-                else
-                {
-                    if(turnDepth > 0)
-                    {
-                        turnDepth--;
-                    }
-                }
-                if(turnDepth > 1)
-                {
-                    shouldHide = true;
-                }
-                chainEnd = index;
-                index++;
-            }
-            if(shouldHide)
-            {
-                hideIndex = chainStart;
-                while(hideIndex <= chainEnd)
-                {
-                    wallData.setHideWall(hideIndex, true);
-                    hideIndex++;
-                }
-            }
-            index++;
-        }
-    }
-
-    private updateWallsNextToHoles(wallData: RoomWallData): void
-    {
-        let corner: Point;
-        let direction: number;
-        let length: number;
-        let directionVector: IVector3D;
-        let normalVector: IVector3D;
-        let holeCount: number;
-        let offset: number;
-        const count: number = wallData.count;
-        let index = 0;
-        while(index < count)
-        {
-            if(!wallData.getHideWall(index))
-            {
-                corner = wallData.getCorner(index);
-                direction = wallData.getDirection(index);
-                length = wallData.getLength(index);
-                directionVector = RoomWallData.WALL_DIRECTION_VECTORS[direction];
-                normalVector = RoomWallData.WALL_NORMAL_VECTORS[direction];
-                holeCount = 0;
-                offset = 0;
-                while(offset < length)
-                {
-                    if(this.getTileHeightInternal(((corner.x + (offset * directionVector.x)) - normalVector.x), ((corner.y + (offset * directionVector.y)) - normalVector.y)) == RoomPlaneParser.TILE_HOLE)
-                    {
-                        if(((offset > 0) && (holeCount == 0)))
-                        {
-                            wallData.setLength(index, offset);
-                            break;
-                        }
-                        holeCount++;
-                    }
-                    else
-                    {
-                        if(holeCount > 0)
-                        {
-                            wallData.moveCorner(index, holeCount);
-                            break;
-                        }
-                    }
-                    offset++;
-                }
-                if(holeCount == length)
-                {
-                    wallData.setHideWall(index, true);
-                }
-            }
-            index++;
-        }
-    }
-
-    private resolveOriginalWallIndex(startPoint: Point, endPoint: Point, wallData: RoomWallData): number
-    {
-        let corner: Point;
-        let wallEnd: Point;
-        let cornerMinY: number;
-        let cornerMaxY: number;
-        let cornerMinX: number;
-        let cornerMaxX: number;
-        const minY: number = Math.min(startPoint.y, endPoint.y);
-        const maxY: number = Math.max(startPoint.y, endPoint.y);
-        const minX: number = Math.min(startPoint.x, endPoint.x);
-        const maxX: number = Math.max(startPoint.x, endPoint.x);
-        const count: number = wallData.count;
-        let index = 0;
-        while(index < count)
-        {
-            corner = wallData.getCorner(index);
-            wallEnd = wallData.getEndPoint(index);
-            if(startPoint.x == endPoint.x)
-            {
-                if(((corner.x == startPoint.x) && (wallEnd.x == startPoint.x)))
-                {
-                    cornerMinY = Math.min(corner.y, wallEnd.y);
-                    cornerMaxY = Math.max(corner.y, wallEnd.y);
-                    if(((cornerMinY <= minY) && (maxY <= cornerMaxY)))
-                    {
-                        return index;
-                    }
-                }
-            }
-            else
-            {
-                if(startPoint.y == endPoint.y)
-                {
-                    if(((corner.y == startPoint.y) && (wallEnd.y == startPoint.y)))
-                    {
-                        cornerMinX = Math.min(corner.x, wallEnd.x);
-                        cornerMaxX = Math.max(corner.x, wallEnd.x);
-                        if(((cornerMinX <= minX) && (maxX <= cornerMaxX)))
-                        {
-                            return index;
-                        }
-                    }
-                }
-            }
-            index++;
-        }
-        return -1;
-    }
-
-    private hideOriginallyHiddenWalls(wallData: RoomWallData, originalWallData: RoomWallData): void
-    {
-        let corner: Point;
-        let endPoint: Point;
-        let directionVector: IVector3D;
-        let length: number;
-        let originalIndex: number;
-        const count: number = wallData.count;
-        let index = 0;
-        while(index < count)
-        {
-            if(!wallData.getHideWall(index))
-            {
-                corner = wallData.getCorner(index);
-                endPoint = new Point(corner.x, corner.y);
-                directionVector = RoomWallData.WALL_DIRECTION_VECTORS[wallData.getDirection(index)];
-                length = wallData.getLength(index);
-                endPoint.x = (endPoint.x + (directionVector.x * length));
-                endPoint.y = (endPoint.y + (directionVector.y * length));
-                originalIndex = this.resolveOriginalWallIndex(corner, endPoint, originalWallData);
-                if(originalIndex >= 0)
-                {
-                    if(originalWallData.getHideWall(originalIndex))
-                    {
-                        wallData.setHideWall(index, true);
-                    }
-                }
-                else
-                {
-                    wallData.setHideWall(index, true);
-                }
-            }
-            index++;
-        }
-    }
-
     private checkWallHiding(wallData: RoomWallData, originalWallData: RoomWallData): void
     {
-        this.hidePeninsulaWallChains(originalWallData);
-        this.updateWallsNextToHoles(wallData);
-        this.hideOriginallyHiddenWalls(wallData, originalWallData);
+        hidePeninsulaWallChains(originalWallData);
+        updateWallsNextToHoles(wallData, (x, y) => this.getTileHeightInternal(x, y));
+        hideOriginallyHiddenWalls(wallData, originalWallData);
     }
 
     private addWalls(wallData: RoomWallData, originalWallData: RoomWallData): void
@@ -1086,7 +901,7 @@ export class RoomPlaneParser
 
                 location = Vector3d.dif(location, lengthVector);
 
-                const originalIndex = this.resolveOriginalWallIndex(corner, wallData.getEndPoint(index), originalWallData);
+                const originalIndex = resolveOriginalWallIndex(corner, wallData.getEndPoint(index), originalWallData);
 
                 let nextDirection = 0;
                 let prevDirection = 0;
