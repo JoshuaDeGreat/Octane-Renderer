@@ -1,4 +1,4 @@
-import { IFurnitureStackingHeightMap, IGetImageListener, IImageResult, ILegacyWallGeometry, IObjectData, IPetColorResult, IPlaneDrawingData, IPetCustomPart, IRoomAreaSelectionManager, IRoomContentListener, IRoomContentLoader, IRoomCreator, IRoomEngine, IRoomEngineServices, IRoomGeometry, IRoomInstance, IRoomManager, IRoomManagerListener, IRoomObject, IRoomObjectController, IRoomObjectVariableFxEntry, IRoomRenderer, IRoomRenderingCanvas, IRoomSessionManager, ISelectedRoomObjectData, ISessionDataManager, ITileObjectMap, IUpdateReceiver, IVector3D, LegacyDataType, MouseEventType, ObjectDataFactory, PetFigureData, RoomControllerLevel, RoomObjectCategory, RoomObjectOperationType, RoomObjectUserType, RoomObjectVariable, ToolbarIconEnum } from '@octane/api';
+import { IFurnitureStackingHeightMap, IGetImageListener, IImageResult, ILegacyWallGeometry, IObjectData, IPetColorResult, IPlaneDrawingData, IPetCustomPart, IRoomAreaSelectionManager, IRoomContentListener, IRoomContentLoader, IRoomCreator, IRoomEngine, IRoomEngineServices, IRoomGeometry, IRoomInstance, IRoomManager, IRoomManagerListener, IRoomObject, IRoomObjectController, IRoomObjectModel, IRoomObjectVariableFxEntry, IRoomObjectVisualization, IRoomRenderer, IRoomRenderingCanvas, IRoomSessionManager, ISelectedRoomObjectData, ISessionDataManager, ITileObjectMap, IUpdateReceiver, IVector3D, LegacyDataType, MouseEventType, ObjectDataFactory, PetFigureData, RoomControllerLevel, RoomObjectCategory, RoomObjectOperationType, RoomObjectUserType, RoomObjectVariable, ToolbarIconEnum } from '@octane/api';
 import { GetCommunication, RenderRoomMessageComposer, RenderRoomThumbnailMessageComposer } from '@octane/communication';
 import { GetAssetManager } from '@octane/assets';
 import { GetConfiguration } from '@octane/configuration';
@@ -3295,40 +3295,7 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
         const model = roomObject.model;
 
-        switch(objectCategory)
-        {
-            case RoomObjectCategory.FLOOR:
-            case RoomObjectCategory.WALL:
-                model.setValue(RoomObjectVariable.FURNITURE_COLOR, parseInt(value));
-                model.setValue(RoomObjectVariable.FURNITURE_EXTRAS, extras);
-                break;
-            case RoomObjectCategory.UNIT:
-                if((type === RoomObjectUserType.USER) || (type === RoomObjectUserType.BOT) || (type === RoomObjectUserType.RENTABLE_BOT) || (type === RoomObjectUserType.PET))
-                {
-                    model.setValue(RoomObjectVariable.FIGURE, value);
-                }
-                else
-                {
-                    const figureData = new PetFigureData(value);
-
-                    model.setValue(RoomObjectVariable.PET_PALETTE_INDEX, figureData.paletteId);
-                    model.setValue(RoomObjectVariable.PET_COLOR, figureData.color);
-
-                    if(figureData.headOnly) model.setValue(RoomObjectVariable.PET_HEAD_ONLY, 1);
-
-                    if(figureData.hasCustomParts)
-                    {
-                        model.setValue(RoomObjectVariable.PET_CUSTOM_LAYER_IDS, figureData.customLayerIds);
-                        model.setValue(RoomObjectVariable.PET_CUSTOM_PARTS_IDS, figureData.customPartIds);
-                        model.setValue(RoomObjectVariable.PET_CUSTOM_PALETTE_IDS, figureData.customPaletteIds);
-                    }
-
-                    if(posture) model.setValue(RoomObjectVariable.FIGURE_POSTURE, posture);
-                }
-                break;
-            case RoomObjectCategory.ROOM:
-                break;
-        }
+        this.applyImageObjectParameters(model, objectCategory, type, value, extras, posture);
 
         roomObject.setDirection(direction);
 
@@ -3341,33 +3308,13 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
             return imageResult;
         }
 
-        if((state > -1) || objectData)
-        {
-            if(objectData && (objectData.getLegacyString() !== ''))
-            {
-                roomObject.logic.processUpdateMessage(new ObjectDataUpdateMessage(parseInt(objectData.getLegacyString()), objectData));
-            }
-            else
-            {
-                roomObject.logic.processUpdateMessage(new ObjectDataUpdateMessage(state, objectData));
-            }
-        }
+        this.sendImageObjectData(roomObject, objectData, state);
 
         const geometry = new RoomGeometry(scale, new Vector3d(-135, 30, 0), new Vector3d(11, 11, 5));
 
         visualization.update(geometry, 0, true, false);
 
-        if(frameCount > 0)
-        {
-            let i = 0;
-
-            while(i < frameCount)
-            {
-                visualization.update(geometry, 0, true, false);
-
-                i++;
-            }
-        }
+        this.stepImageVisualization(visualization, geometry, frameCount);
 
         const texture = visualization.getImage();
 
@@ -3376,16 +3323,7 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
         if(!this.isRoomContentTypeLoaded(type) && listener)
         {
-            let imageListeners = this._imageCallbacks.get(objectId.toString());
-
-            if(!imageListeners)
-            {
-                imageListeners = [];
-
-                this._imageCallbacks.set(objectId.toString(), imageListeners);
-            }
-
-            imageListeners.push(listener);
+            this.addImageListener(objectId, listener);
 
             model.setValue(RoomObjectVariable.IMAGE_QUERY_SCALE, scale);
             model.setValue(RoomObjectVariable.IMAGE_QUERY_KEY, cacheable ? imageKey : null);
@@ -3411,6 +3349,98 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         if(cacheable) return new SharedImageResult(this._imageCache.set(imageKey, texture));
 
         return imageResult;
+    }
+
+    /** Gives the model of a temporary room object the variables its kind is drawn from: colour and extras for furniture, the figure for a user, a bot or a pet. */
+    private applyImageObjectParameters(model: IRoomObjectModel, objectCategory: number, type: string, value: string, extras: string, posture: string): void
+    {
+        switch(objectCategory)
+        {
+            case RoomObjectCategory.FLOOR:
+            case RoomObjectCategory.WALL:
+                model.setValue(RoomObjectVariable.FURNITURE_COLOR, parseInt(value));
+                model.setValue(RoomObjectVariable.FURNITURE_EXTRAS, extras);
+                break;
+            case RoomObjectCategory.UNIT:
+                if((type === RoomObjectUserType.USER) || (type === RoomObjectUserType.BOT) || (type === RoomObjectUserType.RENTABLE_BOT) || (type === RoomObjectUserType.PET))
+                {
+                    model.setValue(RoomObjectVariable.FIGURE, value);
+                }
+                else
+                {
+                    this.applyPetImageParameters(model, value, posture);
+                }
+                break;
+            case RoomObjectCategory.ROOM:
+                break;
+        }
+    }
+
+    /** Gives the model of a pet the palette, colour, head-only flag, custom parts and posture of its figure string. */
+    private applyPetImageParameters(model: IRoomObjectModel, value: string, posture: string): void
+    {
+        const figureData = new PetFigureData(value);
+
+        model.setValue(RoomObjectVariable.PET_PALETTE_INDEX, figureData.paletteId);
+        model.setValue(RoomObjectVariable.PET_COLOR, figureData.color);
+
+        if(figureData.headOnly) model.setValue(RoomObjectVariable.PET_HEAD_ONLY, 1);
+
+        if(figureData.hasCustomParts)
+        {
+            model.setValue(RoomObjectVariable.PET_CUSTOM_LAYER_IDS, figureData.customLayerIds);
+            model.setValue(RoomObjectVariable.PET_CUSTOM_PARTS_IDS, figureData.customPartIds);
+            model.setValue(RoomObjectVariable.PET_CUSTOM_PALETTE_IDS, figureData.customPaletteIds);
+        }
+
+        if(posture) model.setValue(RoomObjectVariable.FIGURE_POSTURE, posture);
+    }
+
+    /** Sends the state, or the object data, to the logic of a temporary room object. */
+    private sendImageObjectData(roomObject: IRoomObjectController, objectData: IObjectData, state: number): void
+    {
+        if((state > -1) || objectData)
+        {
+            if(objectData && (objectData.getLegacyString() !== ''))
+            {
+                roomObject.logic.processUpdateMessage(new ObjectDataUpdateMessage(parseInt(objectData.getLegacyString()), objectData));
+            }
+            else
+            {
+                roomObject.logic.processUpdateMessage(new ObjectDataUpdateMessage(state, objectData));
+            }
+        }
+    }
+
+    /** Updates the visualization once more for each frame asked for. */
+    private stepImageVisualization(visualization: IRoomObjectVisualization, geometry: RoomGeometry, frameCount: number): void
+    {
+        if(frameCount > 0)
+        {
+            let i = 0;
+
+            while(i < frameCount)
+            {
+                visualization.update(geometry, 0, true, false);
+
+                i++;
+            }
+        }
+    }
+
+    /** Keeps the listener of an image until the content of its object is loaded. */
+    private addImageListener(objectId: number, listener: IGetImageListener): void
+    {
+        let imageListeners = this._imageCallbacks.get(objectId.toString());
+
+        if(!imageListeners)
+        {
+            imageListeners = [];
+
+            this._imageCallbacks.set(objectId.toString(), imageListeners);
+        }
+
+        imageListeners.push(listener);
     }
 
     /**
