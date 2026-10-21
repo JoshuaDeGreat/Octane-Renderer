@@ -3,15 +3,15 @@ import { IMessageDataWrapper } from '@octane/api';
 /**
  * The call for help somebody already has open. The official `class_2768` reads a different set of
  * strings depending on the type, so the shape is decided here and not by the caller: reading a
- * fixed number of fields walks off the end of the packet.
+ * fixed number of fields walks off the end of the packet. The types are the official request
+ * types: a tour for a new or a returning user, a request for instructions, and a bully report.
  */
 export class PendingGuideTicketData
 {
-    /** A player waiting for a guide, and a guide waiting for a player. */
-    public static readonly TYPE_GUIDE_SESSION: number = 0;
-    public static readonly TYPE_BULLY_REPORT: number = 1;
-    public static readonly TYPE_HELPER_SESSION: number = 2;
-    public static readonly TYPE_ROOM_REPORT: number = 3;
+    public static readonly TYPE_TOUR_NEW_USER: number = 0;
+    public static readonly TYPE_INSTRUCTIONS: number = 1;
+    public static readonly TYPE_TOUR_RETURNING_USER: number = 2;
+    public static readonly TYPE_BULLY_REPORT: number = 3;
 
     private _type: number;
     private _secondsAgo: number;
@@ -29,20 +29,19 @@ export class PendingGuideTicketData
 
         switch(this._type)
         {
-            case PendingGuideTicketData.TYPE_GUIDE_SESSION:
-            case PendingGuideTicketData.TYPE_HELPER_SESSION:
+            case PendingGuideTicketData.TYPE_TOUR_NEW_USER:
+            case PendingGuideTicketData.TYPE_TOUR_RETURNING_USER:
                 this._otherPartyName = wrapper.readString();
                 this._otherPartyFigure = wrapper.readString();
                 return;
-            case PendingGuideTicketData.TYPE_BULLY_REPORT:
+            case PendingGuideTicketData.TYPE_INSTRUCTIONS:
                 this._otherPartyName = wrapper.readString();
                 this._otherPartyFigure = wrapper.readString();
                 this._description = wrapper.readString();
                 return;
-            case PendingGuideTicketData.TYPE_ROOM_REPORT:
-                // A guide looking at a room report is told nothing about the other party.
+            case PendingGuideTicketData.TYPE_BULLY_REPORT:
+                // A guide looking at a bully report is told nothing about the other party.
                 if(this._isGuide) return;
-
                 this._otherPartyName = wrapper.readString();
                 this._otherPartyFigure = wrapper.readString();
                 this._roomName = wrapper.readString();

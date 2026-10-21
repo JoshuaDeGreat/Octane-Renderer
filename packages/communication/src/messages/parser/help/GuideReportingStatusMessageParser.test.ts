@@ -38,7 +38,7 @@ describe('GuideReportingStatusMessageParser', () =>
 
         parser.parse(wrapperOf([
             GuideReportingStatusMessageParser.GUIDE_REPORTING_STATUS_PENDING_TICKET,
-            PendingGuideTicketData.TYPE_BULLY_REPORT, 42, false, 'Bob', 'hd-1-1', 'he was rude'
+            PendingGuideTicketData.TYPE_INSTRUCTIONS, 42, false, 'Bob', 'hd-1-1', 'he was rude'
         ]));
 
         expect(parser.pendingTicket?.otherPartyName).toBe('Bob');
@@ -46,27 +46,27 @@ describe('GuideReportingStatusMessageParser', () =>
         expect(parser.pendingTicket?.roomName).toBeNull();
     });
 
-    it('a guide looking at a room report is told nothing about the other party', () =>
+    it('a guide looking at a bully report is told nothing about the other party', () =>
     {
-        const ticket = new PendingGuideTicketData(wrapperOf([ PendingGuideTicketData.TYPE_ROOM_REPORT, 7, true ]));
+        const ticket = new PendingGuideTicketData(wrapperOf([ PendingGuideTicketData.TYPE_BULLY_REPORT, 7, true ]));
 
         expect(ticket.otherPartyName).toBeNull();
         expect(ticket.roomName).toBeNull();
     });
 
-    it('a player looking at a room report is told which room it was', () =>
+    it('a reporter looking at their bully report is told who and in which room', () =>
     {
         const ticket = new PendingGuideTicketData(
-            wrapperOf([ PendingGuideTicketData.TYPE_ROOM_REPORT, 7, false, 'Bob', 'hd-1-1', 'The Lounge' ]));
+            wrapperOf([ PendingGuideTicketData.TYPE_BULLY_REPORT, 7, false, 'Bob', 'hd-1-1', 'The Lounge' ]));
 
         expect(ticket.roomName).toBe('The Lounge');
         expect(ticket.description).toBeNull();
     });
 
-    it('a guide session carries only the other party', () =>
+    it('a tour carries only the other party', () =>
     {
         const ticket = new PendingGuideTicketData(
-            wrapperOf([ PendingGuideTicketData.TYPE_GUIDE_SESSION, 7, true, 'Bob', 'hd-1-1' ]));
+            wrapperOf([ PendingGuideTicketData.TYPE_TOUR_NEW_USER, 7, true, 'Bob', 'hd-1-1' ]));
 
         expect(ticket.otherPartyFigure).toBe('hd-1-1');
         expect(ticket.description).toBeNull();

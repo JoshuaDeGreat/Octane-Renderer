@@ -461,6 +461,28 @@
   },
   "contracts": [
     {
+      "name": "CANCEL_ROOM_EVENT",
+      "direction": "client_to_server",
+      "header": 2725,
+      "java": {
+        "symbol": "CancelRoomPromotionEvent",
+        "className": "CancelRoomPromotionEvent",
+        "path": "Emulator/src/main/java/com/eu/habbo/messages/incoming/rooms/promotions/CancelRoomPromotionEvent.java"
+      },
+      "typescript": {
+        "symbol": "CANCEL_ROOM_EVENT",
+        "className": "CancelEventMessageComposer",
+        "path": "packages/communication/src/messages/outgoing/navigator/CancelEventMessageComposer.ts"
+      },
+      "fields": [
+        {
+          "kind": "scalar",
+          "type": "int",
+          "name": "promotionId"
+        }
+      ]
+    },
+    {
       "name": "USER_UNIGNORE",
       "direction": "client_to_server",
       "header": 2061,
@@ -22395,14 +22417,6 @@
       "header": 2721,
       "symbol": "VERIFY_CODE",
       "path": "packages/communication/src/messages/outgoing/gifts/VerifyCodeMessageComposer.ts",
-      "reason": "Header is registered only by the Octane Renderer packet registry"
-    },
-    {
-      "direction": "client_to_server",
-      "side": "typescript",
-      "header": 2725,
-      "symbol": "CANCEL_ROOM_EVENT",
-      "path": "packages/communication/src/messages/outgoing/navigator/CancelEventMessageComposer.ts",
       "reason": "Header is registered only by the Octane Renderer packet registry"
     },
     {

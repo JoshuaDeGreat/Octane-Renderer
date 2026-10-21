@@ -1,8 +1,9 @@
 import { IAdvancedMap, IMusicController, IOctaneEvent, ISoundManager, ISoundVolumesSnapshot, ISoundboardPlayOptions } from '@octane/api';
 import { GetConfiguration } from '@octane/configuration';
-import { GetEventDispatcher, OctaneEvent, OctaneEventType, OctaneSettingsEvent, OctaneSoundEvent, RoomEngineEvent, RoomEngineObjectEvent, RoomEngineSamplePlaybackEvent } from '@octane/events';
+import { GetEventDispatcher, OctaneEvent, OctaneEventType, OctaneSettingsEvent, OctaneSoundEvent, RoomEngineEvent, RoomEngineObjectEvent, RoomEngineObjectPlaySoundEvent, RoomEngineSamplePlaybackEvent } from '@octane/events';
 import { AdvancedMap, OctaneLogger } from '@octane/utils';
 import { MusicController } from './music/MusicController';
+import { ROOM_OBJECT_SOUND_REPEAT_MS, clampPlaybackRate, getRoomObjectSoundUrl } from './RoomObjectSounds';
 import { SoundboardChannel } from './SoundboardChannel';
 
 export class SoundManager implements ISoundManager
@@ -16,6 +17,8 @@ export class SoundManager implements ISoundManager
     private _internalSamples: IAdvancedMap<string, HTMLAudioElement> = new AdvancedMap();
     private _furniSamples: IAdvancedMap<number, HTMLAudioElement> = new AdvancedMap();
     private _furnitureBeingPlayed: IAdvancedMap<number, number> = new AdvancedMap();
+    private _roomObjectSounds: Map<string, HTMLAudioElement> = new Map();
+    private _roomObjectSoundPlayedAt: Map<string, number> = new Map();
 
     private _musicController: IMusicController = new MusicController();
     private _soundboardChannel = new SoundboardChannel();
@@ -34,6 +37,8 @@ export class SoundManager implements ISoundManager
         GetEventDispatcher().addEventListener<RoomEngineEvent>(RoomEngineEvent.DISPOSED, this._eventCallback);
         GetEventDispatcher().addEventListener<OctaneSettingsEvent>(OctaneSettingsEvent.SETTINGS_UPDATED, this._eventCallback);
         GetEventDispatcher().addEventListener<OctaneSoundEvent>(OctaneSoundEvent.PLAY_SOUND, this._eventCallback);
+        GetEventDispatcher().addEventListener<RoomEngineObjectPlaySoundEvent>(RoomEngineObjectPlaySoundEvent.PLAY_SOUND, this._eventCallback);
+        GetEventDispatcher().addEventListener<RoomEngineObjectPlaySoundEvent>(RoomEngineObjectPlaySoundEvent.PLAY_SOUND_AT_PITCH, this._eventCallback);
     }
 
     public dispose(): void
@@ -45,6 +50,8 @@ export class SoundManager implements ISoundManager
             GetEventDispatcher().removeEventListener(RoomEngineEvent.DISPOSED, this._eventCallback);
             GetEventDispatcher().removeEventListener(OctaneSettingsEvent.SETTINGS_UPDATED, this._eventCallback);
             GetEventDispatcher().removeEventListener(OctaneSoundEvent.PLAY_SOUND, this._eventCallback);
+            GetEventDispatcher().removeEventListener(RoomEngineObjectPlaySoundEvent.PLAY_SOUND, this._eventCallback);
+            GetEventDispatcher().removeEventListener(RoomEngineObjectPlaySoundEvent.PLAY_SOUND_AT_PITCH, this._eventCallback);
             this._eventCallback = null;
         }
 
@@ -58,6 +65,9 @@ export class SoundManager implements ISoundManager
         this._internalSamples.dispose();
         this._furniSamples.dispose();
         this._furnitureBeingPlayed.dispose();
+        this._roomObjectSounds.forEach(sample => sample.pause());
+        this._roomObjectSounds.clear();
+        this._roomObjectSoundPlayedAt.clear();
         this.stopSoundboard();
         this.stopSoundboardPreview();
     }
@@ -126,6 +136,16 @@ export class SoundManager implements ISoundManager
                 this.playInternalSample(castedEvent.sampleCode);
                 return;
             }
+            case RoomEngineObjectPlaySoundEvent.PLAY_SOUND: {
+                this.playRoomObjectSound((event as RoomEngineObjectPlaySoundEvent).soundId);
+                return;
+            }
+            case RoomEngineObjectPlaySoundEvent.PLAY_SOUND_AT_PITCH: {
+                const castedEvent = (event as RoomEngineObjectPlaySoundEvent);
+
+                this.playRoomObjectSoundAtPitch(castedEvent.soundId, castedEvent.pitch);
+                return;
+            }
         }
     }
 
@@ -136,7 +156,10 @@ export class SoundManager implements ISoundManager
 
         try
         {
-            sample.play();
+            const playing = sample.play();
+
+            // A browser blocking autoplay rejects the promise; that is not an error worth a stack trace.
+            if(playing && (typeof playing.catch === 'function')) playing.catch(() => undefined);
         }
         catch (e)
         {
@@ -180,6 +203,55 @@ export class SoundManager implements ISoundManager
         sample.onerror = event => this.stopFurniSample(objectId);
 
         this.playSample(sample, this._volumeFurni, pitch);
+    }
+
+    /**
+     * Official `HabboSoundManagerFlash10.playSound`: one cached sound per id at the generic (system)
+     * volume, and the same id asked again within 200 ms is dropped.
+     */
+    private playRoomObjectSound(soundId: string): void
+    {
+        const url = getRoomObjectSoundUrl(soundId);
+
+        if(!url) return;
+
+        const now = Date.now();
+        const playedAt = this._roomObjectSoundPlayedAt.get(soundId);
+
+        if((playedAt !== undefined) && ((now - playedAt) <= ROOM_OBJECT_SOUND_REPEAT_MS)) return;
+
+        let sample = this._roomObjectSounds.get(soundId);
+
+        if(!sample)
+        {
+            sample = new Audio(url);
+            this._roomObjectSounds.set(soundId, sample);
+        }
+
+        this._roomObjectSoundPlayedAt.set(soundId, now);
+        this.playSample(sample, this._volumeSystem);
+    }
+
+    /**
+     * Official `HabboSoundManagerFlash10` PLAY_SOUND_AT_PITCH: a new `HabboSoundWithPitch` per call, so
+     * calls overlap, resampled by `pitch` (higher and shorter) at the generic (system) volume.
+     */
+    private playRoomObjectSoundAtPitch(soundId: string, pitch: number): void
+    {
+        const url = getRoomObjectSoundUrl(soundId);
+
+        if(!url) return;
+
+        const sample = new Audio(url);
+
+        const rate = clampPlaybackRate(pitch);
+
+        sample.preservesPitch = false;
+        // The default rate too: loading the source resets `playbackRate` to it.
+        sample.defaultPlaybackRate = rate;
+        sample.playbackRate = rate;
+
+        this.playSample(sample, this._volumeSystem);
     }
 
     private stopInternalSample(code: string): void

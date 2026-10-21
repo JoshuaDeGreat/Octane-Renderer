@@ -4,7 +4,8 @@ import { FurnitureMultiStateLogic } from './FurnitureMultiStateLogic';
 
 export class FurnitureCuckooClockLogic extends FurnitureMultiStateLogic
 {
-    private _state: number = 1;
+    // Official `FurnitureCuckooClockLogic`: starts at -1, so the first state the room sends stays silent.
+    private _state: number = -1;
 
     public getEventTypes(): string[]
     {
