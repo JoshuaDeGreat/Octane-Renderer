@@ -6,6 +6,9 @@ import { IMessageDataWrapper, IMessageParser } from '@octane/api';
  */
 export interface IWiredMonitorLogData
 {
+    severity: string;
+    amount: number;
+    latestOccurrenceSeconds: number;
     latestReason: string;
     latestSourceId: number;
     latestSourceLabel: string;
@@ -100,6 +103,9 @@ export class WiredMonitorDataParser implements IMessageParser
         {
             this._logs.push({
                 type: wrapper.readString(),
+                severity: wrapper.readString(),
+                amount: wrapper.readInt(),
+                latestOccurrenceSeconds: wrapper.readInt(),
                 latestReason: wrapper.readString(),
                 latestSourceLabel: wrapper.readString(),
                 latestSourceId: wrapper.readInt()

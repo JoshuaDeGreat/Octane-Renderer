@@ -6,7 +6,7 @@ import { OctaneMessages } from '../../../../OctaneMessages';
 import { IncomingHeader } from '../../../incoming/IncomingHeader';
 import { ChestCoinsEvent, ChestFurniChunkEvent, ChestFurniDeltaEvent, ChestOpenEvent, ChestSettingsUpdatedEvent, ChestUpgradeResultEvent, WiredTradeCancelledEvent, WiredTradeCompletedEvent, WiredTradeErrorEvent, WiredTradeItemsEvent, WiredTradeOpenEvent, WiredTransactionFailEvent, WiredTransactionSuccessEvent } from '../../../incoming/room/furniture';
 import { OutgoingHeader } from '../../../outgoing/OutgoingHeader';
-import { ChestCloseComposer, ChestOpenComposer, ChestSaveNotificationsComposer, ChestSaveOptionsComposer, ChestSaveSettingsComposer, ChestStartDepositComposer, ChestUpgradeCapacityComposer, ChestWithdrawAllComposer, ChestWithdrawCoinsComposer, ChestWithdrawFurniComposer, WiredChestLockComposer, WiredTradeAcceptComposer, WiredTradeCancelComposer, WiredTradeOfferItemsComposer } from '../../../outgoing/room/furniture/chest';
+import { ChestCloseComposer, ChestOpenComposer, ChestSaveNotificationsComposer, ChestSaveOptionsComposer, ChestSaveSettingsComposer, ChestStartDepositComposer, ChestUpgradeCapacityComposer, ChestWithdrawAllComposer, ChestWithdrawCoinsComposer, ChestWithdrawFurniComposer, ChestDepositComposer, ChestWithdrawComposer, ChestDepositInventoryItemComposer, ChestEnableWiredComposer, ChestWithdrawAllFurniComposer, WiredChestLockComposer, WiredTradeAcceptComposer, WiredTradeCancelComposer, WiredTradeOfferItemsComposer } from '../../../outgoing/room/furniture/chest';
 import { ChestCoinsMessageParser } from './ChestCoinsMessageParser';
 import { ChestFurniChunkMessageParser } from './ChestFurniChunkMessageParser';
 import { ChestFurniDeltaMessageParser } from './ChestFurniDeltaMessageParser';
@@ -15,7 +15,7 @@ import { ChestSettingsUpdatedMessageParser } from './ChestSettingsUpdatedMessage
 import { ChestUpgradeResultMessageParser } from './ChestUpgradeResultMessageParser';
 import { WiredTradeErrorMessageParser } from './WiredTradeErrorMessageParser';
 import { WiredTradeItemsMessageParser } from './WiredTradeItemsMessageParser';
-import { WIRED_TRADE_REQUIREMENT_ANY_COINS, WIRED_TRADE_REQUIREMENT_RULES, WIRED_TRADE_RULES_AUTO, WIRED_TRADE_RULES_MULTIPLIER, WiredTradeOpenMessageParser } from './WiredTradeOpenMessageParser';
+import { WiredTradeOpenMessageParser } from './WiredTradeOpenMessageParser';
 import { WiredTransactionFailMessageParser } from './WiredTransactionFailMessageParser';
 import { WIRED_TRANSACTION_SUCCESS_DEPOSIT, WIRED_TRANSACTION_SUCCESS_REWARD, WiredTransactionSuccessMessageParser } from './WiredTransactionSuccessMessageParser';
 
@@ -85,8 +85,9 @@ describe('wired chest AIR protocol', () =>
         const messages = new OctaneMessages();
         const outgoing: [number, unknown][] = [
             [OutgoingHeader.CHEST_OPEN, ChestOpenComposer], [OutgoingHeader.CHEST_CLOSE, ChestCloseComposer],
-            [OutgoingHeader.CHEST_START_DEPOSIT, ChestStartDepositComposer], [OutgoingHeader.CHEST_WITHDRAW_ALL_FURNI, ChestWithdrawAllComposer],
-            [OutgoingHeader.CHEST_WITHDRAW_FURNI, ChestWithdrawFurniComposer], [OutgoingHeader.CHEST_WITHDRAW, ChestWithdrawCoinsComposer],
+            [OutgoingHeader.CHEST_START_DEPOSIT, ChestStartDepositComposer], [OutgoingHeader.CHEST_WITHDRAW_ALL_FURNI, ChestWithdrawAllFurniComposer],
+            [OutgoingHeader.CHEST_DEPOSIT, ChestDepositComposer], [OutgoingHeader.CHEST_DEPOSIT_INVENTORY_ITEM, ChestDepositInventoryItemComposer], [OutgoingHeader.CHEST_ENABLE_WIRED, ChestEnableWiredComposer],
+            [OutgoingHeader.CHEST_WITHDRAW_FURNI, ChestWithdrawFurniComposer], [OutgoingHeader.CHEST_WITHDRAW, ChestWithdrawComposer],
             [OutgoingHeader.CHEST_SAVE_SETTINGS, ChestSaveSettingsComposer], [OutgoingHeader.CHEST_SAVE_OPTIONS, ChestSaveOptionsComposer],
             [OutgoingHeader.CHEST_SAVE_NOTIFICATIONS, ChestSaveNotificationsComposer], [OutgoingHeader.CHEST_UPGRADE_CAPACITY, ChestUpgradeCapacityComposer],
             [OutgoingHeader.WIRED_CHEST_LOCK, WiredChestLockComposer], [OutgoingHeader.WIRED_TRADE_OFFER_ITEMS, WiredTradeOfferItemsComposer],
@@ -110,9 +111,9 @@ describe('wired chest AIR protocol', () =>
         for(const [header] of outgoing) expect(count(OutgoingHeader, header), `OutgoingHeader ${ header }`).toBe(1);
         for(const [header] of incoming) expect(count(IncomingHeader, header), `IncomingHeader ${ header }`).toBe(1);
 
-        // The pre-AIR deposit messages and the separate Wired upgrade are gone (AIR deposits through the wired trade).
-        for(const header of [9313, 9321, 9325, 9345])
-            expect(Object.values(OutgoingHeader).includes(header), `OutgoingHeader ${ header }`).toBe(false);
+        // Heaven Polaris intentionally restores direct chest deposit and enable-wired packets.
+        for(const header of [9313, 9325, 9345])
+            expect(Object.values(OutgoingHeader).includes(header), `OutgoingHeader ${ header }`).toBe(true);
     });
 
     it('serialises the chest composers in AIR field order', () =>
@@ -124,12 +125,12 @@ describe('wired chest AIR protocol', () =>
         expect(body(715, new ChestWithdrawFurniComposer(7, true, 4001, '12', 3).getMessageArray()))
             .toBe(int(7) + bool(true) + int(4001) + str('12') + int(3));
         expect(body(3731, new ChestWithdrawCoinsComposer(7, 250).getMessageArray())).toBe(int(7) + int(250));
-        expect(body(3274, new ChestSaveSettingsComposer(7, 'Box', 'Desc', true, false, 2, 5, 3, true).getMessageArray()))
-            .toBe(int(7) + str('Box') + str('Desc') + bool(true) + bool(false) + int(2) + int(5) + int(3) + bool(true));
+        expect(body(3274, new ChestSaveSettingsComposer(7, 'Box', 'Desc', true, false, 2, 5, 3).getMessageArray()))
+            .toBe(int(7) + str('Box') + str('Desc') + bool(true) + bool(false) + int(2) + int(5) + int(3));
         expect(body(1211, new ChestSaveOptionsComposer(7, true, false, 900).getMessageArray()))
             .toBe(int(7) + bool(true) + bool(false) + int(900));
-        expect(body(3937, new ChestSaveNotificationsComposer(7, 2, true, false, true, false, true).getMessageArray()))
-            .toBe(int(7) + int(2) + bool(true) + bool(false) + bool(true) + bool(false) + bool(true));
+        expect(body(3937, new ChestSaveNotificationsComposer(7, true, false, true, false, true, 2).getMessageArray()))
+            .toBe(int(7) + bool(true) + bool(false) + bool(true) + bool(false) + bool(true) + int(2));
         expect(body(2964, new ChestUpgradeCapacityComposer(7, 2).getMessageArray())).toBe(int(7) + int(2));
     });
 
@@ -221,112 +222,70 @@ describe('wired chest AIR protocol', () =>
         expect([success.rewardText, success.openByDefault, success.hasRewardContents]).toEqual(['Well done', true, true]);
     });
 
-    it('reads reward and trade rules with more nodes and alternatives than the contract editor allows', () =>
-    {
-        /** int n, n furni nodes (AIR TradeRequirementRule has no node cap). */
-        const writeLongRule = (writer: BinaryWriter, count: number) =>
-        {
-            writer.writeInt(count);
-            for(let i = 0; i < count; i++) writer.writeByte(1).writeInt(i + 1).writeByte(0).writeInt(4000 + i).writeString('');
-        };
-
-        const reward = new BinaryWriter();
-        reward.writeInt(WIRED_TRANSACTION_SUCCESS_REWARD);
-        writeLongRule(reward, 7);
-        reward.writeString('Lots').writeByte(0);
-        const rewardWrapper = wrap(reward);
-        const success = new WiredTransactionSuccessMessageParser();
-        expect(success.parse(rewardWrapper)).toBe(true);
-        expect(rewardWrapper.bytesAvailable).toBe(false);
-        expect(success.rewardRule.nodes.map(node => node.itemType.typeId)).toEqual([4000, 4001, 4002, 4003, 4004, 4005, 4006]);
-        expect([success.rewardText, success.openByDefault]).toEqual(['Lots', false]);
-
-        const open = new BinaryWriter();
-        open.writeInt(WIRED_TRADE_REQUIREMENT_RULES).writeString('').writeString('generic');
-        open.writeByte(1).writeInt(4);
-        for(let i = 0; i < 4; i++) writeLongRule(open, 6);
-        open.writeByte(1);
-        writeLongRule(open, 8);
-        open.writeInt(0);
-        open.writeByte(0).writeByte(0).writeInt(30);
-        const openWrapper = wrap(open);
-        const openParser = new WiredTradeOpenMessageParser();
-        expect(openParser.parse(openWrapper)).toBe(true);
-        expect(openWrapper.bytesAvailable).toBe(false);
-        expect(openParser.giveRules.map(rule => rule.nodes.length)).toEqual([6, 6, 6, 6]);
-        expect(openParser.getRule.nodes).toHaveLength(8);
-        expect(openParser.timeoutSeconds).toBe(30);
-    });
-
-    it('refuses a rule count that cannot fit in the packet instead of looping', () =>
-    {
-        const reward = new BinaryWriter();
-        reward.writeInt(WIRED_TRANSACTION_SUCCESS_REWARD).writeInt(0x7fffffff).writeByte(0).writeInt(5);
-        const success = new WiredTransactionSuccessMessageParser();
-        expect(success.parse(wrap(reward))).toBe(false);
-        expect(success.hasRewardContents).toBe(false);
-
-        const open = new BinaryWriter();
-        open.writeInt(WIRED_TRADE_REQUIREMENT_RULES).writeString('').writeString('generic').writeByte(1).writeInt(-1);
-        expect(new WiredTradeOpenMessageParser().parse(wrap(open))).toBe(false);
-    });
-
-    it('reads a trade open with a plain requirement', () =>
+    it('reads Heaven Polaris trade opening in the correct field order', () =>
     {
         const writer = new BinaryWriter();
-        writer.writeInt(WIRED_TRADE_REQUIREMENT_ANY_COINS).writeString('You get a hug').writeString('generic');
+        writer.writeInt(1).writeString('Rare chair').writeString('generic');
         writer.writeByte(1).writeByte(0).writeInt(60);
-        const wrapper = wrap(writer);
+        writer.writeInt(1); // one give alternative
+        writer.writeInt(2); // two nodes
+        writer.writeInt(0).writeInt(-1).writeByte(0).writeInt(0).writeInt(50);
+        writer.writeInt(1).writeInt(0).writeByte(0).writeInt(401).writeInt(2);
+        writer.writeByte(1); // reward rule present
+        writer.writeInt(1).writeInt(1).writeInt(0).writeByte(1).writeInt(402).writeInt(1);
+
+        const data = wrap(writer);
         const parser = new WiredTradeOpenMessageParser();
-        expect(parser.parse(wrapper)).toBe(true);
-        expect(wrapper.bytesAvailable).toBe(false);
-        expect([parser.requirementType, parser.youGetText, parser.layoutType, parser.giveRules, parser.getRule]).toEqual([0, 'You get a hug', 'generic', null, null]);
-        expect([parser.showRequirementsImmediate, parser.overridePreviousTrade, parser.timeoutSeconds]).toEqual([true, false, 60]);
+        expect(parser.parse(data)).toBe(true);
+        expect(data.bytesAvailable).toBe(false);
+        expect([parser.contractType, parser.rewardText, parser.layoutType, parser.timeoutSeconds])
+            .toEqual([1, 'Rare chair', 'generic', 60]);
+        expect(parser.showRequirementsImmediate).toBe(true);
+        expect(parser.giveRules[0].nodes).toEqual([
+            { kind: 0, currencyType: -1, wallItem: false, spriteId: 0, amount: 50 },
+            { kind: 1, currencyType: 0, wallItem: false, spriteId: 401, amount: 2 }
+        ]);
+        expect(parser.rewardRule.nodes[0].spriteId).toBe(402);
     });
 
-    it.each([
-        [WIRED_TRADE_RULES_MULTIPLIER, 3, { multiplier: 3, autoMultiplierMax: 0 }],
-        [WIRED_TRADE_RULES_AUTO, 9, { multiplier: 1, autoMultiplierMax: 9 }]
-    ])('reads a trade open with rules of type %i', (rulesType, value, expected) =>
+    it('rejects impossible Heaven wired trade counts', () =>
     {
         const writer = new BinaryWriter();
-        writer.writeInt(WIRED_TRADE_REQUIREMENT_RULES).writeString('').writeString('generic');
-        writer.writeByte(1).writeInt(1);
-        writeRule(writer);
-        writer.writeByte(1);
-        writeRule(writer);
-        writer.writeInt(rulesType).writeInt(value);
-        writer.writeByte(0).writeByte(1).writeInt(30);
-        const wrapper = wrap(writer);
-        const parser = new WiredTradeOpenMessageParser();
-        expect(parser.parse(wrapper)).toBe(true);
-        expect(wrapper.bytesAvailable).toBe(false);
-        expect(parser.giveRules).toHaveLength(1);
-        expect(parser.giveRules[0].nodes).toHaveLength(2);
-        expect(parser.getRule.nodes[1].itemType.typeId).toBe(202);
-        expect({ multiplier: parser.multiplier, autoMultiplierMax: parser.autoMultiplierMax }).toEqual(expected);
-        expect([parser.rulesType, parser.showRequirementsImmediate, parser.overridePreviousTrade, parser.timeoutSeconds]).toEqual([rulesType, false, true, 30]);
+        writer.writeInt(0).writeString('').writeString('').writeByte(0).writeByte(0).writeInt(30);
+        writer.writeInt(0x7fffffff);
+        expect(new WiredTradeOpenMessageParser().parse(wrap(writer))).toBe(false);
     });
 
-    it('reads the trade items with the normal trading item layout, canAccept and extra', () =>
+    it('reads Polaris trade table with offered furniture, rewards and missing requirements', () =>
     {
         const writer = new BinaryWriter();
-        writer.writeInt(42).writeInt(2);
-        writeTradeItem(writer, 11, 'S', 4001);
-        writeTradeItem(writer, 12, 'I', 4002);
-        writer.writeInt(2).writeInt(0);
-        writer.writeInt(-1).writeInt(1);
-        writeTradeItem(writer, 13, 'S', 4003);
-        writer.writeInt(1).writeInt(25);
-        writer.writeByte(1).writeInt(2);
-        const wrapper = wrap(writer);
+        writer.writeInt(1).writeByte(1).writeInt(25);
+        writer.writeInt(2);
+        writer.writeInt(11).writeByte(0).writeInt(4001);
+        writer.writeInt(12).writeByte(1).writeInt(4002);
+        writer.writeInt(1).writeInt(4003).writeInt(2);
+        writer.writeInt(1).writeInt(-1).writeInt(25);
+        writer.writeInt(1).writeInt(1).writeInt(0).writeByte(0).writeInt(4004).writeInt(1);
+        const data = wrap(writer);
         const parser = new WiredTradeItemsMessageParser();
-        expect(parser.parse(wrapper)).toBe(true);
-        expect(wrapper.bytesAvailable).toBe(false);
-        expect(parser.firstUserID).toBe(42);
-        expect(parser.firstUserItemArray.map(item => [item.itemId, item.furniType, item.spriteId, item.isWallItem])).toEqual([[11, 'S', 4001, false], [12, 'I', 4002, true]]);
-        expect([parser.firstUserNumItems, parser.firstUserNumCredits]).toEqual([2, 0]);
-        expect(parser.secondUserItemArray.map(item => item.spriteId)).toEqual([4003]);
-        expect([parser.secondUserNumItems, parser.secondUserNumCredits, parser.canAccept, parser.extra]).toEqual([1, 25, true, 2]);
+        expect(parser.parse(data)).toBe(true);
+        expect(data.bytesAvailable).toBe(false);
+        expect([parser.state, parser.canAccept, parser.secondsLeft]).toEqual([1, true, 25]);
+        expect(parser.offeredItems).toEqual([
+            { itemId: 11, wallItem: false, spriteId: 4001 },
+            { itemId: 12, wallItem: true, spriteId: 4002 }
+        ]);
+        expect(parser.rewardFurni).toEqual([{ spriteId: 4003, amount: 2 }]);
+        expect(parser.rewardCurrency).toEqual([{ currencyType: -1, amount: 25 }]);
+        expect(parser.missing[0]).toEqual({ kind: 1, currencyType: 0, wallItem: false, spriteId: 4004, amount: 1 });
+    });
+
+    it('serialises Polaris-only chest commands', () =>
+    {
+        expect(body(9313, new ChestDepositComposer(7, -1, 50).getMessageArray())).toBe(int(7) + int(-1) + int(50));
+        expect(body(9314, new ChestWithdrawComposer(7, -1, -1).getMessageArray())).toBe(int(7) + int(-1) + int(-1));
+        expect(body(9325, new ChestDepositInventoryItemComposer(7, 99).getMessageArray())).toBe(int(7) + int(99));
+        expect(body(9345, new ChestEnableWiredComposer(7).getMessageArray())).toBe(int(7));
+        expect(body(9326, new ChestWithdrawAllFurniComposer(7).getMessageArray())).toBe(int(7));
     });
 });

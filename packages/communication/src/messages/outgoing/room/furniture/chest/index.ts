@@ -15,3 +15,8 @@ export * from './WiredChestTransactionDetailsComposer';
 export * from './WiredTradeOfferItemsComposer';
 export * from './WiredTradeAcceptComposer';
 export * from './WiredTradeCancelComposer';
+export * from './ChestDepositComposer';
+export * from './ChestWithdrawComposer';
+export * from './ChestDepositInventoryItemComposer';
+export * from './ChestEnableWiredComposer';
+export * from './ChestWithdrawAllFurniComposer';

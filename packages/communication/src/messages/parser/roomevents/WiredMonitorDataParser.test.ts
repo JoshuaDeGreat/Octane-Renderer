@@ -45,8 +45,9 @@ const writeSnapshot = (writer: BinaryWriter) =>
     writer.writeByte(1); // isHeavy
     for(let i = 0; i < 14; i++) writer.writeInt(i + 1); // delayed events .. heavy delayed percent
     writer.writeInt(1); // one log row
-    // The latest detail only: category, count and time are AIR's error list (15).
-    writer.writeString('KILLED').writeString('loop').writeString('wf_act_move').writeInt(55);
+    // Polaris sends category, count and last occurrence before the detail.
+    writer.writeString('KILLED').writeString('ERROR').writeInt(3).writeInt(123456)
+        .writeString('loop').writeString('wf_act_move').writeInt(55);
     writer.writeInt(0); // no history
 };
 
@@ -66,7 +67,7 @@ describe('WiredMonitorDataParser', () =>
         expect(parser.isHeavy).toBe(true);
         expect(parser.heavyDelayedThresholdPercent).toBe(14);
         expect(parser.logs).toHaveLength(1);
-        expect(parser.logs[0]).toEqual({ type: 'KILLED', latestReason: 'loop', latestSourceLabel: 'wf_act_move', latestSourceId: 55 });
+        expect(parser.logs[0]).toEqual({ type: 'KILLED', severity: 'ERROR', amount: 3, latestOccurrenceSeconds: 123456, latestReason: 'loop', latestSourceLabel: 'wf_act_move', latestSourceId: 55 });
         expect(parser.history).toEqual([]);
         expect(data.bytesAvailable).toBe(false);
         expect('roomStats' in parser).toBe(false);
