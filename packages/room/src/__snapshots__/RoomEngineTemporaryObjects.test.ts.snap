@@ -1,0 +1,217 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`RoomEngine temporary objects by type > does nothing without a temporary room, an object manager or objects > no instance 1`] = `
+{
+  "cache": [],
+  "listenersLeft": [
+    "1",
+  ],
+  "log": [],
+}
+`;
+
+exports[`RoomEngine temporary objects by type > does nothing without a temporary room, an object manager or objects > no manager 1`] = `
+{
+  "cache": [],
+  "listenersLeft": [
+    "1",
+  ],
+  "log": [
+    "getManager 10",
+  ],
+}
+`;
+
+exports[`RoomEngine temporary objects by type > does nothing without a temporary room, an object manager or objects > no objects 1`] = `
+{
+  "cache": [],
+  "listenersLeft": [],
+  "log": [
+    "getManager 10",
+  ],
+}
+`;
+
+exports[`RoomEngine temporary objects by type > renders each object of the type, frees it and hands its listeners the image 1`] = `
+{
+  "cache": [
+    "a: texture 1",
+    "b: texture 2",
+    "c: none",
+  ],
+  "listenersLeft": [
+    "3",
+  ],
+  "log": [
+    "getManager 10",
+    "update 1 g1 scale 64 0 true false",
+    "remove 1 10",
+    "freeNumber 0",
+    "imageReady 1#0 SharedImageResult id 1 data texture 1",
+    "update 2 g1 scale 64 0 true false",
+    "remove 2 10",
+    "freeNumber 1",
+    "imageReady 2#0 SharedImageResult id 2 data texture 2",
+    "imageReady 2#2 SharedImageResult id 2 data texture 2",
+    "dispose g1",
+  ],
+}
+`;
+
+exports[`RoomEngine temporary objects by type > reuses one geometry for objects of the same scale and makes a new one when the scale changes 1`] = `
+{
+  "cache": [],
+  "listenersLeft": [],
+  "log": [
+    "getManager 10",
+    "update 1 g1 scale 64 0 true false",
+    "remove 1 10",
+    "freeNumber 0",
+    "update 2 g1 scale 64 0 true false",
+    "remove 2 10",
+    "freeNumber 1",
+    "dispose g1",
+    "update 3 g2 scale 32 0 true false",
+    "remove 3 10",
+    "freeNumber 2",
+    "dispose g2",
+    "update 4 g3 scale 64 0 true false",
+    "remove 4 10",
+    "freeNumber 3",
+    "dispose g3",
+  ],
+}
+`;
+
+exports[`RoomEngine temporary objects by type > skips objects without a model, and frees objects without a visualization or a texture 1`] = `
+{
+  "cache": [
+    "b: none",
+    "c: none",
+    "d: none",
+  ],
+  "listenersLeft": [
+    "1",
+  ],
+  "log": [
+    "getManager 10",
+    "remove 2 10",
+    "freeNumber 1",
+    "imageFailed 2#0 2",
+    "update 3 g1 scale 64 0 true false",
+    "remove 3 10",
+    "freeNumber 2",
+    "imageFailed 3#0 3",
+    "update 4 g1 scale 64 0 true false",
+    "remove 4 10",
+    "freeNumber 3",
+    "dispose g1",
+  ],
+}
+`;
+
+exports[`RoomEngine temporary objects by type > stores nothing when the content failed to load or there is no key > content failed 1`] = `
+{
+  "cache": [
+    "a: none",
+  ],
+  "listenersLeft": [],
+  "log": [
+    "getManager 10",
+    "update 1 g1 scale 64 0 true false",
+    "remove 1 10",
+    "freeNumber 0",
+    "imageReady 1#0 ImageResult id 1 data texture 1",
+    "dispose g1",
+  ],
+}
+`;
+
+exports[`RoomEngine temporary objects by type > stores nothing when the content failed to load or there is no key > no key 1`] = `
+{
+  "cache": [],
+  "listenersLeft": [],
+  "log": [
+    "getManager 10",
+    "update 1 g1 scale 64 0 true false",
+    "remove 1 10",
+    "freeNumber 0",
+    "imageReady 1#0 ImageResult id 1 data texture 1",
+    "dispose g1",
+  ],
+}
+`;
+
+exports[`RoomEngine temporary objects by type > uses an entry that is already cached and destroys the duplicate texture > cached, content failed 1`] = `
+{
+  "cache": [
+    "a: cached a",
+  ],
+  "listenersLeft": [],
+  "log": [
+    "getManager 10",
+    "update 1 g1 scale 64 0 true false",
+    "remove 1 10",
+    "freeNumber 0",
+    "imageReady 1#0 ImageResult id 1 data texture 1",
+    "dispose g1",
+  ],
+}
+`;
+
+exports[`RoomEngine temporary objects by type > uses an entry that is already cached and destroys the duplicate texture > other texture 1`] = `
+{
+  "cache": [
+    "a: cached a",
+  ],
+  "listenersLeft": [],
+  "log": [
+    "getManager 10",
+    "update 1 g1 scale 64 0 true false",
+    "remove 1 10",
+    "freeNumber 0",
+    "destroy texture 1",
+    "imageReady 1#0 SharedImageResult id 1 data cached a",
+    "dispose g1",
+  ],
+}
+`;
+
+exports[`RoomEngine temporary objects by type > uses an entry that is already cached and destroys the duplicate texture > same texture 1`] = `
+{
+  "cache": [
+    "a: texture 1",
+  ],
+  "listenersLeft": [],
+  "log": [
+    "getManager 10",
+    "update 1 g1 scale 64 0 true false",
+    "remove 1 10",
+    "freeNumber 0",
+    "imageReady 1#0 SharedImageResult id 1 data texture 1",
+    "dispose g1",
+  ],
+}
+`;
+
+exports[`RoomEngine temporary objects by type > uses an entry that is already cached and destroys the duplicate texture > two objects, one key 1`] = `
+{
+  "cache": [
+    "a: texture 1",
+  ],
+  "listenersLeft": [],
+  "log": [
+    "getManager 10",
+    "update 1 g1 scale 64 0 true false",
+    "remove 1 10",
+    "freeNumber 0",
+    "imageReady 1#0 SharedImageResult id 1 data texture 1",
+    "update 2 g1 scale 64 0 true false",
+    "remove 2 10",
+    "freeNumber 1",
+    "destroy texture 2",
+    "imageReady 2#0 SharedImageResult id 2 data texture 1",
+    "dispose g1",
+  ],
+}
+`;

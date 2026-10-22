@@ -1,4 +1,4 @@
-import { IFurnitureStackingHeightMap, IGetImageListener, IImageResult, ILegacyWallGeometry, IObjectData, IPetColorResult, IPlaneDrawingData, IPetCustomPart, IRoomAreaSelectionManager, IRoomContentListener, IRoomContentLoader, IRoomCreator, IRoomEngine, IRoomEngineServices, IRoomGeometry, IRoomInstance, IRoomManager, IRoomManagerListener, IRoomObject, IRoomObjectController, IRoomObjectVariableFxEntry, IRoomRenderer, IRoomRenderingCanvas, IRoomSessionManager, ISelectedRoomObjectData, ISessionDataManager, ITileObjectMap, IUpdateReceiver, IVector3D, LegacyDataType, MouseEventType, ObjectDataFactory, PetFigureData, RoomControllerLevel, RoomObjectCategory, RoomObjectOperationType, RoomObjectUserType, RoomObjectVariable, ToolbarIconEnum } from '@octane/api';
+import { IFurnitureStackingHeightMap, IGetImageListener, IImageResult, ILegacyWallGeometry, IObjectData, IPetColorResult, IPlaneDrawingData, IPetCustomPart, IRoomAreaSelectionManager, IRoomContentListener, IRoomContentLoader, IRoomCreator, IRoomEngine, IRoomEngineServices, IRoomGeometry, IRoomInstance, IRoomManager, IRoomManagerListener, IRoomObject, IRoomObjectController, IRoomObjectModel, IRoomObjectVariableFxEntry, IRoomObjectVisualization, IRoomRenderer, IRoomRenderingCanvas, IRoomSessionManager, ISelectedRoomObjectData, ISessionDataManager, ITileObjectMap, IUpdateReceiver, IVector3D, LegacyDataType, MouseEventType, ObjectDataFactory, PetFigureData, RoomControllerLevel, RoomObjectCategory, RoomObjectOperationType, RoomObjectUserType, RoomObjectVariable, ToolbarIconEnum } from '@octane/api';
 import { GetCommunication, RenderRoomMessageComposer, RenderRoomThumbnailMessageComposer } from '@octane/communication';
 import { GetAssetManager } from '@octane/assets';
 import { GetConfiguration } from '@octane/configuration';
@@ -22,6 +22,7 @@ import { RoomLogic, RoomMapData, RoomPlane, RoomVisualization } from './object';
 import { RoomWindowReflectionState } from './object/visualization/RoomWindowReflectionState';
 import { RoomRenderer } from './renderer';
 import { RoomAreaSelectionManager, RoomCamera, RoomData, RoomEnterEffect, RoomFurnitureData, RoomGeometry, RoomInstanceData, RoomObjectBadgeImageAssetListener } from './utils';
+import { applyCameraMargins, clampCameraTarget, getCameraMargins, needsNewCameraTarget } from './utils/RoomCameraFollow';
 
 export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineServices, IRoomManagerListener, IRoomContentListener, IUpdateReceiver
 {
@@ -259,6 +260,29 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         instance.model.setValue(RoomVariableEnum.ROOM_IS_PUBLIC, 0);
         instance.model.setValue(RoomVariableEnum.ROOM_Z_SCALE, 1);
 
+        this.storeRoomBounds(instance, roomObject, roomMap);
+
+        const logic = (roomObject && roomObject.logic as RoomLogic) || null;
+
+        if(logic)
+        {
+            logic.initialize(roomMap);
+
+            this.sendRoomSurfaceTypes(instance, logic, floorType, wallType, landscapeType);
+        }
+
+        this.maskRoomDoors(instance, logic, roomMap);
+
+        instance.createRoomObjectAndInitalize(RoomEngine.CURSOR_OBJECT_ID, RoomEngine.CURSOR_OBJECT_TYPE, RoomObjectCategory.CURSOR);
+
+        if(GetConfiguration().getValue('enable.avatar.arrow', false)) instance.createRoomObjectAndInitalize(RoomEngine.ARROW_OBJECT_ID, RoomEngine.ARROW_OBJECT_TYPE, RoomObjectCategory.CURSOR);
+
+        return instance;
+    }
+
+    /** Stores the bounds of the room in the model and the seed of the room object that is made from them. */
+    private storeRoomBounds(instance: IRoomInstance, roomObject: IRoomObjectController, roomMap: RoomMapData): void
+    {
         if(roomMap)
         {
             const dimensions = roomMap.dimensions;
@@ -280,32 +304,33 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
                 if(roomObject && roomObject.model) roomObject.model.setValue(RoomObjectVariable.ROOM_RANDOM_SEED, seed);
             }
         }
+    }
 
-        const logic = (roomObject && roomObject.logic as RoomLogic) || null;
-
-        if(logic)
+    /** Gives the room logic the floor, wall and landscape types that are set, and keeps them in the model. */
+    private sendRoomSurfaceTypes(instance: IRoomInstance, logic: RoomLogic, floorType: string, wallType: string, landscapeType: string): void
+    {
+        if(floorType)
         {
-            logic.initialize(roomMap);
-
-            if(floorType)
-            {
-                logic.processUpdateMessage(new ObjectRoomUpdateMessage(ObjectRoomUpdateMessage.ROOM_FLOOR_UPDATE, floorType));
-                instance.model.setValue(RoomObjectVariable.ROOM_FLOOR_TYPE, floorType);
-            }
-
-            if(wallType)
-            {
-                logic.processUpdateMessage(new ObjectRoomUpdateMessage(ObjectRoomUpdateMessage.ROOM_WALL_UPDATE, wallType));
-                instance.model.setValue(RoomObjectVariable.ROOM_WALL_TYPE, wallType);
-            }
-
-            if(landscapeType)
-            {
-                logic.processUpdateMessage(new ObjectRoomUpdateMessage(ObjectRoomUpdateMessage.ROOM_LANDSCAPE_UPDATE, landscapeType));
-                instance.model.setValue(RoomObjectVariable.ROOM_LANDSCAPE_TYPE, landscapeType);
-            }
+            logic.processUpdateMessage(new ObjectRoomUpdateMessage(ObjectRoomUpdateMessage.ROOM_FLOOR_UPDATE, floorType));
+            instance.model.setValue(RoomObjectVariable.ROOM_FLOOR_TYPE, floorType);
         }
 
+        if(wallType)
+        {
+            logic.processUpdateMessage(new ObjectRoomUpdateMessage(ObjectRoomUpdateMessage.ROOM_WALL_UPDATE, wallType));
+            instance.model.setValue(RoomObjectVariable.ROOM_WALL_TYPE, wallType);
+        }
+
+        if(landscapeType)
+        {
+            logic.processUpdateMessage(new ObjectRoomUpdateMessage(ObjectRoomUpdateMessage.ROOM_LANDSCAPE_UPDATE, landscapeType));
+            instance.model.setValue(RoomObjectVariable.ROOM_LANDSCAPE_TYPE, landscapeType);
+        }
+    }
+
+    /** Masks every door of the room and publishes the position of the ones facing 90 or 180. */
+    private maskRoomDoors(instance: IRoomInstance, logic: RoomLogic, roomMap: RoomMapData): void
+    {
         if(roomMap && roomMap.doors.length)
         {
             let doorIndex = 0;
@@ -348,12 +373,6 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
                 doorIndex++;
             }
         }
-
-        instance.createRoomObjectAndInitalize(RoomEngine.CURSOR_OBJECT_ID, RoomEngine.CURSOR_OBJECT_TYPE, RoomObjectCategory.CURSOR);
-
-        if(GetConfiguration().getValue('enable.avatar.arrow', false)) instance.createRoomObjectAndInitalize(RoomEngine.ARROW_OBJECT_ID, RoomEngine.ARROW_OBJECT_TYPE, RoomObjectCategory.CURSOR);
-
-        return instance;
     }
 
     public getRoomInstanceDisplay(roomId: number, id: number, width: number, height: number, scale: number): Container
@@ -1355,109 +1374,18 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
                 return;
             }
 
-            let limitedX = false;
-            let limitedY = false;
-            let centeredX = false;
-            let centeredY = false;
-            const boundsWidth = Math.round(((boundRight - boundLeft) * scaleX));
+            const clamp = clampCameraTarget(offsetPoint, targetZ, canvasRectangle, scaleX, scaleY, halfCanvasWidthInTiles, halfCanvasHeightInTiles, boundLeft, boundTop, boundRight, boundBottom);
 
-            if(boundsWidth < canvasRectangle.width)
-            {
-                targetZ = 2;
-                offsetPoint.x = ((boundRight + boundLeft) / 2);
-                centeredX = true;
-            }
-            else
-            {
-                if(offsetPoint.x > (boundRight - halfCanvasWidthInTiles))
-                {
-                    offsetPoint.x = (boundRight - halfCanvasWidthInTiles);
-                    limitedX = true;
-                }
-                if(offsetPoint.x < (boundLeft + halfCanvasWidthInTiles))
-                {
-                    offsetPoint.x = (boundLeft + halfCanvasWidthInTiles);
-                    limitedX = true;
-                }
-            }
-            const boundsHeight = Math.round(((boundBottom - boundTop) * scaleY));
-            if(boundsHeight < canvasRectangle.height)
-            {
-                targetZ = 2;
-                offsetPoint.y = ((boundBottom + boundTop) / 2);
-                centeredY = true;
-            }
-            else
-            {
-                if(offsetPoint.y > (boundBottom - halfCanvasHeightInTiles))
-                {
-                    offsetPoint.y = (boundBottom - halfCanvasHeightInTiles);
-                    limitedY = true;
-                }
-                if(offsetPoint.y < (boundTop + halfCanvasHeightInTiles))
-                {
-                    offsetPoint.y = (boundTop + halfCanvasHeightInTiles);
-                    limitedY = true;
-                }
-                if(limitedY)
-                {
-                    offsetPoint.y = (offsetPoint.y / (scaleY / scaleX));
-                }
-            }
+            offsetPoint = clamp.offsetPoint;
+            targetZ = clamp.targetZ;
+
+            const { limitedX, limitedY, centeredX, centeredY } = clamp;
+
             rotationMatrix.invert();
             offsetPoint = rotationMatrix.apply(offsetPoint);
             offsetPoint.x = (offsetPoint.x + roomCenterX);
             offsetPoint.y = (offsetPoint.y + roomCenterY);
-            let marginTopFraction = 0.35;
-            let marginBottomFraction = 0.2;
-            let marginXFraction = 0.2;
-            const minWidth = 10;
-            const minHeight = 10;
-            if((marginXFraction * width) > 100)
-            {
-                marginXFraction = (100 / width);
-            }
-            if((marginTopFraction * height) > 150)
-            {
-                marginTopFraction = (150 / height);
-            }
-            if((marginBottomFraction * height) > 150)
-            {
-                marginBottomFraction = (150 / height);
-            }
-            if((((roomCamera.limitedLocationX) && (roomCamera.screenWd == width)) && (roomCamera.screenHt == height)))
-            {
-                marginXFraction = 0;
-            }
-            if((((roomCamera.limitedLocationY) && (roomCamera.screenWd == width)) && (roomCamera.screenHt == height)))
-            {
-                marginTopFraction = 0;
-                marginBottomFraction = 0;
-            }
-
-            canvasRectangle.width = (canvasRectangle.width * (1 - (marginXFraction * 2)));
-            canvasRectangle.height = (canvasRectangle.height * (1 - (marginTopFraction + marginBottomFraction)));
-
-            if(canvasRectangle.width < minWidth)
-            {
-                canvasRectangle.width = minWidth;
-            }
-
-            if(canvasRectangle.height < minHeight)
-            {
-                canvasRectangle.height = minHeight;
-            }
-
-            if((marginTopFraction + marginBottomFraction) > 0)
-            {
-                canvasRectangle.x += (-(canvasRectangle.width) / 2);
-                canvasRectangle.y += (-(canvasRectangle.height) * (marginBottomFraction / (marginTopFraction + marginBottomFraction)));
-            }
-            else
-            {
-                canvasRectangle.x += (-(canvasRectangle.width) / 2);
-                canvasRectangle.y += (-(canvasRectangle.height) / 2);
-            }
+            applyCameraMargins(canvasRectangle, getCameraMargins(roomCamera, width, height));
 
             screenPoint = roomGeometry.getScreenPoint(targetLocation);
 
@@ -1489,7 +1417,7 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
                     offsetTarget.x = targetScreenPoint.x;
                     offsetTarget.y = targetScreenPoint.y;
                 }
-                if(((((((((screenPoint.x < canvasRectangle.left) || (screenPoint.x > canvasRectangle.right)) && (!(roomCamera.centeredLocX))) || (((screenPoint.y < canvasRectangle.top) || (screenPoint.y > canvasRectangle.bottom)) && (!(roomCamera.centeredLocY)))) || (((centeredX) && (!(roomCamera.centeredLocX))) && (!(roomCamera.screenWd == width)))) || (((centeredY) && (!(roomCamera.centeredLocY))) && (!(roomCamera.screenHt == height)))) || ((!(roomCamera.roomWd == bounds.width)) || (!(roomCamera.roomHt == bounds.height)))) || ((!(roomCamera.screenWd == width)) || (!(roomCamera.screenHt == height)))))
+                if(needsNewCameraTarget(screenPoint, canvasRectangle, roomCamera, centeredX, centeredY, width, height, bounds))
                 {
                     roomCamera.limitedLocationX = limitedX;
                     roomCamera.limitedLocationY = limitedY;
@@ -2685,6 +2613,39 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
     private handleRoomDragging(canvas: IRoomRenderingCanvas, x: number, y: number, type: string, altKey: boolean, ctrlKey: boolean, shiftKey: boolean): boolean
     {
+        if(this.cancelRoomDraggingForObjectOperation()) return false;
+
+        if(this.cancelRoomDraggingForAreaSelection()) return false;
+
+        const offsetX = (x - this._activeRoomActiveCanvasMouseX);
+        const offsetY = (y - this._activeRoomActiveCanvasMouseY);
+
+        if(type === MouseEventType.MOUSE_DOWN)
+        {
+            this.startRoomDragging(altKey, ctrlKey, shiftKey);
+        }
+
+        else if(type === MouseEventType.MOUSE_UP)
+        {
+            this.finishRoomDragging(canvas);
+        }
+
+        else if(type === MouseEventType.MOUSE_MOVE)
+        {
+            this.moveRoomDragging(x, y, offsetX, offsetY);
+        }
+
+        else if((type === MouseEventType.MOUSE_CLICK) || (type === MouseEventType.DOUBLE_CLICK))
+        {
+            if(this.endRoomDraggingOnClick()) return true;
+        }
+
+        return false;
+    }
+
+    /** An object is being placed or moved: the drag stops and its distance is forgotten. True when it did. */
+    private cancelRoomDraggingForObjectOperation(): boolean
+    {
         const selectedData = this.getSelectedRoomObjectData(this._activeRoomId);
 
         if(selectedData &&
@@ -2697,108 +2658,117 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
             this._activeRoomDragX = 0;
             this._activeRoomDragY = 0;
 
-            return false;
+            return true;
         }
 
+        return false;
+    }
+
+    /** An area is being selected: the drag stops. True when it did. */
+    private cancelRoomDraggingForAreaSelection(): boolean
+    {
         if(this._areaSelectionManager.areaSelectionState === RoomAreaSelectionManager.SELECTING)
         {
             this._activeRoomIsDragged = false;
             this._activeRoomWasDragged = false;
 
-            return false;
-        };
-
-        let offsetX = (x - this._activeRoomActiveCanvasMouseX);
-        let offsetY = (y - this._activeRoomActiveCanvasMouseY);
-
-        if(type === MouseEventType.MOUSE_DOWN)
-        {
-            if(!altKey && !ctrlKey && !shiftKey && !this.isDecorating)
-            {
-                if(this._roomAllowsDragging)
-                {
-                    this._activeRoomIsDragged = true;
-                    this._activeRoomWasDragged = false;
-                    this._activeRoomDragStartX = this._activeRoomActiveCanvasMouseX;
-                    this._activeRoomDragStartY = this._activeRoomActiveCanvasMouseY;
-                }
-            }
+            return true;
         }
 
-        else if(type === MouseEventType.MOUSE_UP)
+        return false;
+    }
+
+    /** A press starts a drag when no modifier key is held, the room is not being decorated and the room allows dragging. */
+    private startRoomDragging(altKey: boolean, ctrlKey: boolean, shiftKey: boolean): void
+    {
+        if(!altKey && !ctrlKey && !shiftKey && !this.isDecorating)
         {
-            if(this._activeRoomIsDragged)
+            if(this._roomAllowsDragging)
             {
-                this._activeRoomIsDragged = false;
-
-                if(this._activeRoomWasDragged)
-                {
-                    const instanceData = this.getRoomInstanceData(this._activeRoomId);
-
-                    if(instanceData)
-                    {
-                        const camera = instanceData.roomCamera;
-
-                        if(camera)
-                        {
-                            // The camera never follows a flipped room, so its
-                            // location is left alone until the flip is undone.
-                            if(this.useOffsetScrolling && !canvas.isFlipped)
-                            {
-                                if(!camera.isMoving)
-                                {
-                                    camera.centeredLocX = false;
-                                    camera.centeredLocY = false;
-                                }
-
-                                camera.resetLocation(new Vector3d(-(canvas.screenOffsetX), -(canvas.screenOffsetY)));
-                            }
-
-                            if(this._roomDraggingAlwaysCenters) camera.reset();
-                        }
-                    }
-                }
+                this._activeRoomIsDragged = true;
+                this._activeRoomWasDragged = false;
+                this._activeRoomDragStartX = this._activeRoomActiveCanvasMouseX;
+                this._activeRoomDragStartY = this._activeRoomActiveCanvasMouseY;
             }
         }
+    }
 
-        else if(type === MouseEventType.MOUSE_MOVE)
-        {
-            if(this._activeRoomIsDragged)
-            {
-                if(!this._activeRoomWasDragged)
-                {
-                    offsetX = (x - this._activeRoomDragStartX);
-                    offsetY = (y - this._activeRoomDragStartY);
-
-                    if(((((offsetX <= -(RoomEngine.DRAG_THRESHOLD)) || (offsetX >= RoomEngine.DRAG_THRESHOLD)) || (offsetY <= -(RoomEngine.DRAG_THRESHOLD))) || (offsetY >= RoomEngine.DRAG_THRESHOLD)))
-                    {
-                        this._activeRoomWasDragged = true;
-                    }
-
-                    offsetX = 0;
-                    offsetY = 0;
-                }
-
-                if(((!(offsetX == 0)) || (!(offsetY == 0))))
-                {
-                    this._activeRoomDragX += offsetX;
-                    this._activeRoomDragY += offsetY;
-
-                    this._activeRoomWasDragged = true;
-                }
-            }
-        }
-
-        else if((type === MouseEventType.MOUSE_CLICK) || (type === MouseEventType.DOUBLE_CLICK))
+    /** A release ends the drag and, when the room was really dragged, moves the camera to where the canvas ended. */
+    private finishRoomDragging(canvas: IRoomRenderingCanvas): void
+    {
+        if(this._activeRoomIsDragged)
         {
             this._activeRoomIsDragged = false;
 
             if(this._activeRoomWasDragged)
             {
-                this._activeRoomWasDragged = false;
+                const instanceData = this.getRoomInstanceData(this._activeRoomId);
 
-                return true;
+                if(instanceData)
+                {
+                    const camera = instanceData.roomCamera;
+
+                    if(camera)
+                    {
+                        // The camera never follows a flipped room, so its
+                        // location is left alone until the flip is undone.
+                        if(this.useOffsetScrolling && !canvas.isFlipped)
+                        {
+                            if(!camera.isMoving)
+                            {
+                                camera.centeredLocX = false;
+                                camera.centeredLocY = false;
+                            }
+
+                            camera.resetLocation(new Vector3d(-(canvas.screenOffsetX), -(canvas.screenOffsetY)));
+                        }
+
+                        if(this._roomDraggingAlwaysCenters) camera.reset();
+                    }
+                }
             }
+        }
+    }
+
+    /** A move past the threshold turns the press into a drag, and then adds up the distance. */
+    private moveRoomDragging(x: number, y: number, offsetX: number, offsetY: number): void
+    {
+        if(this._activeRoomIsDragged)
+        {
+            if(!this._activeRoomWasDragged)
+            {
+                offsetX = (x - this._activeRoomDragStartX);
+                offsetY = (y - this._activeRoomDragStartY);
+
+                if(((((offsetX <= -(RoomEngine.DRAG_THRESHOLD)) || (offsetX >= RoomEngine.DRAG_THRESHOLD)) || (offsetY <= -(RoomEngine.DRAG_THRESHOLD))) || (offsetY >= RoomEngine.DRAG_THRESHOLD)))
+                {
+                    this._activeRoomWasDragged = true;
+                }
+
+                offsetX = 0;
+                offsetY = 0;
+            }
+
+            if(((!(offsetX == 0)) || (!(offsetY == 0))))
+            {
+                this._activeRoomDragX += offsetX;
+                this._activeRoomDragY += offsetY;
+
+                this._activeRoomWasDragged = true;
+            }
+        }
+    }
+
+    /** A click ends the drag; the click that ends a real drag is swallowed. True when it was. */
+    private endRoomDraggingOnClick(): boolean
+    {
+        this._activeRoomIsDragged = false;
+
+        if(this._activeRoomWasDragged)
+        {
+            this._activeRoomWasDragged = false;
+
+            return true;
         }
 
         return false;
@@ -3295,40 +3265,7 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
         const model = roomObject.model;
 
-        switch(objectCategory)
-        {
-            case RoomObjectCategory.FLOOR:
-            case RoomObjectCategory.WALL:
-                model.setValue(RoomObjectVariable.FURNITURE_COLOR, parseInt(value));
-                model.setValue(RoomObjectVariable.FURNITURE_EXTRAS, extras);
-                break;
-            case RoomObjectCategory.UNIT:
-                if((type === RoomObjectUserType.USER) || (type === RoomObjectUserType.BOT) || (type === RoomObjectUserType.RENTABLE_BOT) || (type === RoomObjectUserType.PET))
-                {
-                    model.setValue(RoomObjectVariable.FIGURE, value);
-                }
-                else
-                {
-                    const figureData = new PetFigureData(value);
-
-                    model.setValue(RoomObjectVariable.PET_PALETTE_INDEX, figureData.paletteId);
-                    model.setValue(RoomObjectVariable.PET_COLOR, figureData.color);
-
-                    if(figureData.headOnly) model.setValue(RoomObjectVariable.PET_HEAD_ONLY, 1);
-
-                    if(figureData.hasCustomParts)
-                    {
-                        model.setValue(RoomObjectVariable.PET_CUSTOM_LAYER_IDS, figureData.customLayerIds);
-                        model.setValue(RoomObjectVariable.PET_CUSTOM_PARTS_IDS, figureData.customPartIds);
-                        model.setValue(RoomObjectVariable.PET_CUSTOM_PALETTE_IDS, figureData.customPaletteIds);
-                    }
-
-                    if(posture) model.setValue(RoomObjectVariable.FIGURE_POSTURE, posture);
-                }
-                break;
-            case RoomObjectCategory.ROOM:
-                break;
-        }
+        this.applyImageObjectParameters(model, objectCategory, type, value, extras, posture);
 
         roomObject.setDirection(direction);
 
@@ -3341,33 +3278,13 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
             return imageResult;
         }
 
-        if((state > -1) || objectData)
-        {
-            if(objectData && (objectData.getLegacyString() !== ''))
-            {
-                roomObject.logic.processUpdateMessage(new ObjectDataUpdateMessage(parseInt(objectData.getLegacyString()), objectData));
-            }
-            else
-            {
-                roomObject.logic.processUpdateMessage(new ObjectDataUpdateMessage(state, objectData));
-            }
-        }
+        this.sendImageObjectData(roomObject, objectData, state);
 
         const geometry = new RoomGeometry(scale, new Vector3d(-135, 30, 0), new Vector3d(11, 11, 5));
 
         visualization.update(geometry, 0, true, false);
 
-        if(frameCount > 0)
-        {
-            let i = 0;
-
-            while(i < frameCount)
-            {
-                visualization.update(geometry, 0, true, false);
-
-                i++;
-            }
-        }
+        this.stepImageVisualization(visualization, geometry, frameCount);
 
         const texture = visualization.getImage();
 
@@ -3376,16 +3293,7 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
         if(!this.isRoomContentTypeLoaded(type) && listener)
         {
-            let imageListeners = this._imageCallbacks.get(objectId.toString());
-
-            if(!imageListeners)
-            {
-                imageListeners = [];
-
-                this._imageCallbacks.set(objectId.toString(), imageListeners);
-            }
-
-            imageListeners.push(listener);
+            this.addImageListener(objectId, listener);
 
             model.setValue(RoomObjectVariable.IMAGE_QUERY_SCALE, scale);
             model.setValue(RoomObjectVariable.IMAGE_QUERY_KEY, cacheable ? imageKey : null);
@@ -3411,6 +3319,98 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         if(cacheable) return new SharedImageResult(this._imageCache.set(imageKey, texture));
 
         return imageResult;
+    }
+
+    /** Gives the model of a temporary room object the variables its kind is drawn from: colour and extras for furniture, the figure for a user, a bot or a pet. */
+    private applyImageObjectParameters(model: IRoomObjectModel, objectCategory: number, type: string, value: string, extras: string, posture: string): void
+    {
+        switch(objectCategory)
+        {
+            case RoomObjectCategory.FLOOR:
+            case RoomObjectCategory.WALL:
+                model.setValue(RoomObjectVariable.FURNITURE_COLOR, parseInt(value));
+                model.setValue(RoomObjectVariable.FURNITURE_EXTRAS, extras);
+                break;
+            case RoomObjectCategory.UNIT:
+                if((type === RoomObjectUserType.USER) || (type === RoomObjectUserType.BOT) || (type === RoomObjectUserType.RENTABLE_BOT) || (type === RoomObjectUserType.PET))
+                {
+                    model.setValue(RoomObjectVariable.FIGURE, value);
+                }
+                else
+                {
+                    this.applyPetImageParameters(model, value, posture);
+                }
+                break;
+            case RoomObjectCategory.ROOM:
+                break;
+        }
+    }
+
+    /** Gives the model of a pet the palette, colour, head-only flag, custom parts and posture of its figure string. */
+    private applyPetImageParameters(model: IRoomObjectModel, value: string, posture: string): void
+    {
+        const figureData = new PetFigureData(value);
+
+        model.setValue(RoomObjectVariable.PET_PALETTE_INDEX, figureData.paletteId);
+        model.setValue(RoomObjectVariable.PET_COLOR, figureData.color);
+
+        if(figureData.headOnly) model.setValue(RoomObjectVariable.PET_HEAD_ONLY, 1);
+
+        if(figureData.hasCustomParts)
+        {
+            model.setValue(RoomObjectVariable.PET_CUSTOM_LAYER_IDS, figureData.customLayerIds);
+            model.setValue(RoomObjectVariable.PET_CUSTOM_PARTS_IDS, figureData.customPartIds);
+            model.setValue(RoomObjectVariable.PET_CUSTOM_PALETTE_IDS, figureData.customPaletteIds);
+        }
+
+        if(posture) model.setValue(RoomObjectVariable.FIGURE_POSTURE, posture);
+    }
+
+    /** Sends the state, or the object data, to the logic of a temporary room object. */
+    private sendImageObjectData(roomObject: IRoomObjectController, objectData: IObjectData, state: number): void
+    {
+        if((state > -1) || objectData)
+        {
+            if(objectData && (objectData.getLegacyString() !== ''))
+            {
+                roomObject.logic.processUpdateMessage(new ObjectDataUpdateMessage(parseInt(objectData.getLegacyString()), objectData));
+            }
+            else
+            {
+                roomObject.logic.processUpdateMessage(new ObjectDataUpdateMessage(state, objectData));
+            }
+        }
+    }
+
+    /** Updates the visualization once more for each frame asked for. */
+    private stepImageVisualization(visualization: IRoomObjectVisualization, geometry: RoomGeometry, frameCount: number): void
+    {
+        if(frameCount > 0)
+        {
+            let i = 0;
+
+            while(i < frameCount)
+            {
+                visualization.update(geometry, 0, true, false);
+
+                i++;
+            }
+        }
+    }
+
+    /** Keeps the listener of an image until the content of its object is loaded. */
+    private addImageListener(objectId: number, listener: IGetImageListener): void
+    {
+        let imageListeners = this._imageCallbacks.get(objectId.toString());
+
+        if(!imageListeners)
+        {
+            imageListeners = [];
+
+            this._imageCallbacks.set(objectId.toString(), imageListeners);
+        }
+
+        imageListeners.push(listener);
     }
 
     /**
@@ -3541,47 +3541,59 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
                     this._imageObjectIdBank.freeNumber((objectId - 1));
 
-                    const imageListeners = this._imageCallbacks.get(objectId.toString());
-
-                    if(imageListeners)
-                    {
-                        this._imageCallbacks.delete(objectId.toString());
-
-                        if(texture)
-                        {
-                            let entry = (contentLoaded && imageKey) ? this._imageCache.get(imageKey) : null;
-
-                            if(entry)
-                            {
-                                if((texture !== entry.texture) && !(texture as unknown as DisposableTexture).destroyed) texture.destroy(true);
-                            }
-                            else if(contentLoaded && imageKey)
-                            {
-                                entry = this._imageCache.set(imageKey, texture);
-                            }
-
-                            for(const imageListener of imageListeners)
-                            {
-                                if(!imageListener) continue;
-
-                                imageListener.imageReady(entry ? new SharedImageResult(entry, objectId) : new ImageResult(objectId, texture));
-                            }
-                        }
-                        else
-                        {
-                            for(const imageListener of imageListeners)
-                            {
-                                if(!imageListener) continue;
-
-                                imageListener.imageFailed(objectId);
-                            }
-                        }
-                    }
+                    this.deliverTemporaryObjectImage(objectId, texture, imageKey, contentLoaded);
                 }
             }
         }
 
         if(geometry) geometry.dispose();
+    }
+
+    /** Hands the listeners of a temporary object its image, or tells them it failed. */
+    private deliverTemporaryObjectImage(objectId: number, texture: Texture, imageKey: string, contentLoaded: boolean): void
+    {
+        const imageListeners = this._imageCallbacks.get(objectId.toString());
+
+        if(imageListeners)
+        {
+            this._imageCallbacks.delete(objectId.toString());
+
+            if(texture) this.deliverImageReady(imageListeners, objectId, texture, imageKey, contentLoaded);
+            else this.deliverImageFailed(imageListeners, objectId);
+        }
+    }
+
+    /** Hands every listener the image: the cached entry when the key has one, a new entry when the content loaded, the plain texture otherwise. */
+    private deliverImageReady(imageListeners: IGetImageListener[], objectId: number, texture: Texture, imageKey: string, contentLoaded: boolean): void
+    {
+        let entry = (contentLoaded && imageKey) ? this._imageCache.get(imageKey) : null;
+
+        if(entry)
+        {
+            if((texture !== entry.texture) && !(texture as unknown as DisposableTexture).destroyed) texture.destroy(true);
+        }
+        else if(contentLoaded && imageKey)
+        {
+            entry = this._imageCache.set(imageKey, texture);
+        }
+
+        for(const imageListener of imageListeners)
+        {
+            if(!imageListener) continue;
+
+            imageListener.imageReady(entry ? new SharedImageResult(entry, objectId) : new ImageResult(objectId, texture));
+        }
+    }
+
+    /** Tells every listener that the image could not be made. */
+    private deliverImageFailed(imageListeners: IGetImageListener[], objectId: number): void
+    {
+        for(const imageListener of imageListeners)
+        {
+            if(!imageListener) continue;
+
+            imageListener.imageFailed(objectId);
+        }
     }
 
     public setObjectMoverIconSpriteVisible(visible: boolean): void
