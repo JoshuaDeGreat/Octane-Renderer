@@ -237,6 +237,7 @@ export class RoomObjectEventHandler implements IRoomCanvasMouseListener, IRoomOb
             case RoomObjectWidgetRequestEvent.BACKGROUND_COLOR:
             case RoomObjectWidgetRequestEvent.AREA_HIDE:
             case RoomObjectWidgetRequestEvent.MYSTERYBOX_OPEN_DIALOG:
+            case RoomObjectWidgetRequestEvent.NFT_REWARD_BOX:
             case RoomObjectWidgetRequestEvent.EFFECTBOX_OPEN_DIALOG:
             case RoomObjectWidgetRequestEvent.MYSTERYTROPHY_OPEN_DIALOG:
             case RoomObjectWidgetRequestEvent.ACHIEVEMENT_RESOLUTION_OPEN:
@@ -921,6 +922,9 @@ export class RoomObjectEventHandler implements IRoomCanvasMouseListener, IRoomOb
                 return;
             case RoomObjectWidgetRequestEvent.MYSTERYBOX_OPEN_DIALOG:
                 GetEventDispatcher().dispatchEvent(new RoomEngineTriggerWidgetEvent(RoomEngineTriggerWidgetEvent.REQUEST_MYSTERYBOX_OPEN_DIALOG, roomId, objectId, objectCategory));
+                return;
+            case RoomObjectWidgetRequestEvent.NFT_REWARD_BOX:
+                GetEventDispatcher().dispatchEvent(new RoomEngineTriggerWidgetEvent(RoomEngineTriggerWidgetEvent.REQUEST_NFT_REWARD_BOX, roomId, objectId, objectCategory));
                 return;
             case RoomObjectWidgetRequestEvent.EFFECTBOX_OPEN_DIALOG:
                 GetEventDispatcher().dispatchEvent(new RoomEngineTriggerWidgetEvent(RoomEngineTriggerWidgetEvent.REQUEST_EFFECTBOX_OPEN_DIALOG, roomId, objectId, objectCategory));

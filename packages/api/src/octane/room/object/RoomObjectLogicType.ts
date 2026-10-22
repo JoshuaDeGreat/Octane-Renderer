@@ -6,6 +6,8 @@ export class RoomObjectLogicType
     public static FURNITURE_RANDOMSTATE = 'furniture_randomstate';
     public static FURNITURE_PLACEHOLDER = 'furniture_placeholder';
     public static FURNITURE_CREDIT = 'furniture_credit';
+    public static FURNITURE_NFT_CREDIT = 'furniture_nft_credit';
+    public static FURNITURE_NFT_REWARD_BOX = 'furniture_nft_reward_box';
     public static FURNITURE_STICKIE = 'furniture_stickie';
     public static FURNITURE_PRESENT = 'furniture_present';
     public static FURNITURE_TROPHY = 'furniture_trophy';

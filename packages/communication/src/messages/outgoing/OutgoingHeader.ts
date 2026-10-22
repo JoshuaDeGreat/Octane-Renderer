@@ -793,4 +793,30 @@ export class OutgoingHeader
     public static DISCORD_UPDATE_PREFERENCES = 2774;
     // AIR 13 self donation tool (client -> server), official id.
     public static SELF_DONATION = 2499;
+    // AIR 15 collectibles (client -> server). Official ids where free; the completion reward claim (2209)
+    // and the transfer fee request (875) use 9420-9421.
+    public static GET_COLLECTIBLE_WALLETS = 3702;
+    public static SELECT_COLLECTIBLE_WALLET = 3361;
+    public static GET_COLLECTIBLE_COLLECTIONS = 1656;
+    public static CLAIM_COLLECTION_BONUS = 149;
+    public static CLAIM_COLLECTION_REWARD = 9420;
+    public static GET_COLLECTIBLE_SHOP = 1762;
+    public static PURCHASE_COLLECTIBLE = 1542;
+    public static GET_COLLECTIBLE_TRANSFER_FEE = 9421;
+    public static TRANSFER_COLLECTIBLES = 1857;
+    public static GET_COLLECTIBLE_REWARD_CLAIMS = 2902;
+    public static CLAIM_COLLECTIBLE_REWARDS = 3836;
+    public static OPEN_COLLECTIBLE_REWARD_BOX = 1489;
+    public static GET_COLLECTIBLES_INVENTORY = 1119;
+    public static GET_MINTABLE_ITEMS = 1606;
+    public static GET_MINTING_ENABLED = 2371;
+    public static GET_MINT_TOKEN_OFFERS = 1133;
+    public static GET_MINT_TOKENS = 2610;
+    public static PURCHASE_MINT_TOKENS = 189;
+    public static MINT_COLLECTIBLE = 3779;
+    public static REDEEM_EMERALD_FURNI = 121;
+    // AIR avatar collectibles (avatar editor NFT tab, client -> server), official ids.
+    public static GET_USER_NFT_WARDROBE = 3206;
+    public static SAVE_USER_NFT_WARDROBE = 133;
+    public static GET_SELECTED_NFT_WARDROBE_OUTFIT = 3810;
 }

@@ -748,4 +748,32 @@ export class IncomingHeader
     public static SELF_DONATION_RESULT = 2920;
     // Official recolour update of recolourable furni (server -> client).
     public static RECOLOR_FURNI_UPDATE = 181;
+    // AIR 15 collectibles (server -> client). Official ids where free; the collections list (3560), mint
+    // result (954), stamp balance (1155), relic list (340) and emerald convert result (3207) use 9420-9424.
+    public static COLLECTIBLE_WALLETS = 400;
+    public static COLLECTIBLE_EMERALD_BALANCE = 652;
+    public static COLLECTIBLE_SILVER_BALANCE = 2458;
+    public static COLLECTOR_SCORE = 1789;
+    public static COLLECTIBLE_COLLECTIONS = 9420;
+    public static COLLECTION_BONUS_CLAIM_RESULT = 1048;
+    public static COLLECTION_REWARD_CLAIM_RESULT = 501;
+    public static COLLECTIBLE_SHOP_OFFERS = 3495;
+    public static COLLECTIBLE_PURCHASE_RESULT = 169;
+    public static COLLECTIBLES_INVENTORY = 2539;
+    public static COLLECTIBLES_INVENTORY_UPDATE = 1475;
+    public static COLLECTIBLE_TRANSFER_FEE = 3909;
+    public static COLLECTIBLE_TRANSFER_RESULT = 2595;
+    public static COLLECTIBLE_REWARD_CLAIMS = 3865;
+    public static COLLECTIBLE_CLAIM_ALL_RESULT = 3720;
+    public static COLLECTIBLE_REWARD_BOX_OPENED = 3374;
+    public static COLLECTIBLE_REWARD_BOX_RESULT = 2692;
+    public static COLLECTIBLE_MINT_RESULT = 9421;
+    public static COLLECTIBLE_MINT_TOKENS = 9422;
+    public static COLLECTIBLE_MINTABLES = 9423;
+    public static COLLECTIBLE_MINTING_ENABLED = 3059;
+    public static COLLECTIBLE_MINT_TOKEN_OFFERS = 745;
+    public static NFT_EMERALD_CONVERT_RESULT = 9424;
+    // AIR avatar collectibles (avatar editor NFT tab, server -> client), official ids.
+    public static USER_NFT_WARDROBE = 2236;
+    public static SELECTED_NFT_WARDROBE_OUTFIT = 350;
 }

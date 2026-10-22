@@ -5,6 +5,7 @@ export * from './avatar';
 export * from './camera';
 export * from './campaign';
 export * from './catalog';
+export * from './collectibles';
 export * from './competition';
 export * from './crafting';
 export * from './desktop';
