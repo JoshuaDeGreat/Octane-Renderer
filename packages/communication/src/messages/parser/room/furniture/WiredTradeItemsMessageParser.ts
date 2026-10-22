@@ -1,5 +1,5 @@
 import { IMessageDataWrapper, IMessageParser } from '@octane/api';
-import { IWiredTradeNode, readWiredTradeNode } from './WiredTradeRuleParser';
+import { IHeavenWiredTradeNode, readHeavenWiredTradeNode } from './HeavenWiredTradeRuleParser';
 
 /** Heaven Polaris InteractionWiredContract negotiation states. */
 export const WIRED_TRADE_STATE_READY = 0;
@@ -25,7 +25,7 @@ export class WiredTradeItemsMessageParser implements IMessageParser
     private _offeredItems: IWiredTradeOfferedItem[] = [];
     private _rewardFurni: IWiredTradeRewardFurni[] = [];
     private _rewardCurrency: IWiredTradeRewardCurrency[] = [];
-    private _missing: IWiredTradeNode[] = [];
+    private _missing: IHeavenWiredTradeNode[] = [];
 
     public flush(): boolean
     {
@@ -63,7 +63,7 @@ export class WiredTradeItemsMessageParser implements IMessageParser
             for(let i = count(); i > 0; i--) this._rewardCurrency.push({
                 currencyType: wrapper.readInt(), amount: wrapper.readInt()
             });
-            for(let i = count(); i > 0; i--) this._missing.push(readWiredTradeNode(wrapper));
+            for(let i = count(); i > 0; i--) this._missing.push(readHeavenWiredTradeNode(wrapper));
             return true;
         }
         catch { this.flush(); return false; }
@@ -75,5 +75,5 @@ export class WiredTradeItemsMessageParser implements IMessageParser
     public get offeredItems(): IWiredTradeOfferedItem[] { return this._offeredItems; }
     public get rewardFurni(): IWiredTradeRewardFurni[] { return this._rewardFurni; }
     public get rewardCurrency(): IWiredTradeRewardCurrency[] { return this._rewardCurrency; }
-    public get missing(): IWiredTradeNode[] { return this._missing; }
+    public get missing(): IHeavenWiredTradeNode[] { return this._missing; }
 }
