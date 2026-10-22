@@ -8,6 +8,7 @@ export * from './callforhelp';
 export * from './camera';
 export * from './campaign';
 export * from './catalog';
+export * from './collectibles';
 export * from './client';
 export * from './commands';
 export * from './competition';

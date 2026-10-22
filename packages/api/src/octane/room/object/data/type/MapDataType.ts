@@ -84,9 +84,12 @@ export class MapDataType extends ObjectDataBase
 
         const state = this._data[MapDataType.RARITY];
 
-        if(state === undefined || state === null) return -1;
+        // Official MapStuffData.rarityLevel: a missing or empty "rarity" entry is no rarity.
+        if(state === undefined || state === null || state === '') return -1;
 
-        return parseInt(state);
+        const level = parseInt(state, 10);
+
+        return Number.isNaN(level) ? -1 : level;
     }
 
     /** Official `MapStuffData.contentsCount`: how many items a chest holds. */

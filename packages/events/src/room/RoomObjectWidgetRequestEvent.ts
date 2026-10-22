@@ -28,6 +28,7 @@ export class RoomObjectWidgetRequestEvent extends RoomObjectEvent
     public static BACKGROUND_COLOR: string = 'ROWRE_BACKGROUND_COLOR';
     public static AREA_HIDE: string = 'ROWRE_AREA_HIDE';
     public static MYSTERYBOX_OPEN_DIALOG: string = 'ROWRE_MYSTERYBOX_OPEN_DIALOG';
+    public static NFT_REWARD_BOX: string = 'ROWRE_NFT_REWARD_BOX';
     public static EFFECTBOX_OPEN_DIALOG: string = 'ROWRE_EFFECTBOX_OPEN_DIALOG';
     public static MYSTERYTROPHY_OPEN_DIALOG: string = 'ROWRE_MYSTERYTROPHY_OPEN_DIALOG';
     public static ACHIEVEMENT_RESOLUTION_OPEN: string = 'ROWRE_ACHIEVEMENT_RESOLUTION_OPEN';
