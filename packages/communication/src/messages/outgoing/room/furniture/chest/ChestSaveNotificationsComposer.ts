@@ -1,25 +1,15 @@
 import { IMessageComposer } from '@octane/api';
 
-/**
- * Save a chest's notification preferences: [chestId, notifyMode, chestFull, donation, someoneWithdraws, chestEmpty,
- * wiredTransaction]. AIR WIN63-202610131318 (package_95/class_2747, ChestNotificationSettingsUI).
- */
+/** Polaris ChestSaveNotificationsEvent: [chestId, full, donation, withdraw, empty, wired, mode]. */
 export class ChestSaveNotificationsComposer implements IMessageComposer<ConstructorParameters<typeof ChestSaveNotificationsComposer>>
 {
     private _data: ConstructorParameters<typeof ChestSaveNotificationsComposer>;
 
-    constructor(chestId: number, notifyMode: number, chestFull: boolean, donation: boolean, someoneWithdraws: boolean, chestEmpty: boolean, wiredTransaction: boolean)
+    constructor(chestId: number, full: boolean, donation: boolean, withdraw: boolean, empty: boolean, wired: boolean, mode: number)
     {
-        this._data = [chestId, notifyMode, chestFull, donation, someoneWithdraws, chestEmpty, wiredTransaction];
+        this._data = [chestId, full, donation, withdraw, empty, wired, mode];
     }
 
-    public getMessageArray()
-    {
-        return this._data;
-    }
-
-    public dispose(): void
-    {
-        return;
-    }
+    public getMessageArray() { return this._data; }
+    public dispose(): void { return; }
 }
