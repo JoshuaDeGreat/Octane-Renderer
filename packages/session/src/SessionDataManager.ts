@@ -657,9 +657,14 @@ export class SessionDataManager implements ISessionDataManager
         return this._badgeImageManager.getBadgeImage(name);
     }
 
-    public getGroupBadgeImage(name: string): Texture
+    public getGroupBadgeImage(name: string, allowServerImage: boolean = true): Texture
     {
-        return this._badgeImageManager.getBadgeImage(name, BadgeImageManager.GROUP_BADGE);
+        return this._badgeImageManager.getBadgeImage(name, BadgeImageManager.GROUP_BADGE, true, allowServerImage);
+    }
+
+    public getGroupBadgeImageUrl(name: string, allowServerImage: boolean = true): string
+    {
+        return this._badgeImageManager.getGroupBadgeImageUrl(name, allowServerImage);
     }
 
     public getUserTags(roomUnitId: number): string[]

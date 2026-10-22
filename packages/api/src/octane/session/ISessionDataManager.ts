@@ -23,7 +23,10 @@ export interface ISessionDataManager
     getBadgeImage(name: string): Texture;
     getUserTags(roomUnitId: number): string[];
     loadBadgeImage(name: string): string;
-    getGroupBadgeImage(name: string): Texture;
+    /** `allowServerImage` false draws the badge here even with a badge imager (badge editor previews). */
+    getGroupBadgeImage(name: string, allowServerImage?: boolean): Texture;
+    /** One image URL per group badge for the interface; null until BadgeImageReadyEvent says it is ready. */
+    getGroupBadgeImageUrl(name: string, allowServerImage?: boolean): string;
     loadGroupBadgeImage(name: string): string;
     hasSecurity(level: number): boolean;
     hasPermission(key: string, fallbackLevel: number): boolean;
