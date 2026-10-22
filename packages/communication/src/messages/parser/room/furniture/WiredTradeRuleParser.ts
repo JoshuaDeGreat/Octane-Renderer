@@ -1,87 +1,54 @@
 import { IMessageDataWrapper } from '@octane/api';
-import { IWiredContractDefinition, IWiredContractNode, IWiredContractRule } from '../../roomevents/WiredContractData';
 
-/** TradeRequirementNode types (AIR package_231/TradeRequirementNode: byte type). */
+/** Heaven Polaris contract wire: int kind, int currencyType, bool wallItem, int spriteId, int amount. */
 export const WIRED_TRADE_NODE_COINS = 0;
 export const WIRED_TRADE_NODE_FURNI = 1;
 
-/**
- * One thing a trade asks for or hands back: a pile of coins, or a pile of one kind of furni. Same wire shape as the
- * contract editor's node (AIR TradeRequirementNode): byte type, int amount, if furni: bool wall, int typeId,
- * string posterId.
- */
-export type IWiredTradeNode = IWiredContractNode;
+export interface IWiredTradeNode
+{
+    kind: number;
+    currencyType: number;
+    wallItem: boolean;
+    spriteId: number;
+    amount: number;
+}
+export interface IWiredTradeRule { nodes: IWiredTradeNode[]; }
+export interface IWiredTradeRulesDefinition { giveRules: IWiredTradeRule[]; rewardRule: IWiredTradeRule | null; }
 
-/** Nodes inside a rule are joined (all must be met); alternative rules are or-ed. */
-export type IWiredTradeRule = IWiredContractRule;
-
-/** AIR TradeRequirementRulesDefinition: bool hasGive, [int n, rule[n]], bool hasGet, [rule]. */
-export type IWiredTradeRulesDefinition = IWiredContractDefinition;
-
-/** Smallest wire size of a node (byte type + int amount) and of a rule (int count). */
-const MIN_NODE_BYTES = 5;
-const MIN_RULE_BYTES = 4;
-
-/**
- * Reads a list count without a fixed cap -- AIR TradeRequirementRule / TradeRequirementRulesDefinition.readFromMessage
- * have none, and a give-from-chest reward can name any number of furni types. A count that cannot fit in the bytes
- * left is refused so a bogus value cannot loop.
- */
-const readCount = (wrapper: IMessageDataWrapper, minItemBytes: number): number =>
+const MAX_RULES = 128;
+const MAX_NODES = 512;
+const readCount = (wrapper: IMessageDataWrapper, limit: number): number =>
 {
     const count = wrapper.readInt();
-
-    if(count < 0) throw new Error('Invalid wired trade list count');
-
-    const remaining = wrapper.remainingBytes;
-
-    if(remaining !== undefined && count * minItemBytes > remaining) throw new Error('Wired trade list count exceeds the packet');
-
+    if(count < 0 || count > limit) throw new Error('Invalid Heaven wired trade count');
     return count;
 };
 
-const readNode = (wrapper: IMessageDataWrapper): IWiredTradeNode =>
+export const readWiredTradeNode = (wrapper: IMessageDataWrapper): IWiredTradeNode =>
 {
-    if(!wrapper.bytesAvailable) throw new Error('Truncated wired trade node');
-
-    const type = wrapper.readByte();
-
-    if(type !== WIRED_TRADE_NODE_COINS && type !== WIRED_TRADE_NODE_FURNI) throw new Error('Invalid wired trade node type');
-
+    const kind = wrapper.readInt();
+    const currencyType = wrapper.readInt();
+    const wallItem = wrapper.readBoolean();
+    const spriteId = wrapper.readInt();
     const amount = wrapper.readInt();
-    const itemType = type === WIRED_TRADE_NODE_FURNI
-        ? { isWallItem: wrapper.readBoolean(), typeId: wrapper.readInt(), legacyPosterId: wrapper.readString() }
-        : null;
-
-    return { type, amount, itemType };
+    if(kind !== WIRED_TRADE_NODE_COINS && kind !== WIRED_TRADE_NODE_FURNI) throw new Error('Invalid Heaven wired trade kind');
+    return { kind, currencyType, wallItem, spriteId, amount };
 };
 
-/** AIR TradeRequirementRule: int n, TradeRequirementNode[n] (uncapped; the contract editor keeps its own caps). */
 export const readWiredTradeRule = (wrapper: IMessageDataWrapper): IWiredTradeRule =>
 {
-    const count = readCount(wrapper, MIN_NODE_BYTES);
+    const count = readCount(wrapper, MAX_NODES);
     const nodes: IWiredTradeNode[] = [];
-
-    for(let i = 0; i < count; i++) nodes.push(readNode(wrapper));
-
+    for(let i = 0; i < count; i++) nodes.push(readWiredTradeNode(wrapper));
     return { nodes };
 };
 
-/** AIR TradeRequirementRulesDefinition, uncapped: bool hasGive, [int n, rule[n]], bool hasGet, [rule]. */
+/** Polaris ContractWireUtil.appendRules: int alternatives, rule[], bool hasReward, rewardRule? */
 export const readWiredTradeRulesDefinition = (wrapper: IMessageDataWrapper): IWiredTradeRulesDefinition =>
 {
-    let youGiveRule: IWiredTradeRule[] = null;
-
-    if(wrapper.readBoolean())
-    {
-        const count = readCount(wrapper, MIN_RULE_BYTES);
-
-        youGiveRule = [];
-
-        for(let i = 0; i < count; i++) youGiveRule.push(readWiredTradeRule(wrapper));
-    }
-
-    const youGetRule = wrapper.readBoolean() ? readWiredTradeRule(wrapper) : null;
-
-    return { youGiveRule, youGetRule };
+    const count = readCount(wrapper, MAX_RULES);
+    const giveRules: IWiredTradeRule[] = [];
+    for(let i = 0; i < count; i++) giveRules.push(readWiredTradeRule(wrapper));
+    const rewardRule = wrapper.readBoolean() ? readWiredTradeRule(wrapper) : null;
+    return { giveRules, rewardRule };
 };
