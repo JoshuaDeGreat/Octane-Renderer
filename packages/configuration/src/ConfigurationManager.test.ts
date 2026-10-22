@@ -134,3 +134,17 @@ describe('ConfigurationManager.init', () =>
         expect(manager.getValue<number>('x')).toBe(2);
     });
 });
+
+describe('ConfigurationManager.parseConfiguration', () =>
+{
+    it('keeps a key whose parent is also a key with a plain value, and every key after it', () =>
+    {
+        const manager = new ConfigurationManager();
+
+        expect(manager.parseConfiguration({ 'loader': 'Opstarten...', 'loader.waiting': 'Loading content...', 'toolbar.stories.enabled': false })).toBe(true);
+
+        expect(manager.getValue('loader')).toBe('Opstarten...');
+        expect(manager.getValue('loader.waiting')).toBe('Loading content...');
+        expect(manager.getValue('toolbar.stories.enabled')).toBe(false);
+    });
+});

@@ -80,6 +80,18 @@ export class ConfigurationManager implements IConfigurationManager
             this.parseConfiguration(defaultConfig, true);
 
             for(const json of documents) this.parseConfiguration(json);
+
+            // With system.log.debug on: which files were read and how big, so a key reported missing is easy to trace
+            // to a stale or wrong file. Plain console, as OctaneLogger's switches are only applied after this load.
+            if(this._definitions.get('system.log.debug') === true)
+            {
+                urls.forEach((url, index) =>
+                {
+                    const json = documents[index];
+
+                    console.info(`[Configuration] ${ url.split('?')[0] }: ${ json && typeof json === 'object' ? Object.keys(json).length : 0 } keys`);
+                });
+            }
         }
 
         catch (err)
@@ -105,17 +117,27 @@ export class ConfigurationManager implements IConfigurationManager
 
             for(const key in data)
             {
-                let value = data[key];
-
-                if(typeof value === 'string') value = this.interpolate(value, regex);
-
-                if(this._definitions.has(key))
+                // One bad key must not drop every key after it in the file.
+                try
                 {
-                    if(overrides) this.setValue(key, value);
+                    let value = data[key];
+
+                    if(typeof value === 'string') value = this.interpolate(value, regex);
+
+                    if(this._definitions.has(key))
+                    {
+                        if(overrides) this.setValue(key, value);
+                    }
+                    else
+                    {
+                        this.setValue(key, value);
+                    }
                 }
-                else
+
+                catch (e)
                 {
-                    this.setValue(key, value);
+                    // Plain console: the log switches come from these files and may still be off.
+                    console.error(`[Configuration] could not read "${ key }"`, e);
                 }
             }
 
@@ -189,7 +211,9 @@ export class ConfigurationManager implements IConfigurationManager
 
             if(i !== (parts.length - 1))
             {
-                if(!last[part]) last[part] = {};
+                // "loader" and "loader.waiting" can both be keys: a plain value cannot hold the nested
+                // part, so it is replaced in the tree (the flat definitions keep both).
+                if(!last[part] || (typeof last[part] !== 'object')) last[part] = {};
 
                 last = last[part];
 
