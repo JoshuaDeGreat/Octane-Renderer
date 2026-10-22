@@ -3541,47 +3541,59 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
                     this._imageObjectIdBank.freeNumber((objectId - 1));
 
-                    const imageListeners = this._imageCallbacks.get(objectId.toString());
-
-                    if(imageListeners)
-                    {
-                        this._imageCallbacks.delete(objectId.toString());
-
-                        if(texture)
-                        {
-                            let entry = (contentLoaded && imageKey) ? this._imageCache.get(imageKey) : null;
-
-                            if(entry)
-                            {
-                                if((texture !== entry.texture) && !(texture as unknown as DisposableTexture).destroyed) texture.destroy(true);
-                            }
-                            else if(contentLoaded && imageKey)
-                            {
-                                entry = this._imageCache.set(imageKey, texture);
-                            }
-
-                            for(const imageListener of imageListeners)
-                            {
-                                if(!imageListener) continue;
-
-                                imageListener.imageReady(entry ? new SharedImageResult(entry, objectId) : new ImageResult(objectId, texture));
-                            }
-                        }
-                        else
-                        {
-                            for(const imageListener of imageListeners)
-                            {
-                                if(!imageListener) continue;
-
-                                imageListener.imageFailed(objectId);
-                            }
-                        }
-                    }
+                    this.deliverTemporaryObjectImage(objectId, texture, imageKey, contentLoaded);
                 }
             }
         }
 
         if(geometry) geometry.dispose();
+    }
+
+    /** Hands the listeners of a temporary object its image, or tells them it failed. */
+    private deliverTemporaryObjectImage(objectId: number, texture: Texture, imageKey: string, contentLoaded: boolean): void
+    {
+        const imageListeners = this._imageCallbacks.get(objectId.toString());
+
+        if(imageListeners)
+        {
+            this._imageCallbacks.delete(objectId.toString());
+
+            if(texture) this.deliverImageReady(imageListeners, objectId, texture, imageKey, contentLoaded);
+            else this.deliverImageFailed(imageListeners, objectId);
+        }
+    }
+
+    /** Hands every listener the image: the cached entry when the key has one, a new entry when the content loaded, the plain texture otherwise. */
+    private deliverImageReady(imageListeners: IGetImageListener[], objectId: number, texture: Texture, imageKey: string, contentLoaded: boolean): void
+    {
+        let entry = (contentLoaded && imageKey) ? this._imageCache.get(imageKey) : null;
+
+        if(entry)
+        {
+            if((texture !== entry.texture) && !(texture as unknown as DisposableTexture).destroyed) texture.destroy(true);
+        }
+        else if(contentLoaded && imageKey)
+        {
+            entry = this._imageCache.set(imageKey, texture);
+        }
+
+        for(const imageListener of imageListeners)
+        {
+            if(!imageListener) continue;
+
+            imageListener.imageReady(entry ? new SharedImageResult(entry, objectId) : new ImageResult(objectId, texture));
+        }
+    }
+
+    /** Tells every listener that the image could not be made. */
+    private deliverImageFailed(imageListeners: IGetImageListener[], objectId: number): void
+    {
+        for(const imageListener of imageListeners)
+        {
+            if(!imageListener) continue;
+
+            imageListener.imageFailed(objectId);
+        }
     }
 
     public setObjectMoverIconSpriteVisible(visible: boolean): void
