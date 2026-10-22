@@ -13,6 +13,10 @@ export interface IWiredTradeNode
     amount: number;
 }
 export interface IWiredTradeRule { nodes: IWiredTradeNode[]; }
+// The Heaven UI uses explicit aliases to distinguish this Polaris wire format
+// from upstream AIR trade requirements.
+export type IHeavenWiredTradeNode = IWiredTradeNode;
+export type IHeavenWiredTradeRule = IWiredTradeRule;
 export interface IWiredTradeRulesDefinition { giveRules: IWiredTradeRule[]; rewardRule: IWiredTradeRule | null; }
 
 const MAX_RULES = 128;
