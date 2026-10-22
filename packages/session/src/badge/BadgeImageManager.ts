@@ -3,10 +3,13 @@ import { GetCommunication, GroupBadgePartsEvent } from '@octane/communication';
 import { GetConfiguration } from '@octane/configuration';
 import { BadgeImageReadyEvent, GetEventDispatcher } from '@octane/events';
 import { OctaneLogger, TextureUtils } from '@octane/utils';
-import { Container, Sprite, Texture } from 'pixi.js';
+import { CanvasSource, Container, Sprite, Texture } from 'pixi.js';
 import { BadgeInfo } from './BadgeInfo';
 import { GroupBadge } from './GroupBadge';
+import { drawGroupBadge, GroupBadgeLayer } from './GroupBadgeCanvas';
 import { GroupBadgePart } from './GroupBadgePart';
+import { getBadgePartUrl } from './GroupBadgePartUrl';
+import { GroupBadgePartTables, readGroupBadgePartsCache, serializeGroupBadgeParts, writeGroupBadgePartsCache } from './GroupBadgePartsCache';
 
 export class BadgeImageManager
 {
@@ -21,18 +24,53 @@ export class BadgeImageManager
     private _requestedBadges: Map<string, boolean> = new Map();
     private _groupBadgesQueue: Map<string, number> = new Map();
     private _readyToGenerateGroupBadges: boolean = false;
-    private _groupBadgeAssetsLoaded: boolean = false;
-    private _groupBadgeAssetsLoading: Promise<boolean> | null = null;
     private _groupBadgeRetryTimeout: ReturnType<typeof setTimeout> = null;
+    private _groupBadgeImageUrls: Map<string, string> = new Map();
+    private _remoteGroupBadges: Map<string, boolean> = new Map();
+    private _drawnGroupBadges: Set<string> = new Set();
+    private _partsSignature: string = null;
+    private _badgeParts: Map<string, 'loading' | 'loaded' | 'failed'> = new Map();
+    private _badgePartLoadsInFlight: number = 0;
 
     public async init(): Promise<void>
     {
         GetCommunication().registerMessageEvent(new GroupBadgePartsEvent(this.onGroupBadgePartsEvent.bind(this)));
+
+        // The tables of the last session: badges draw at once, the server's answer replaces them after login.
+        const cached = readGroupBadgePartsCache();
+
+        if(cached)
+        {
+            this.applyPartTables(cached);
+            this._partsSignature = serializeGroupBadgeParts(cached);
+        }
     }
 
-    public getBadgeImage(badgeName: string, type: string = BadgeImageManager.NORMAL_BADGE, load: boolean = true): Texture
+    /**
+     * The image of a group badge for the interface: one URL per badge code, made once (a server image when
+     * `group.badge.url` is set, as AIR loads them, otherwise the badge drawn here). Null until it is ready;
+     * BadgeImageReadyEvent tells when.
+     */
+    public getGroupBadgeImageUrl(badgeCode: string, allowServerImage: boolean = true): string
     {
-        return this.getBadgeTexture(badgeName, type);
+        if(!badgeCode) return null;
+
+        const url = this._groupBadgeImageUrls.get(badgeCode);
+
+        if(url) return url;
+
+        this.getBadgeTexture(badgeCode, BadgeImageManager.GROUP_BADGE, allowServerImage);
+
+        return null;
+    }
+
+    /**
+     * `allowServerImage` false draws a group badge here even when a badge imager is set up: for the badge editor,
+     * whose previews are codes no guild has, so the imager has no image for them.
+     */
+    public getBadgeImage(badgeName: string, type: string = BadgeImageManager.NORMAL_BADGE, load: boolean = true, allowServerImage: boolean = true): Texture
+    {
+        return this.getBadgeTexture(badgeName, type, allowServerImage);
     }
 
     public getBadgeInfo(badgeName: string): BadgeInfo
@@ -51,7 +89,7 @@ export class BadgeImageManager
         return null;
     }
 
-    private getBadgeTexture(badgeName: string, type: string = BadgeImageManager.NORMAL_BADGE): Texture
+    private getBadgeTexture(badgeName: string, type: string = BadgeImageManager.NORMAL_BADGE, allowServerImage: boolean = true): Texture
     {
         const url = this.getBadgeUrl(badgeName, type);
 
@@ -85,8 +123,11 @@ export class BadgeImageManager
 
         else if(type === BadgeImageManager.GROUP_BADGE)
         {
-            if(!this._groupBadgesQueue.has(badgeName)) this._groupBadgesQueue.set(badgeName, 0);
-            void this.processGroupBadgeQueue();
+            if(!allowServerImage || !this.loadRemoteGroupBadge(badgeName))
+            {
+                if(!this._groupBadgesQueue.has(badgeName)) this._groupBadgesQueue.set(badgeName, 0);
+                void this.processGroupBadgeQueue();
+            }
         }
 
         return this.getBadgePlaceholder();
@@ -114,6 +155,62 @@ export class BadgeImageManager
         return url;
     }
 
+    /**
+     * AIR's way: a badge imager makes the image (`group.badge.url`, a URL with %imagerdata%, as RoomRenderScene reads
+     * it too). False when there is no imager or it failed for this badge.
+     */
+    private loadRemoteGroupBadge(badgeCode: string): boolean
+    {
+        const state = this._remoteGroupBadges.get(badgeCode);
+
+        if(state !== undefined) return state;
+
+        const configuration = GetConfiguration();
+        const template = ((configuration.definitions?.has('group.badge.url') ? configuration.getValue<string>('group.badge.url', '') : '') || '').trim();
+
+        // Only an imager URL counts; the bare placeholder (the default) means the badges are drawn here.
+        if(!template.includes('%imagerdata%') || (template === '%imagerdata%')) return false;
+
+        // Configuration values are interpolated when the file loads.
+        let url = template.replace('%imagerdata%', badgeCode);
+
+        if(url.endsWith('.gif')) url = url.slice(0, -3) + 'png';
+
+        this._remoteGroupBadges.set(badgeCode, true);
+
+        const load = async () =>
+        {
+            try
+            {
+                if(await GetAssetManager().downloadAsset(url))
+                {
+                    const texture = GetAssetManager().getTexture(url);
+
+                    if(texture)
+                    {
+                        GetAssetManager().setTexture(badgeCode, texture);
+                        this._groupBadgeImageUrls.set(badgeCode, url);
+                        GetEventDispatcher().dispatchEvent(new BadgeImageReadyEvent(badgeCode, texture));
+
+                        return;
+                    }
+                }
+            }
+            catch (err)
+            {
+                OctaneLogger.warn(`Group badge image could not be loaded, drawing it instead: ${ url }`, err);
+            }
+
+            // Draw it here instead.
+            this._remoteGroupBadges.set(badgeCode, false);
+            this.getBadgeTexture(badgeCode, BadgeImageManager.GROUP_BADGE);
+        };
+
+        void load();
+
+        return true;
+    }
+
     private scheduleQueueRetry(): void
     {
         if(this._groupBadgeRetryTimeout) return;
@@ -125,46 +222,18 @@ export class BadgeImageManager
         }, 250);
     }
 
-    private async ensureGroupBadgeAssetsLoaded(): Promise<boolean>
-    {
-        if(this._groupBadgeAssetsLoaded) return true;
-
-        if(this._groupBadgeAssetsLoading === null)
-        {
-            this._groupBadgeAssetsLoading = GetAssetManager().downloadAsset('local://group_badge')
-                .then(result =>
-                {
-                    this._groupBadgeAssetsLoaded = result;
-
-                    return result;
-                })
-                .catch(err =>
-                {
-                    OctaneLogger.error(err);
-
-                    return false;
-                })
-                .finally(() => this._groupBadgeAssetsLoading = null);
-        }
-
-        return this._groupBadgeAssetsLoading;
-    }
-
     private async processGroupBadgeQueue(): Promise<void>
     {
         if(!this._readyToGenerateGroupBadges || !this._groupBadgesQueue.size) return;
-
-        if(!await this.ensureGroupBadgeAssetsLoaded())
-        {
-            this.scheduleQueueRetry();
-            return;
-        }
 
         let hasPending = false;
 
         for(const badgeCode of Array.from(this._groupBadgesQueue.keys()))
         {
             if(this.loadGroupBadge(badgeCode)) continue;
+
+            // A part image is still downloading; its arrival runs the queue again, so this is no attempt.
+            if(this._badgePartLoadsInFlight > 0) continue;
 
             const attempts = ((this._groupBadgesQueue.get(badgeCode) ?? 0) + 1);
 
@@ -213,23 +282,10 @@ export class BadgeImageManager
         return true;
     }
 
-    private renderGroupBadge(groupBadge: GroupBadge): boolean
+    /** The layers of a badge in drawing order, or null while a part is unknown or its image is missing. */
+    private getGroupBadgeLayers(groupBadge: GroupBadge): GroupBadgeLayer[]
     {
-        const container = new Container();
-        const tempSprite = new Sprite(Texture.EMPTY);
-        let renderedLayers = 0;
-
-        const abort = (): boolean =>
-        {
-            container.destroy({ children: true });
-
-            return false;
-        };
-
-        tempSprite.width = GroupBadgePart.IMAGE_WIDTH;
-        tempSprite.height = GroupBadgePart.IMAGE_HEIGHT;
-
-        container.addChild(tempSprite);
+        const layers: GroupBadgeLayer[] = [];
 
         for(const part of groupBadge.parts)
         {
@@ -238,78 +294,171 @@ export class BadgeImageManager
 
             const partNames = ((part.type === 'b') ? this._groupBases.get(part.key) : this._groupSymbols.get(part.key));
 
-            if(!partNames || !partNames.length) return abort();
+            if(!partNames || !partNames.length) return null;
 
             for(const partName of partNames)
             {
                 if(!partName || !partName.length) continue;
 
-                const texture = this.getBadgePartTexture(part.type, partName);
+                const texture = this.getBadgePartTexture(partName);
 
                 if(!texture) continue;
 
                 const { x, y } = part.calculatePosition(texture);
-                const sprite = new Sprite(texture);
 
-                sprite.position.set(x, y);
-
-                if(isFirst)
-                {
-                    const tintColor = this.getPartTintColor(part.color);
-
-                    if(tintColor !== null) sprite.tint = tintColor;
-                }
+                layers.push({ texture, x, y, tint: isFirst ? this.getPartTintColor(part.color) : null });
 
                 isFirst = false;
-                renderedLayers++;
                 renderedPartLayers++;
-
-                container.addChild(sprite);
             }
 
-            if(!renderedPartLayers) return abort();
+            if(!renderedPartLayers) return null;
         }
 
-        if(!renderedLayers) return abort();
+        return layers.length ? layers : null;
+    }
 
-        const texture = TextureUtils.generateTexture(container);
-        container.destroy({ children: true });
+    private renderGroupBadge(groupBadge: GroupBadge): boolean
+    {
+        const layers = this.getGroupBadgeLayers(groupBadge);
+
+        if(!layers) return false;
+
+        let texture: Texture = null;
+        let imageUrl: string = null;
+        const canvas = drawGroupBadge(layers, GroupBadgePart.IMAGE_WIDTH, GroupBadgePart.IMAGE_HEIGHT);
+
+        if(canvas)
+        {
+            texture = new Texture({ source: new CanvasSource({ resource: canvas, scaleMode: 'nearest' }) });
+
+            try
+            {
+                if('toDataURL' in canvas) imageUrl = canvas.toDataURL('image/png');
+            }
+            catch (err)
+            {
+                OctaneLogger.warn(`Group badge image could not be encoded: ${ groupBadge.code }`, err);
+            }
+        }
+        else
+        {
+            texture = this.renderGroupBadgeOnGpu(layers);
+        }
+
+        if(!texture) return false;
+
         GetAssetManager().setTexture(groupBadge.code, texture);
+        this._drawnGroupBadges.add(groupBadge.code);
+
+        if(imageUrl) this._groupBadgeImageUrls.set(groupBadge.code, imageUrl);
+        else this._groupBadgeImageUrls.delete(groupBadge.code);
 
         GetEventDispatcher().dispatchEvent(new BadgeImageReadyEvent(groupBadge.code, texture));
 
         return true;
     }
 
-    private getBadgePartTexture(partType: string, rawPartName: string): Texture
+    /** The old path, for part images the 2D canvas cannot draw. */
+    private renderGroupBadgeOnGpu(layers: GroupBadgeLayer[]): Texture
+    {
+        const container = new Container();
+        const tempSprite = new Sprite(Texture.EMPTY);
+
+        tempSprite.width = GroupBadgePart.IMAGE_WIDTH;
+        tempSprite.height = GroupBadgePart.IMAGE_HEIGHT;
+
+        container.addChild(tempSprite);
+
+        for(const layer of layers)
+        {
+            const sprite = new Sprite(layer.texture);
+
+            sprite.position.set(layer.x, layer.y);
+
+            if(layer.tint !== null) sprite.tint = layer.tint;
+
+            container.addChild(sprite);
+        }
+
+        const texture = TextureUtils.generateTexture(container);
+
+        container.destroy({ children: true });
+
+        return texture;
+    }
+
+    /**
+     * The image of a badge part (`badgepart_<name>.png`). The client ships no parts: they come from the hotel's
+     * badge parts folder (`badge.asset.grouparts.url`, %part% is the name), the folder the emulator's badge
+     * imager reads too. Each part is downloaded once; null while it is on its way.
+     */
+    private getBadgePartTexture(rawPartName: string): Texture
     {
         const partName = rawPartName.replace('.png', '').replace('.gif', '');
-        const withoutLayerSuffix = partName.replace(/_part[12]$/i, '');
-        const candidates = new Set<string>();
+        const texture = GetAssetManager().getTexture(`badgepart_${ partName }`);
 
-        candidates.add(partName);
-        candidates.add(withoutLayerSuffix);
-        candidates.add(`badgepart_${partName}`);
-        candidates.add(`badgepart_${withoutLayerSuffix}`);
+        if(texture) return texture;
 
-        if(!partName.startsWith('badgepart_'))
-        {
-            if((partType === 's') || (partType === 't')) candidates.add(`badgepart_symbol_${partName}`);
-            if((partType === 's') || (partType === 't')) candidates.add(`badgepart_symbol_${withoutLayerSuffix}`);
-            if(partType === 'b') candidates.add(`badgepart_base_${partName}`);
-            if(partType === 'b') candidates.add(`badgepart_base_${withoutLayerSuffix}`);
-        }
-
-        for(const candidate of candidates)
-        {
-            const texture = GetAssetManager().getTexture(candidate);
-
-            if(texture) return texture;
-        }
+        this.loadBadgePart(partName);
 
         return null;
     }
 
+    private loadBadgePart(partName: string): void
+    {
+        if(this._badgeParts.has(partName)) return;
+
+        const url = getBadgePartUrl(this.getBadgePartUrlTemplate(), partName);
+
+        if(!url)
+        {
+            this._badgeParts.set(partName, 'failed');
+            OctaneLogger.warn(`Group badge part ${ partName } cannot be loaded: set badge.asset.grouparts.url (with %part%) in the renderer config`);
+
+            return;
+        }
+
+        this._badgeParts.set(partName, 'loading');
+        this._badgePartLoadsInFlight++;
+
+        const load = async () =>
+        {
+            let loaded = false;
+
+            try
+            {
+                if(await GetAssetManager().downloadAsset(url))
+                {
+                    const texture = GetAssetManager().getTexture(url);
+
+                    if(texture)
+                    {
+                        GetAssetManager().setTexture(`badgepart_${ partName }`, texture);
+                        loaded = true;
+                    }
+                }
+            }
+            catch (err)
+            {
+                OctaneLogger.warn(`Group badge part could not be loaded: ${ url }`, err);
+            }
+
+            this._badgeParts.set(partName, loaded ? 'loaded' : 'failed');
+            this._badgePartLoadsInFlight--;
+
+            void this.processGroupBadgeQueue();
+        };
+
+        void load();
+    }
+
+    private getBadgePartUrlTemplate(): string
+    {
+        const configuration = GetConfiguration();
+
+        return ((configuration.definitions?.has('badge.asset.grouparts.url') ? configuration.getValue<string>('badge.asset.grouparts.url', '') : '') || '').trim();
+    }
 
     private getPartTintColor(colorId: number): number | null
     {
@@ -324,6 +473,20 @@ export class BadgeImageManager
         return Number.isFinite(tintColor) ? tintColor : null;
     }
 
+    private applyPartTables(tables: GroupBadgePartTables): void
+    {
+        const strip = (names: string[]) => names.map(val => val.replace('.png', '').replace('.gif', ''));
+
+        this._groupBases = new Map();
+        this._groupSymbols = new Map();
+
+        tables.bases.forEach((names, id) => this._groupBases.set(id, strip(names)));
+        tables.symbols.forEach((names, id) => this._groupSymbols.set(id, strip(names)));
+
+        this._groupPartColors = tables.partColors;
+        this._readyToGenerateGroupBadges = true;
+    }
+
     private onGroupBadgePartsEvent(event: GroupBadgePartsEvent): void
     {
         if(!event) return;
@@ -332,12 +495,21 @@ export class BadgeImageManager
 
         if(!data) return;
 
-        data.bases.forEach((names, id) => this._groupBases.set(id, names.map(val => val.replace('.png', '').replace('.gif', ''))));
+        const tables: GroupBadgePartTables = { bases: data.bases, symbols: data.symbols, partColors: data.partColors };
+        const signature = serializeGroupBadgeParts(tables);
+        const changed = (this._partsSignature !== null) && (this._partsSignature !== signature);
 
-        data.symbols.forEach((names, id) => this._groupSymbols.set(id, names.map(val => val.replace('.png', '').replace('.gif', ''))));
+        this.applyPartTables(tables);
 
-        this._groupPartColors = data.partColors;
-        this._readyToGenerateGroupBadges = true;
+        if(this._partsSignature !== signature) writeGroupBadgePartsCache(signature);
+
+        // Badges drawn from last session's tables are drawn again when the hotel changed them.
+        if(changed)
+        {
+            for(const badgeCode of this._drawnGroupBadges) this._groupBadgesQueue.set(badgeCode, 0);
+        }
+
+        this._partsSignature = signature;
 
         void this.processGroupBadgeQueue();
     }
