@@ -260,6 +260,29 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
         instance.model.setValue(RoomVariableEnum.ROOM_IS_PUBLIC, 0);
         instance.model.setValue(RoomVariableEnum.ROOM_Z_SCALE, 1);
 
+        this.storeRoomBounds(instance, roomObject, roomMap);
+
+        const logic = (roomObject && roomObject.logic as RoomLogic) || null;
+
+        if(logic)
+        {
+            logic.initialize(roomMap);
+
+            this.sendRoomSurfaceTypes(instance, logic, floorType, wallType, landscapeType);
+        }
+
+        this.maskRoomDoors(instance, logic, roomMap);
+
+        instance.createRoomObjectAndInitalize(RoomEngine.CURSOR_OBJECT_ID, RoomEngine.CURSOR_OBJECT_TYPE, RoomObjectCategory.CURSOR);
+
+        if(GetConfiguration().getValue('enable.avatar.arrow', false)) instance.createRoomObjectAndInitalize(RoomEngine.ARROW_OBJECT_ID, RoomEngine.ARROW_OBJECT_TYPE, RoomObjectCategory.CURSOR);
+
+        return instance;
+    }
+
+    /** Stores the bounds of the room in the model and the seed of the room object that is made from them. */
+    private storeRoomBounds(instance: IRoomInstance, roomObject: IRoomObjectController, roomMap: RoomMapData): void
+    {
         if(roomMap)
         {
             const dimensions = roomMap.dimensions;
@@ -281,32 +304,33 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
                 if(roomObject && roomObject.model) roomObject.model.setValue(RoomObjectVariable.ROOM_RANDOM_SEED, seed);
             }
         }
+    }
 
-        const logic = (roomObject && roomObject.logic as RoomLogic) || null;
-
-        if(logic)
+    /** Gives the room logic the floor, wall and landscape types that are set, and keeps them in the model. */
+    private sendRoomSurfaceTypes(instance: IRoomInstance, logic: RoomLogic, floorType: string, wallType: string, landscapeType: string): void
+    {
+        if(floorType)
         {
-            logic.initialize(roomMap);
-
-            if(floorType)
-            {
-                logic.processUpdateMessage(new ObjectRoomUpdateMessage(ObjectRoomUpdateMessage.ROOM_FLOOR_UPDATE, floorType));
-                instance.model.setValue(RoomObjectVariable.ROOM_FLOOR_TYPE, floorType);
-            }
-
-            if(wallType)
-            {
-                logic.processUpdateMessage(new ObjectRoomUpdateMessage(ObjectRoomUpdateMessage.ROOM_WALL_UPDATE, wallType));
-                instance.model.setValue(RoomObjectVariable.ROOM_WALL_TYPE, wallType);
-            }
-
-            if(landscapeType)
-            {
-                logic.processUpdateMessage(new ObjectRoomUpdateMessage(ObjectRoomUpdateMessage.ROOM_LANDSCAPE_UPDATE, landscapeType));
-                instance.model.setValue(RoomObjectVariable.ROOM_LANDSCAPE_TYPE, landscapeType);
-            }
+            logic.processUpdateMessage(new ObjectRoomUpdateMessage(ObjectRoomUpdateMessage.ROOM_FLOOR_UPDATE, floorType));
+            instance.model.setValue(RoomObjectVariable.ROOM_FLOOR_TYPE, floorType);
         }
 
+        if(wallType)
+        {
+            logic.processUpdateMessage(new ObjectRoomUpdateMessage(ObjectRoomUpdateMessage.ROOM_WALL_UPDATE, wallType));
+            instance.model.setValue(RoomObjectVariable.ROOM_WALL_TYPE, wallType);
+        }
+
+        if(landscapeType)
+        {
+            logic.processUpdateMessage(new ObjectRoomUpdateMessage(ObjectRoomUpdateMessage.ROOM_LANDSCAPE_UPDATE, landscapeType));
+            instance.model.setValue(RoomObjectVariable.ROOM_LANDSCAPE_TYPE, landscapeType);
+        }
+    }
+
+    /** Masks every door of the room and publishes the position of the ones facing 90 or 180. */
+    private maskRoomDoors(instance: IRoomInstance, logic: RoomLogic, roomMap: RoomMapData): void
+    {
         if(roomMap && roomMap.doors.length)
         {
             let doorIndex = 0;
@@ -349,12 +373,6 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
                 doorIndex++;
             }
         }
-
-        instance.createRoomObjectAndInitalize(RoomEngine.CURSOR_OBJECT_ID, RoomEngine.CURSOR_OBJECT_TYPE, RoomObjectCategory.CURSOR);
-
-        if(GetConfiguration().getValue('enable.avatar.arrow', false)) instance.createRoomObjectAndInitalize(RoomEngine.ARROW_OBJECT_ID, RoomEngine.ARROW_OBJECT_TYPE, RoomObjectCategory.CURSOR);
-
-        return instance;
     }
 
     public getRoomInstanceDisplay(roomId: number, id: number, width: number, height: number, scale: number): Container
