@@ -117,6 +117,7 @@ export class OutgoingHeader
     public static ITEM_DIMMER_SETTINGS = 2813;
     public static SET_BUILD_HEIGHT = 9351;
     public static SET_BUILD_UNDERPASS = 7022;
+    public static CHEST_DEPOSIT = 9313;
     public static CHEST_WITHDRAW = 9314;
     public static CHEST_SAVE_SETTINGS = 9315;
     public static CHEST_SAVE_OPTIONS = 9338;
@@ -126,8 +127,10 @@ export class OutgoingHeader
     public static CHEST_REQUEST_LOG = 9318;
     public static CHEST_WITHDRAW_FURNI = 9320;
     public static CHEST_START_DEPOSIT = 9324;
+    public static CHEST_DEPOSIT_INVENTORY_ITEM = 9325;
     public static CHEST_WITHDRAW_ALL_FURNI = 9326;
     public static CHEST_OPEN = 9327;
+    public static CHEST_ENABLE_WIRED = 9345;
     public static WIRED_CHEST_ROOM_LOGS = 9328;
     public static WIRED_CHEST_LOCK = 9329;
     // 9330-9333 belong to the Trax editor; the chests tab continues at 9334.
