@@ -1,0 +1,210 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`RoomEngine room dragging > does not start a drag with a modifier key, while decorating, or when the room forbids it > alt 1`] = `
+[
+  "{"event":"mousedown 10,10","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 90,90","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > does not start a drag with a modifier key, while decorating, or when the room forbids it > ctrl 1`] = `
+[
+  "{"event":"mousedown 10,10","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 90,90","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > does not start a drag with a modifier key, while decorating, or when the room forbids it > decorating 1`] = `
+[
+  "{"event":"mousedown 10,10","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 90,90","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > does not start a drag with a modifier key, while decorating, or when the room forbids it > not allowed 1`] = `
+[
+  "{"event":"mousedown 10,10","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 90,90","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > does not start a drag with a modifier key, while decorating, or when the room forbids it > shift 1`] = `
+[
+  "{"event":"mousedown 10,10","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 90,90","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > ends a drag on a double click and ignores unknown events > double click 1`] = `
+[
+  "{"event":"mousedown 0,0","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 40,0","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"double_click 40,0","returned":true,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"click 40,0","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > ends a drag on a double click and ignores unknown events > unknown event 1`] = `
+[
+  "{"event":"mousedown 0,0","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mouse_other 40,0","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > leaves the camera alone when the button is released without a drag > release without a press 1`] = `
+[
+  "{"event":"mouseup 0,0","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > leaves the camera alone when the button is released without a drag 1`] = `
+[
+  "{"event":"mousedown 0,0","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mouseup 0,0","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > sets the camera where the drag ended, unless the canvas is flipped, and can centre it again > always centres 1`] = `
+[
+  "{"event":"mousedown 0,0","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 40,0","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 60,30","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[20,30],"centered":[true,true],"camera":[]}",
+  "{"event":"mouseup 60,30","returned":false,"dragged":false,"wasDragged":true,"start":[0,0],"drag":[20,30],"centered":[false,false],"camera":["resetLocation 40,-25","reset"]}",
+]
+`;
+
+exports[`RoomEngine room dragging > sets the camera where the drag ended, unless the canvas is flipped, and can centre it again > always centres, flipped 1`] = `
+[
+  "{"event":"mousedown 0,0","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 40,0","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 60,30","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[20,30],"centered":[true,true],"camera":[]}",
+  "{"event":"mouseup 60,30","returned":false,"dragged":false,"wasDragged":true,"start":[0,0],"drag":[20,30],"centered":[true,true],"camera":["reset"]}",
+]
+`;
+
+exports[`RoomEngine room dragging > sets the camera where the drag ended, unless the canvas is flipped, and can centre it again > camera moving 1`] = `
+[
+  "{"event":"mousedown 0,0","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 40,0","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 60,30","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[20,30],"centered":[true,true],"camera":[]}",
+  "{"event":"mouseup 60,30","returned":false,"dragged":false,"wasDragged":true,"start":[0,0],"drag":[20,30],"centered":[true,true],"camera":["resetLocation 40,-25"]}",
+]
+`;
+
+exports[`RoomEngine room dragging > sets the camera where the drag ended, unless the canvas is flipped, and can centre it again > flipped 1`] = `
+[
+  "{"event":"mousedown 0,0","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 40,0","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 60,30","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[20,30],"centered":[true,true],"camera":[]}",
+  "{"event":"mouseup 60,30","returned":false,"dragged":false,"wasDragged":true,"start":[0,0],"drag":[20,30],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > sets the camera where the drag ended, unless the canvas is flipped, and can centre it again > plain 1`] = `
+[
+  "{"event":"mousedown 0,0","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 40,0","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 60,30","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[20,30],"centered":[true,true],"camera":[]}",
+  "{"event":"mouseup 60,30","returned":false,"dragged":false,"wasDragged":true,"start":[0,0],"drag":[20,30],"centered":[false,false],"camera":["resetLocation 40,-25"]}",
+]
+`;
+
+exports[`RoomEngine room dragging > starts a drag on a press, and ignores moves until the threshold is passed 1`] = `
+[
+  "{"event":"mousemove 100,100","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousedown 100,100","returned":false,"dragged":true,"wasDragged":false,"start":[100,100],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 105,103","returned":false,"dragged":true,"wasDragged":false,"start":[100,100],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 110,108","returned":false,"dragged":true,"wasDragged":false,"start":[100,100],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mouseup 110,108","returned":false,"dragged":false,"wasDragged":false,"start":[100,100],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"click 110,108","returned":false,"dragged":false,"wasDragged":false,"start":[100,100],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > stops a drag when an object is being placed or moved, or an area is being selected > another operation 1`] = `
+[
+  "{"event":"mousedown 0,0","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 50,50","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > stops a drag when an object is being placed or moved, or an area is being selected > operation OBJECT_MOVE 1`] = `
+[
+  "{"event":"mousedown 0,0","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 50,50","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > stops a drag when an object is being placed or moved, or an area is being selected > operation OBJECT_MOVE_TO 1`] = `
+[
+  "{"event":"mousedown 0,0","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 50,50","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > stops a drag when an object is being placed or moved, or an area is being selected > operation OBJECT_PLACE 1`] = `
+[
+  "{"event":"mousedown 0,0","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 50,50","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > stops a drag when an object is being placed or moved, or an area is being selected > selecting an area 1`] = `
+[
+  "{"event":"mousedown 0,0","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 50,50","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > treats a move on any side of the threshold as a drag > move -14,-14 1`] = `
+[
+  "{"event":"mousedown 200,200","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 186,186","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > treats a move on any side of the threshold as a drag > move -15,0 1`] = `
+[
+  "{"event":"mousedown 200,200","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 185,200","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > treats a move on any side of the threshold as a drag > move 0,-15 1`] = `
+[
+  "{"event":"mousedown 200,200","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 200,185","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > treats a move on any side of the threshold as a drag > move 0,15 1`] = `
+[
+  "{"event":"mousedown 200,200","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 200,215","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > treats a move on any side of the threshold as a drag > move 14,14 1`] = `
+[
+  "{"event":"mousedown 200,200","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 214,214","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > treats a move on any side of the threshold as a drag > move 15,0 1`] = `
+[
+  "{"event":"mousedown 200,200","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 215,200","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+]
+`;
+
+exports[`RoomEngine room dragging > turns a drag past the threshold into a camera move, and swallows the click that ends it 1`] = `
+[
+  "{"event":"mousedown 100,100","returned":false,"dragged":true,"wasDragged":false,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 130,100","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[0,0],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 150,120","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[20,20],"centered":[true,true],"camera":[]}",
+  "{"event":"mousemove 150,120","returned":false,"dragged":true,"wasDragged":true,"start":[0,0],"drag":[20,20],"centered":[true,true],"camera":[]}",
+  "{"event":"mouseup 150,120","returned":false,"dragged":false,"wasDragged":true,"start":[0,0],"drag":[20,20],"centered":[false,false],"camera":["resetLocation 40,-25"]}",
+  "{"event":"click 150,120","returned":true,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[20,20],"centered":[false,false],"camera":[]}",
+  "{"event":"click 150,120","returned":false,"dragged":false,"wasDragged":false,"start":[0,0],"drag":[20,20],"centered":[false,false],"camera":[]}",
+]
+`;

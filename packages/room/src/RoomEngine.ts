@@ -2685,6 +2685,39 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
 
     private handleRoomDragging(canvas: IRoomRenderingCanvas, x: number, y: number, type: string, altKey: boolean, ctrlKey: boolean, shiftKey: boolean): boolean
     {
+        if(this.cancelRoomDraggingForObjectOperation()) return false;
+
+        if(this.cancelRoomDraggingForAreaSelection()) return false;
+
+        const offsetX = (x - this._activeRoomActiveCanvasMouseX);
+        const offsetY = (y - this._activeRoomActiveCanvasMouseY);
+
+        if(type === MouseEventType.MOUSE_DOWN)
+        {
+            this.startRoomDragging(altKey, ctrlKey, shiftKey);
+        }
+
+        else if(type === MouseEventType.MOUSE_UP)
+        {
+            this.finishRoomDragging(canvas);
+        }
+
+        else if(type === MouseEventType.MOUSE_MOVE)
+        {
+            this.moveRoomDragging(x, y, offsetX, offsetY);
+        }
+
+        else if((type === MouseEventType.MOUSE_CLICK) || (type === MouseEventType.DOUBLE_CLICK))
+        {
+            if(this.endRoomDraggingOnClick()) return true;
+        }
+
+        return false;
+    }
+
+    /** An object is being placed or moved: the drag stops and its distance is forgotten. True when it did. */
+    private cancelRoomDraggingForObjectOperation(): boolean
+    {
         const selectedData = this.getSelectedRoomObjectData(this._activeRoomId);
 
         if(selectedData &&
@@ -2697,108 +2730,117 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
             this._activeRoomDragX = 0;
             this._activeRoomDragY = 0;
 
-            return false;
+            return true;
         }
 
+        return false;
+    }
+
+    /** An area is being selected: the drag stops. True when it did. */
+    private cancelRoomDraggingForAreaSelection(): boolean
+    {
         if(this._areaSelectionManager.areaSelectionState === RoomAreaSelectionManager.SELECTING)
         {
             this._activeRoomIsDragged = false;
             this._activeRoomWasDragged = false;
 
-            return false;
-        };
-
-        let offsetX = (x - this._activeRoomActiveCanvasMouseX);
-        let offsetY = (y - this._activeRoomActiveCanvasMouseY);
-
-        if(type === MouseEventType.MOUSE_DOWN)
-        {
-            if(!altKey && !ctrlKey && !shiftKey && !this.isDecorating)
-            {
-                if(this._roomAllowsDragging)
-                {
-                    this._activeRoomIsDragged = true;
-                    this._activeRoomWasDragged = false;
-                    this._activeRoomDragStartX = this._activeRoomActiveCanvasMouseX;
-                    this._activeRoomDragStartY = this._activeRoomActiveCanvasMouseY;
-                }
-            }
+            return true;
         }
 
-        else if(type === MouseEventType.MOUSE_UP)
+        return false;
+    }
+
+    /** A press starts a drag when no modifier key is held, the room is not being decorated and the room allows dragging. */
+    private startRoomDragging(altKey: boolean, ctrlKey: boolean, shiftKey: boolean): void
+    {
+        if(!altKey && !ctrlKey && !shiftKey && !this.isDecorating)
         {
-            if(this._activeRoomIsDragged)
+            if(this._roomAllowsDragging)
             {
-                this._activeRoomIsDragged = false;
-
-                if(this._activeRoomWasDragged)
-                {
-                    const instanceData = this.getRoomInstanceData(this._activeRoomId);
-
-                    if(instanceData)
-                    {
-                        const camera = instanceData.roomCamera;
-
-                        if(camera)
-                        {
-                            // The camera never follows a flipped room, so its
-                            // location is left alone until the flip is undone.
-                            if(this.useOffsetScrolling && !canvas.isFlipped)
-                            {
-                                if(!camera.isMoving)
-                                {
-                                    camera.centeredLocX = false;
-                                    camera.centeredLocY = false;
-                                }
-
-                                camera.resetLocation(new Vector3d(-(canvas.screenOffsetX), -(canvas.screenOffsetY)));
-                            }
-
-                            if(this._roomDraggingAlwaysCenters) camera.reset();
-                        }
-                    }
-                }
+                this._activeRoomIsDragged = true;
+                this._activeRoomWasDragged = false;
+                this._activeRoomDragStartX = this._activeRoomActiveCanvasMouseX;
+                this._activeRoomDragStartY = this._activeRoomActiveCanvasMouseY;
             }
         }
+    }
 
-        else if(type === MouseEventType.MOUSE_MOVE)
-        {
-            if(this._activeRoomIsDragged)
-            {
-                if(!this._activeRoomWasDragged)
-                {
-                    offsetX = (x - this._activeRoomDragStartX);
-                    offsetY = (y - this._activeRoomDragStartY);
-
-                    if(((((offsetX <= -(RoomEngine.DRAG_THRESHOLD)) || (offsetX >= RoomEngine.DRAG_THRESHOLD)) || (offsetY <= -(RoomEngine.DRAG_THRESHOLD))) || (offsetY >= RoomEngine.DRAG_THRESHOLD)))
-                    {
-                        this._activeRoomWasDragged = true;
-                    }
-
-                    offsetX = 0;
-                    offsetY = 0;
-                }
-
-                if(((!(offsetX == 0)) || (!(offsetY == 0))))
-                {
-                    this._activeRoomDragX += offsetX;
-                    this._activeRoomDragY += offsetY;
-
-                    this._activeRoomWasDragged = true;
-                }
-            }
-        }
-
-        else if((type === MouseEventType.MOUSE_CLICK) || (type === MouseEventType.DOUBLE_CLICK))
+    /** A release ends the drag and, when the room was really dragged, moves the camera to where the canvas ended. */
+    private finishRoomDragging(canvas: IRoomRenderingCanvas): void
+    {
+        if(this._activeRoomIsDragged)
         {
             this._activeRoomIsDragged = false;
 
             if(this._activeRoomWasDragged)
             {
-                this._activeRoomWasDragged = false;
+                const instanceData = this.getRoomInstanceData(this._activeRoomId);
 
-                return true;
+                if(instanceData)
+                {
+                    const camera = instanceData.roomCamera;
+
+                    if(camera)
+                    {
+                        // The camera never follows a flipped room, so its
+                        // location is left alone until the flip is undone.
+                        if(this.useOffsetScrolling && !canvas.isFlipped)
+                        {
+                            if(!camera.isMoving)
+                            {
+                                camera.centeredLocX = false;
+                                camera.centeredLocY = false;
+                            }
+
+                            camera.resetLocation(new Vector3d(-(canvas.screenOffsetX), -(canvas.screenOffsetY)));
+                        }
+
+                        if(this._roomDraggingAlwaysCenters) camera.reset();
+                    }
+                }
             }
+        }
+    }
+
+    /** A move past the threshold turns the press into a drag, and then adds up the distance. */
+    private moveRoomDragging(x: number, y: number, offsetX: number, offsetY: number): void
+    {
+        if(this._activeRoomIsDragged)
+        {
+            if(!this._activeRoomWasDragged)
+            {
+                offsetX = (x - this._activeRoomDragStartX);
+                offsetY = (y - this._activeRoomDragStartY);
+
+                if(((((offsetX <= -(RoomEngine.DRAG_THRESHOLD)) || (offsetX >= RoomEngine.DRAG_THRESHOLD)) || (offsetY <= -(RoomEngine.DRAG_THRESHOLD))) || (offsetY >= RoomEngine.DRAG_THRESHOLD)))
+                {
+                    this._activeRoomWasDragged = true;
+                }
+
+                offsetX = 0;
+                offsetY = 0;
+            }
+
+            if(((!(offsetX == 0)) || (!(offsetY == 0))))
+            {
+                this._activeRoomDragX += offsetX;
+                this._activeRoomDragY += offsetY;
+
+                this._activeRoomWasDragged = true;
+            }
+        }
+    }
+
+    /** A click ends the drag; the click that ends a real drag is swallowed. True when it was. */
+    private endRoomDraggingOnClick(): boolean
+    {
+        this._activeRoomIsDragged = false;
+
+        if(this._activeRoomWasDragged)
+        {
+            this._activeRoomWasDragged = false;
+
+            return true;
         }
 
         return false;
