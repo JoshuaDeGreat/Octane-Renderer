@@ -22,6 +22,7 @@ import { RoomLogic, RoomMapData, RoomPlane, RoomVisualization } from './object';
 import { RoomWindowReflectionState } from './object/visualization/RoomWindowReflectionState';
 import { RoomRenderer } from './renderer';
 import { RoomAreaSelectionManager, RoomCamera, RoomData, RoomEnterEffect, RoomFurnitureData, RoomGeometry, RoomInstanceData, RoomObjectBadgeImageAssetListener } from './utils';
+import { applyCameraMargins, clampCameraTarget, getCameraMargins, needsNewCameraTarget } from './utils/RoomCameraFollow';
 
 export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineServices, IRoomManagerListener, IRoomContentListener, IUpdateReceiver
 {
@@ -1355,109 +1356,18 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
                 return;
             }
 
-            let limitedX = false;
-            let limitedY = false;
-            let centeredX = false;
-            let centeredY = false;
-            const boundsWidth = Math.round(((boundRight - boundLeft) * scaleX));
+            const clamp = clampCameraTarget(offsetPoint, targetZ, canvasRectangle, scaleX, scaleY, halfCanvasWidthInTiles, halfCanvasHeightInTiles, boundLeft, boundTop, boundRight, boundBottom);
 
-            if(boundsWidth < canvasRectangle.width)
-            {
-                targetZ = 2;
-                offsetPoint.x = ((boundRight + boundLeft) / 2);
-                centeredX = true;
-            }
-            else
-            {
-                if(offsetPoint.x > (boundRight - halfCanvasWidthInTiles))
-                {
-                    offsetPoint.x = (boundRight - halfCanvasWidthInTiles);
-                    limitedX = true;
-                }
-                if(offsetPoint.x < (boundLeft + halfCanvasWidthInTiles))
-                {
-                    offsetPoint.x = (boundLeft + halfCanvasWidthInTiles);
-                    limitedX = true;
-                }
-            }
-            const boundsHeight = Math.round(((boundBottom - boundTop) * scaleY));
-            if(boundsHeight < canvasRectangle.height)
-            {
-                targetZ = 2;
-                offsetPoint.y = ((boundBottom + boundTop) / 2);
-                centeredY = true;
-            }
-            else
-            {
-                if(offsetPoint.y > (boundBottom - halfCanvasHeightInTiles))
-                {
-                    offsetPoint.y = (boundBottom - halfCanvasHeightInTiles);
-                    limitedY = true;
-                }
-                if(offsetPoint.y < (boundTop + halfCanvasHeightInTiles))
-                {
-                    offsetPoint.y = (boundTop + halfCanvasHeightInTiles);
-                    limitedY = true;
-                }
-                if(limitedY)
-                {
-                    offsetPoint.y = (offsetPoint.y / (scaleY / scaleX));
-                }
-            }
+            offsetPoint = clamp.offsetPoint;
+            targetZ = clamp.targetZ;
+
+            const { limitedX, limitedY, centeredX, centeredY } = clamp;
+
             rotationMatrix.invert();
             offsetPoint = rotationMatrix.apply(offsetPoint);
             offsetPoint.x = (offsetPoint.x + roomCenterX);
             offsetPoint.y = (offsetPoint.y + roomCenterY);
-            let marginTopFraction = 0.35;
-            let marginBottomFraction = 0.2;
-            let marginXFraction = 0.2;
-            const minWidth = 10;
-            const minHeight = 10;
-            if((marginXFraction * width) > 100)
-            {
-                marginXFraction = (100 / width);
-            }
-            if((marginTopFraction * height) > 150)
-            {
-                marginTopFraction = (150 / height);
-            }
-            if((marginBottomFraction * height) > 150)
-            {
-                marginBottomFraction = (150 / height);
-            }
-            if((((roomCamera.limitedLocationX) && (roomCamera.screenWd == width)) && (roomCamera.screenHt == height)))
-            {
-                marginXFraction = 0;
-            }
-            if((((roomCamera.limitedLocationY) && (roomCamera.screenWd == width)) && (roomCamera.screenHt == height)))
-            {
-                marginTopFraction = 0;
-                marginBottomFraction = 0;
-            }
-
-            canvasRectangle.width = (canvasRectangle.width * (1 - (marginXFraction * 2)));
-            canvasRectangle.height = (canvasRectangle.height * (1 - (marginTopFraction + marginBottomFraction)));
-
-            if(canvasRectangle.width < minWidth)
-            {
-                canvasRectangle.width = minWidth;
-            }
-
-            if(canvasRectangle.height < minHeight)
-            {
-                canvasRectangle.height = minHeight;
-            }
-
-            if((marginTopFraction + marginBottomFraction) > 0)
-            {
-                canvasRectangle.x += (-(canvasRectangle.width) / 2);
-                canvasRectangle.y += (-(canvasRectangle.height) * (marginBottomFraction / (marginTopFraction + marginBottomFraction)));
-            }
-            else
-            {
-                canvasRectangle.x += (-(canvasRectangle.width) / 2);
-                canvasRectangle.y += (-(canvasRectangle.height) / 2);
-            }
+            applyCameraMargins(canvasRectangle, getCameraMargins(roomCamera, width, height));
 
             screenPoint = roomGeometry.getScreenPoint(targetLocation);
 
@@ -1489,7 +1399,7 @@ export class RoomEngine implements IRoomEngine, IRoomCreator, IRoomEngineService
                     offsetTarget.x = targetScreenPoint.x;
                     offsetTarget.y = targetScreenPoint.y;
                 }
-                if(((((((((screenPoint.x < canvasRectangle.left) || (screenPoint.x > canvasRectangle.right)) && (!(roomCamera.centeredLocX))) || (((screenPoint.y < canvasRectangle.top) || (screenPoint.y > canvasRectangle.bottom)) && (!(roomCamera.centeredLocY)))) || (((centeredX) && (!(roomCamera.centeredLocX))) && (!(roomCamera.screenWd == width)))) || (((centeredY) && (!(roomCamera.centeredLocY))) && (!(roomCamera.screenHt == height)))) || ((!(roomCamera.roomWd == bounds.width)) || (!(roomCamera.roomHt == bounds.height)))) || ((!(roomCamera.screenWd == width)) || (!(roomCamera.screenHt == height)))))
+                if(needsNewCameraTarget(screenPoint, canvasRectangle, roomCamera, centeredX, centeredY, width, height, bounds))
                 {
                     roomCamera.limitedLocationX = limitedX;
                     roomCamera.limitedLocationY = limitedY;

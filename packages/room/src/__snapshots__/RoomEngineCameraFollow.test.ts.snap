@@ -1,0 +1,167 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`RoomEngine camera follow > centres a room that is smaller than the canvas 1`] = `
+[
+  "{"target":null,"location":[0,0,0],"targetObject":[3,3,0],"limited":[false,false],"centered":[true,true],"screen":[1600,1200,64,400,300],"geometryLocation":[32,8.5,2],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[3,3,0],"limited":[false,false],"centered":[true,true],"screen":[1600,1200,64,400,300],"geometryLocation":[32,8.5,2],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[4,3,0],"limited":[false,false],"centered":[true,true],"screen":[1600,1200,64,400,300],"geometryLocation":[32,8.5,2],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[4,5,0],"limited":[false,false],"centered":[true,true],"screen":[1600,1200,64,400,300],"geometryLocation":[32,8.5,2],"adjusted":[],"offsets":["[0,0]"]}",
+]
+`;
+
+exports[`RoomEngine camera follow > centres one axis and holds the other when the room is wide but short 1`] = `
+[
+  "{"target":null,"location":[0,0,0],"targetObject":[20,3,0],"limited":[false,false],"centered":[false,true],"screen":[800,900,64,2600,500],"geometryLocation":[21,4,2],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[20,3,0],"limited":[false,false],"centered":[false,true],"screen":[800,900,64,2600,500],"geometryLocation":[21,4,2],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[21,3,0],"limited":[false,false],"centered":[false,true],"screen":[800,900,64,2600,500],"geometryLocation":[21,4,2],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[21,5,0],"limited":[false,false],"centered":[false,true],"screen":[800,900,64,2600,500],"geometryLocation":[21,4,2],"adjusted":[],"offsets":["[0,0]"]}",
+]
+`;
+
+exports[`RoomEngine camera follow > does not move the camera when following is disabled for the user 1`] = `
+[
+  "{"target":null,"location":[0,0,0],"targetObject":[12,14,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[13,15,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[12,14,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[13,15,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[13,14,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[13,15,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[13,16,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[13,15,1],"adjusted":[],"offsets":["[0,0]"]}",
+]
+`;
+
+exports[`RoomEngine camera follow > follows an object inside a room larger than the canvas 1`] = `
+[
+  "{"target":null,"location":[0,0,0],"targetObject":[12,14,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[13,15,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[12,14,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[13,15,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[13,14,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[13,15,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[13,16,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[13,15,1],"adjusted":[],"offsets":["[0,0]"]}",
+]
+`;
+
+exports[`RoomEngine camera follow > follows with the canvas dragged and with other room directions > direction 135 1`] = `
+[
+  "{"target":null,"location":[0,0,0],"targetObject":[10,20,1],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[12.5,17.5,2],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[10,20,1],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[12.5,17.5,2],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[11,20,1],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[12.5,17.5,2],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[11,22,1],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[12.5,17.5,2],"adjusted":[],"offsets":["[0,0]"]}",
+]
+`;
+
+exports[`RoomEngine camera follow > follows with the canvas dragged and with other room directions > direction 225 1`] = `
+[
+  "{"target":null,"location":[0,0,0],"targetObject":[25,5,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[25,5,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[25,5,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[25,5,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[26,5,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[25,5,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[26,7,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[25,5,1],"adjusted":[],"offsets":["[0,0]"]}",
+]
+`;
+
+exports[`RoomEngine camera follow > follows with the canvas dragged and with other room directions > dragged 1`] = `
+[
+  "{"target":null,"location":[0,0,0],"targetObject":[10,10,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[12.5,12.5,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[10,10,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[12.5,12.5,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[11,10,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[12.5,12.5,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[11,12,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[12.5,12.5,1],"adjusted":[],"offsets":["[0,0]"]}",
+]
+`;
+
+exports[`RoomEngine camera follow > is held back at every corner of a large room, in two room directions > corners, direction 45 1`] = `
+[
+  [
+    "{"target":null,"location":[0,0,0],"targetObject":[0,0,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[7.5,7.5,1],"adjusted":[],"offsets":["[0,0]"]}",
+    "{"target":null,"location":[0,0,0],"targetObject":[0,0,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[7.5,7.5,1],"adjusted":[],"offsets":["[0,0]"]}",
+  ],
+  [
+    "{"target":null,"location":[0,0,0],"targetObject":[30,0,0],"limited":[true,true],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[25,1.5,1],"adjusted":[],"offsets":["[0,0]"]}",
+    "{"target":null,"location":[0,0,0],"targetObject":[30,0,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[25,1.5,1],"adjusted":[],"offsets":["[0,0]"]}",
+  ],
+  [
+    "{"target":null,"location":[0,0,0],"targetObject":[0,30,0],"limited":[true,true],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[9,17,1],"adjusted":[],"offsets":["[0,0]"]}",
+    "{"target":null,"location":[0,0,0],"targetObject":[0,30,0],"limited":[true,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[9,17,1],"adjusted":[],"offsets":["[0,0]"]}",
+  ],
+  [
+    "{"target":null,"location":[0,0,0],"targetObject":[30,30,0],"limited":[false,true],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[13,13,1],"adjusted":[],"offsets":["[0,0]"]}",
+    "{"target":null,"location":[0,0,0],"targetObject":[30,30,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[13,13,1],"adjusted":[],"offsets":["[0,0]"]}",
+  ],
+  [
+    "{"target":null,"location":[0,0,0],"targetObject":[15,0,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[19,4,1],"adjusted":[],"offsets":["[0,0]"]}",
+    "{"target":null,"location":[0,0,0],"targetObject":[15,0,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[19,4,1],"adjusted":[],"offsets":["[0,0]"]}",
+  ],
+  [
+    "{"target":null,"location":[0,0,0],"targetObject":[0,15,0],"limited":[true,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[7,15.5,1],"adjusted":[],"offsets":["[0,0]"]}",
+    "{"target":null,"location":[0,0,0],"targetObject":[0,15,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[7,15.5,1],"adjusted":[],"offsets":["[0,0]"]}",
+  ],
+]
+`;
+
+exports[`RoomEngine camera follow > is held back at every corner of a large room, in two room directions > corners, direction 225 1`] = `
+[
+  [
+    "{"target":null,"location":[0,0,0],"targetObject":[0,0,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[7.5,7.5,1],"adjusted":[],"offsets":["[0,0]"]}",
+    "{"target":null,"location":[0,0,0],"targetObject":[0,0,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[7.5,7.5,1],"adjusted":[],"offsets":["[0,0]"]}",
+  ],
+  [
+    "{"target":null,"location":[0,0,0],"targetObject":[30,0,0],"limited":[true,true],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[19,11,1],"adjusted":[],"offsets":["[0,0]"]}",
+    "{"target":null,"location":[0,0,0],"targetObject":[30,0,0],"limited":[true,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[19,11,1],"adjusted":[],"offsets":["[0,0]"]}",
+  ],
+  [
+    "{"target":null,"location":[0,0,0],"targetObject":[0,30,0],"limited":[true,true],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[3,27,1],"adjusted":[],"offsets":["[0,0]"]}",
+    "{"target":null,"location":[0,0,0],"targetObject":[0,30,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[3,27,1],"adjusted":[],"offsets":["[0,0]"]}",
+  ],
+  [
+    "{"target":null,"location":[0,0,0],"targetObject":[30,30,0],"limited":[false,true],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[15,15,1],"adjusted":[],"offsets":["[0,0]"]}",
+    "{"target":null,"location":[0,0,0],"targetObject":[30,30,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[15,15,1],"adjusted":[],"offsets":["[0,0]"]}",
+  ],
+  [
+    "{"target":null,"location":[0,0,0],"targetObject":[15,0,0],"limited":[true,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[15.5,7,1],"adjusted":[],"offsets":["[0,0]"]}",
+    "{"target":null,"location":[0,0,0],"targetObject":[15,0,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[15.5,7,1],"adjusted":[],"offsets":["[0,0]"]}",
+  ],
+  [
+    "{"target":null,"location":[0,0,0],"targetObject":[0,15,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[4,19,1],"adjusted":[],"offsets":["[0,0]"]}",
+    "{"target":null,"location":[0,0,0],"targetObject":[0,15,0],"limited":[false,false],"centered":[false,false],"screen":[500,400,64,1400,900],"geometryLocation":[4,19,1],"adjusted":[],"offsets":["[0,0]"]}",
+  ],
+]
+`;
+
+exports[`RoomEngine camera follow > is held back at the edge of a large room > far corner 1`] = `
+[
+  "{"target":null,"location":[0,0,0],"targetObject":[30,30,3],"limited":[false,true],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[25.5,25.5,4],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[30,30,3],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[25.5,25.5,4],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[31,30,3],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[25.5,25.5,4],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[31,32,3],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[25.5,25.5,4],"adjusted":[],"offsets":["[0,0]"]}",
+]
+`;
+
+exports[`RoomEngine camera follow > is held back at the edge of a large room > near the corner 1`] = `
+[
+  "{"target":null,"location":[0,0,0],"targetObject":[1,1,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[8,8,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[1,1,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[8,8,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[2,1,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[8,8,1],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[2,3,0],"limited":[false,false],"centered":[false,false],"screen":[800,600,64,2400,1500],"geometryLocation":[8,8,1],"adjusted":[],"offsets":["[0,0]"]}",
+]
+`;
+
+exports[`RoomEngine camera follow > resets when the room is off the canvas, and parks the geometry when there is nothing to follow > empty bounds 1`] = `
+[
+  "{"target":null,"location":null,"targetObject":[12,14,0],"limited":[false,false],"centered":[false,false],"screen":[0,0,0,0,0],"geometryLocation":[-45.309311,-45.309311,12.5],"adjusted":["[[-30,-30,0],25]"],"offsets":[]}",
+  "{"target":null,"location":null,"targetObject":[12,14,0],"limited":[false,false],"centered":[false,false],"screen":[0,0,0,0,0],"geometryLocation":[-45.309311,-45.309311,12.5],"adjusted":["[[-30,-30,0],25]"],"offsets":[]}",
+  "{"target":null,"location":null,"targetObject":[13,14,0],"limited":[false,false],"centered":[false,false],"screen":[0,0,0,0,0],"geometryLocation":[-45.309311,-45.309311,12.5],"adjusted":["[[-30,-30,0],25]"],"offsets":[]}",
+  "{"target":null,"location":null,"targetObject":[13,16,0],"limited":[false,false],"centered":[false,false],"screen":[0,0,0,0,0],"geometryLocation":[-45.309311,-45.309311,12.5],"adjusted":["[[-30,-30,0],25]"],"offsets":[]}",
+]
+`;
+
+exports[`RoomEngine camera follow > resets when the room is off the canvas, and parks the geometry when there is nothing to follow > no bounds 1`] = `
+[
+  "{"target":null,"location":null,"targetObject":[12,14,0],"limited":[false,false],"centered":[false,false],"screen":[0,0,0,0,0],"geometryLocation":[-15.309311,-15.309311,12.5],"adjusted":["[[0,0,0],25]"],"offsets":[]}",
+  "{"target":null,"location":null,"targetObject":[12,14,0],"limited":[false,false],"centered":[false,false],"screen":[0,0,0,0,0],"geometryLocation":[-15.309311,-15.309311,12.5],"adjusted":["[[0,0,0],25]"],"offsets":[]}",
+  "{"target":null,"location":null,"targetObject":[13,14,0],"limited":[false,false],"centered":[false,false],"screen":[0,0,0,0,0],"geometryLocation":[-15.309311,-15.309311,12.5],"adjusted":["[[0,0,0],25]"],"offsets":[]}",
+  "{"target":null,"location":null,"targetObject":[13,16,0],"limited":[false,false],"centered":[false,false],"screen":[0,0,0,0,0],"geometryLocation":[-15.309311,-15.309311,12.5],"adjusted":["[[0,0,0],25]"],"offsets":[]}",
+]
+`;
+
+exports[`RoomEngine camera follow > resets when the room is off the canvas, and parks the geometry when there is nothing to follow > room off the canvas 1`] = `
+[
+  "{"target":null,"location":[0,0,0],"targetObject":[12,14,0],"limited":[false,false],"centered":[true,true],"screen":[800,600,64,400,300],"geometryLocation":[-98.5,-11,2],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[12,14,0],"limited":[false,false],"centered":[true,true],"screen":[800,600,64,400,300],"geometryLocation":[-98.5,-11,2],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[13,14,0],"limited":[false,false],"centered":[true,true],"screen":[800,600,64,400,300],"geometryLocation":[-98.5,-11,2],"adjusted":[],"offsets":["[0,0]"]}",
+  "{"target":null,"location":[0,0,0],"targetObject":[13,16,0],"limited":[false,false],"centered":[true,true],"screen":[800,600,64,400,300],"geometryLocation":[-98.5,-11,2],"adjusted":[],"offsets":["[0,0]"]}",
+]
+`;
