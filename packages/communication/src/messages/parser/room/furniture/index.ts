@@ -37,6 +37,7 @@ export * from './ChestUpgradeResultMessageParser';
 export * from './WiredChestLockStateMessageParser';
 export * from './WiredChestTransactionDetailsMessageParser';
 export * from './WiredTradeRuleParser';
+export * from './HeavenWiredTradeRuleParser';
 export * from './WiredTradeOpenMessageParser';
 export * from './WiredTradeItemsMessageParser';
 export * from './WiredTradeCancelledMessageParser';
