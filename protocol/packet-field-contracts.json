@@ -11025,6 +11025,38 @@
       ]
     },
     {
+      "name": "CHEST_DEPOSIT",
+      "direction": "client_to_server",
+      "header": 9313,
+      "java": {
+        "symbol": "ChestDepositEvent",
+        "className": "ChestDepositEvent",
+        "path": "Emulator/src/main/java/com/eu/habbo/messages/incoming/rooms/items/ChestDepositEvent.java"
+      },
+      "typescript": {
+        "symbol": "CHEST_DEPOSIT",
+        "className": "ChestDepositComposer",
+        "path": "packages/communication/src/messages/outgoing/room/furniture/chest/ChestDepositComposer.ts"
+      },
+      "fields": [
+        {
+          "kind": "scalar",
+          "type": "int",
+          "name": "chestItemId"
+        },
+        {
+          "kind": "scalar",
+          "type": "int",
+          "name": "currencyType"
+        },
+        {
+          "kind": "scalar",
+          "type": "int",
+          "name": "amount"
+        }
+      ]
+    },
+    {
       "name": "CHEST_WITHDRAW",
       "direction": "client_to_server",
       "header": 9314,
@@ -11035,14 +11067,19 @@
       },
       "typescript": {
         "symbol": "CHEST_WITHDRAW",
-        "className": "ChestWithdrawCoinsComposer",
-        "path": "packages/communication/src/messages/outgoing/room/furniture/chest/ChestWithdrawCoinsComposer.ts"
+        "className": "ChestWithdrawComposer",
+        "path": "packages/communication/src/messages/outgoing/room/furniture/chest/ChestWithdrawComposer.ts"
       },
       "fields": [
         {
           "kind": "scalar",
           "type": "int",
-          "name": "itemId"
+          "name": "chestItemId"
+        },
+        {
+          "kind": "scalar",
+          "type": "int",
+          "name": "currencyType"
         },
         {
           "kind": "scalar",
@@ -11069,7 +11106,7 @@
         {
           "kind": "scalar",
           "type": "int",
-          "name": "itemId"
+          "name": "chestId"
         },
         {
           "kind": "scalar",
@@ -11094,7 +11131,7 @@
         {
           "kind": "scalar",
           "type": "int",
-          "name": "stateMode"
+          "name": "appearanceState"
         },
         {
           "kind": "scalar",
@@ -11105,11 +11142,6 @@
           "kind": "scalar",
           "type": "int",
           "name": "previewAmount"
-        },
-        {
-          "kind": "scalar",
-          "type": "boolean",
-          "name": "wiredEnabled"
         }
       ]
     },
@@ -11131,12 +11163,7 @@
         {
           "kind": "scalar",
           "type": "int",
-          "name": "itemId"
-        },
-        {
-          "kind": "scalar",
-          "type": "int",
-          "name": "mode"
+          "name": "chestId"
         },
         {
           "kind": "scalar",
@@ -11162,6 +11189,11 @@
           "kind": "scalar",
           "type": "boolean",
           "name": "wired"
+        },
+        {
+          "kind": "scalar",
+          "type": "int",
+          "name": "mode"
         }
       ]
     },
@@ -11279,6 +11311,33 @@
       ]
     },
     {
+      "name": "CHEST_DEPOSIT_INVENTORY_ITEM",
+      "direction": "client_to_server",
+      "header": 9325,
+      "java": {
+        "symbol": "ChestDepositInventoryItemEvent",
+        "className": "ChestDepositInventoryItemEvent",
+        "path": "Emulator/src/main/java/com/eu/habbo/messages/incoming/rooms/items/ChestDepositInventoryItemEvent.java"
+      },
+      "typescript": {
+        "symbol": "CHEST_DEPOSIT_INVENTORY_ITEM",
+        "className": "ChestDepositInventoryItemComposer",
+        "path": "packages/communication/src/messages/outgoing/room/furniture/chest/ChestDepositInventoryItemComposer.ts"
+      },
+      "fields": [
+        {
+          "kind": "scalar",
+          "type": "int",
+          "name": "chestItemId"
+        },
+        {
+          "kind": "scalar",
+          "type": "int",
+          "name": "inventoryItemId"
+        }
+      ]
+    },
+    {
       "name": "CHEST_WITHDRAW_ALL_FURNI",
       "direction": "client_to_server",
       "header": 9326,
@@ -11289,14 +11348,14 @@
       },
       "typescript": {
         "symbol": "CHEST_WITHDRAW_ALL_FURNI",
-        "className": "ChestWithdrawAllComposer",
-        "path": "packages/communication/src/messages/outgoing/room/furniture/chest/ChestWithdrawAllComposer.ts"
+        "className": "ChestWithdrawAllFurniComposer",
+        "path": "packages/communication/src/messages/outgoing/room/furniture/chest/ChestWithdrawAllFurniComposer.ts"
       },
       "fields": [
         {
           "kind": "scalar",
           "type": "int",
-          "name": "itemId"
+          "name": "chestItemId"
         }
       ]
     },
@@ -11572,6 +11631,28 @@
           "kind": "scalar",
           "type": "int",
           "name": "capacity"
+        }
+      ]
+    },
+    {
+      "name": "CHEST_ENABLE_WIRED",
+      "direction": "client_to_server",
+      "header": 9345,
+      "java": {
+        "symbol": "ChestEnableWiredEvent",
+        "className": "ChestEnableWiredEvent",
+        "path": "Emulator/src/main/java/com/eu/habbo/messages/incoming/rooms/items/ChestEnableWiredEvent.java"
+      },
+      "typescript": {
+        "symbol": "CHEST_ENABLE_WIRED",
+        "className": "ChestEnableWiredComposer",
+        "path": "packages/communication/src/messages/outgoing/room/furniture/chest/ChestEnableWiredComposer.ts"
+      },
+      "fields": [
+        {
+          "kind": "scalar",
+          "type": "int",
+          "name": "chestItemId"
         }
       ]
     },
